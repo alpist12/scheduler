@@ -5,6 +5,10 @@
   "engines": {
     "node": ">=20"
   },
+  "scripts": {
+    "build": "node tools/build-sites.mjs",
+    "test:sites": "node tools/test-sites-proxy.mjs"
+  },
   "dependencies": {
     "mammoth": "^1.10.0",
     "pdf-parse": "^1.1.1"

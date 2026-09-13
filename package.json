@@ -1,0 +1,12 @@
+{
+  "name": "hnubs-scheduler",
+  "private": true,
+  "version": "1.0.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "mammoth": "^1.10.0",
+    "pdf-parse": "^1.1.1"
+  }
+}

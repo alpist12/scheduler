@@ -1,0 +1,103 @@
+[build]
+  command = ""
+  publish = "."
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# 소스/비밀 파일이 폴더 배포로 함께 올라가더라도 외부에서 열람할 수 없게 차단한다.
+[[redirects]]
+  from = "/.env"
+  to = "/index.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/.env.example"
+  to = "/index.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/server.py"
+  to = "/index.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/requirements.txt"
+  to = "/index.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/NIM_SETUP.md"
+  to = "/index.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/__pycache__/*"
+  to = "/index.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/api/maintenance"
+  to = "/.netlify/functions/maintenance"
+  status = 200
+
+[[redirects]]
+  from = "/api/health"
+  to = "/.netlify/functions/health"
+  status = 200
+
+[[redirects]]
+  from = "/api/extract"
+  to = "/.netlify/functions/extract"
+  status = 200
+
+[[redirects]]
+  from = "/api/chat/jobs/:id"
+  to = "/.netlify/functions/chat-job?id=:id"
+  status = 200
+
+[[redirects]]
+  from = "/api/chat"
+  to = "/.netlify/functions/chat"
+  status = 200
+
+[[redirects]]
+  from = "/api/analysis/jobs/:id/retry/:index"
+  to = "/.netlify/functions/analysis-retry?id=:id&index=:index"
+  status = 200
+
+[[redirects]]
+  from = "/api/analysis/jobs/:id"
+  to = "/.netlify/functions/analysis-job?id=:id"
+  status = 200
+
+[[redirects]]
+  from = "/api/analysis/jobs"
+  to = "/.netlify/functions/analysis-start"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com; connect-src 'self' https://www.gstatic.com https://cdn.jsdelivr.net https://*.firebaseio.com wss://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net data:; img-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

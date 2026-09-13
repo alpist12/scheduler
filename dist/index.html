@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>HNUBS 방송국 스케줄러</title>
+<link rel="icon" href="assets/hnubs-favicon-black.png">
+<style>
+  html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#f2f4fc}
+  #design-frame{display:block;width:100%;height:100%;border:0;background:#f2f4fc}
+  .ai-pal{position:fixed;right:24px;bottom:24px;z-index:80;font-family:"Pretendard Variable",Pretendard,-apple-system,"Malgun Gothic",sans-serif;color:#20294f}
+  .ai-pal-button{width:76px;height:76px;border:0;border-radius:28px;background:rgba(255,255,255,.92);box-shadow:0 18px 42px rgba(65,91,180,.25);cursor:pointer;padding:8px;transition:transform .2s ease,box-shadow .2s ease}
+  .ai-pal-button:hover{transform:translateY(-3px) scale(1.03);box-shadow:0 22px 50px rgba(65,91,180,.32)}
+  .ai-pal-button img{display:block;width:100%;height:100%;object-fit:contain}
+  .ai-pal-bubble{position:absolute;right:8px;bottom:88px;width:max-content;max-width:250px;padding:11px 14px;border:1px solid #dce4fb;border-radius:16px 16px 4px 16px;background:#fff;box-shadow:0 14px 32px rgba(76,91,154,.18);font-size:13px;font-weight:750;opacity:0;transform:translateY(8px);pointer-events:none;transition:.22s ease}
+  .ai-pal-bubble.show{opacity:1;transform:none}
+  .ai-pal-chat{position:absolute;right:0;bottom:92px;width:340px;height:470px;display:none;grid-template-rows:auto 1fr auto;overflow:hidden;border:1px solid #dce4fb;border-radius:24px;background:rgba(250,251,255,.98);box-shadow:0 28px 70px rgba(54,70,132,.28);backdrop-filter:blur(16px)}
+  .ai-pal-msg b{font-weight:800;color:#1f2a52}
+  .ai-pal-chat.open{display:grid}
+  .ai-pal-head{display:flex;align-items:center;gap:10px;padding:15px 16px;border-bottom:1px solid #e9edfa;background:#fff}
+  .ai-pal-head img{width:34px;height:34px}.ai-pal-head span{flex:1}.ai-pal-head b,.ai-pal-head small{display:block}.ai-pal-head b{font-size:14px}.ai-pal-head small{margin-top:2px;color:#8c95b7;font-size:11px}.ai-pal-close{border:0;background:none;color:#8c95b7;font-size:20px;cursor:pointer}
+  .ai-pal-messages{padding:14px;overflow:auto;display:flex;flex-direction:column;gap:10px}.ai-pal-msg{max-width:86%;padding:10px 12px;border-radius:14px;font-size:12.5px;line-height:1.55;white-space:pre-wrap}.ai-pal-msg.bot{align-self:flex-start;background:#eef3ff;color:#303b6b;border-radius:4px 14px 14px 14px}.ai-pal-msg.user{align-self:flex-end;background:linear-gradient(135deg,#4b8df8,#7069ec);color:#fff;border-radius:14px 4px 14px 14px}.ai-pal-msg.wait{color:#7d86aa;font-style:italic}
+  .air-elapsed{display:block;margin-top:5px;font-size:10.5px;font-style:normal;color:#9aa1c2;font-weight:700;font-variant-numeric:tabular-nums}
+  .air-took{display:block;margin-top:6px;font-size:10px;color:#a3abc9;font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
+  .air-pulse{display:flex;align-items:center;gap:6px;min-height:18px}.air-pulse i{display:block;width:8px;height:8px;border-radius:50%;background:#313854;opacity:.18;animation:airPulse 1.3s ease-in-out infinite}.air-pulse i:nth-child(2){animation-delay:.18s}.air-pulse i:nth-child(3){animation-delay:.36s}@keyframes airPulse{0%,70%,100%{opacity:.18}25%,45%{opacity:1}}@media(prefers-reduced-motion:reduce){.air-pulse i{animation:none;opacity:.65}}
+  .ai-pal-form{display:flex;align-items:flex-end;gap:8px;padding:12px;border-top:1px solid #e9edfa;background:#fff}.ai-pal-form textarea{min-width:0;flex:1;padding:11px 12px;border:1px solid #dfe5f6;border-radius:12px;font:inherit;font-size:12.5px;line-height:1.5;outline:none;resize:none;overflow-y:auto;max-height:160px}.ai-pal-form textarea:focus{border-color:#6c8ff1;box-shadow:0 0 0 3px rgba(108,143,241,.12)}.ai-pal-form button{width:42px;height:42px;flex:0 0 42px;border:0;border-radius:12px;background:linear-gradient(135deg,#4b8df8,#7069ec);color:#fff;font-size:18px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+  .air-confirm{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:20px;background:rgba(28,37,73,.38);backdrop-filter:blur(7px)}.air-confirm[hidden]{display:none}.air-confirm-card{width:min(420px,100%);box-sizing:border-box;padding:24px;border:1px solid rgba(255,255,255,.8);border-radius:24px;background:#fff;box-shadow:0 28px 70px rgba(40,50,100,.28);font-family:"Pretendard Variable",Pretendard,-apple-system,"Malgun Gothic",sans-serif}.air-confirm-icon{width:44px;height:44px;display:grid;place-items:center;border-radius:15px;background:linear-gradient(135deg,#edf4ff,#f1edff);font-size:22px}.air-confirm h2{margin:15px 0 7px;color:#1f294f;font-size:19px}.air-confirm pre{max-height:220px;overflow:auto;margin:0;padding:13px;border-radius:14px;background:#f7f8fd;color:#626b91;font:600 12.5px/1.6 inherit;white-space:pre-wrap}.air-confirm-actions{display:flex;gap:9px;margin-top:18px}.air-confirm-actions button{flex:1;padding:13px;border-radius:14px;font:800 13.5px inherit;cursor:pointer}.air-confirm-cancel{border:1px solid #e2e6f4;background:#fff;color:#687198}.air-confirm-ok{border:0;background:linear-gradient(135deg,#4b8df8,#7069ec);color:#fff;box-shadow:0 9px 20px rgba(90,108,225,.25)}
+  .maint{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:20px;background:linear-gradient(160deg,#eef1fb,#e7ebf9);font-family:"Pretendard Variable",Pretendard,-apple-system,"Malgun Gothic",sans-serif}.maint[hidden]{display:none}
+  .maint-card{width:min(430px,100%);box-sizing:border-box;padding:34px 28px;border-radius:26px;background:#fff;box-shadow:0 30px 70px rgba(40,50,100,.18);text-align:center}
+  .maint-icon{width:60px;height:60px;margin:0 auto;display:grid;place-items:center;border-radius:20px;background:linear-gradient(135deg,#edf4ff,#f1edff);font-size:29px}
+  .maint h2{margin:18px 0 9px;color:#1f294f;font-size:21px}.maint p{margin:0;color:#7b83a8;font-size:13.5px;line-height:1.65;font-weight:600}
+  .maint-form{display:flex;gap:8px;margin-top:22px}.maint-form input{min-width:0;flex:1;padding:12px 14px;border:1px solid #e2e6f4;border-radius:13px;font:inherit;font-size:13.5px;outline:none}.maint-form input:focus{border-color:#6c8ff1;box-shadow:0 0 0 3px rgba(108,143,241,.12)}
+  .maint-form button{padding:12px 16px;border:0;border-radius:13px;background:linear-gradient(135deg,#4b8df8,#7069ec);color:#fff;font:800 13.5px inherit;cursor:pointer;white-space:nowrap}
+  .maint-msg{min-height:18px;margin-top:11px;font-size:12.5px;font-weight:700;color:#b03650}
+  @media(max-width:1100px){.ai-pal{right:14px;bottom:168px}.ai-pal-chat.open ~ .ai-pal-button{opacity:0;pointer-events:none}.ai-pal-button{width:56px;height:56px;border-radius:21px}.ai-pal-chat{position:fixed;left:12px;right:12px;bottom:82px;width:auto;height:min(520px,calc(100vh - 120px))}.ai-pal-bubble{bottom:72px;right:4px}}
+</style>
+</head>
+<body>
+<iframe id="design-frame" title="HNUBS 방송국 스케줄러"></iframe>
+<iframe id="engine-frame" data-src="index.integrated.html?engine=1&v=54" title="HNUBS 데이터 엔진" aria-hidden="true" tabindex="-1" style="position:fixed;width:1px;height:1px;left:-9999px;top:-9999px;border:0;opacity:0;pointer-events:none"></iframe>
+<aside class="ai-pal" aria-label="Air(에어) AI 도우미">
+  <div id="aiPalBubble" class="ai-pal-bubble" role="status">무엇을 도와드릴까요?</div>
+  <section id="aiPalChat" class="ai-pal-chat" aria-label="AI 대화창">
+    <header class="ai-pal-head"><img src="assets/ai-assistant.gif" alt=""><span><b>Air(에어)</b><small id="aiPalStatus">NVIDIA 연결 확인 중</small></span><button id="aiPalClose" class="ai-pal-close" aria-label="닫기">×</button></header>
+    <div id="aiPalMessages" class="ai-pal-messages"><div class="ai-pal-msg bot">안녕하세요! Air입니다. 이렇게 물어보세요 👇
+
+📅 <b>다음주 촬영일정 알려줘</b>
+🕐 <b>철수 영희 둘 다 되는 시간 알려줘</b>
+✏️ <b>철수 9월 12일 15시부터 17시까지 가능으로 등록해줘</b>
+🎥 <b>9월 15일 14시부터 16시까지 인터뷰 촬영 잡아줘</b>
+👤 <b>철수 이번 주 일정 알려줘</b>
+
+전체 기능은 <b>도움말</b>이라고 입력하면 알려드려요.</div></div>
+    <form id="aiPalForm" class="ai-pal-form"><textarea id="aiPalInput" placeholder="대화를 시작하세요!" rows="1" autocomplete="off"></textarea><button aria-label="전송"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M3.4 20.4l17.45-7.48a1 1 0 0 0 0-1.84L3.4 3.6a1 1 0 0 0-1.39 1.2L4 11l9 1-9 1-1.99 6.2a1 1 0 0 0 1.39 1.2z"/></svg></button></form>
+  </section>
+  <button id="aiPalButton" class="ai-pal-button" aria-label="Air(에어) 열기"><img src="assets/ai-assistant.gif" alt=""></button>
+</aside>
+<div id="maintGate" class="maint" hidden>
+  <section class="maint-card" role="dialog" aria-modal="true" aria-labelledby="maintTitle">
+    <div class="maint-icon">🛠</div>
+    <h2 id="maintTitle">서버 점검 중입니다</h2>
+    <p id="maintDesc">잠시 후 다시 접속해 주세요. 점검이 끝나면 정상적으로 이용하실 수 있습니다.</p>
+    <form id="maintForm" class="maint-form">
+      <input id="maintPw" type="password" placeholder="관리자 비밀번호" autocomplete="current-password">
+      <button type="submit">관리자로 보기</button>
+    </form>
+    <div id="maintMsg" class="maint-msg" role="status"></div>
+  </section>
+</div>
+<div id="airConfirm" class="air-confirm" hidden>
+  <section class="air-confirm-card" role="dialog" aria-modal="true" aria-labelledby="airConfirmTitle">
+    <div class="air-confirm-icon">✨</div><h2 id="airConfirmTitle">일정을 추가할까요?</h2><pre id="airConfirmDetails"></pre>
+    <div class="air-confirm-actions"><button id="airConfirmCancel" class="air-confirm-cancel">취소</button><button id="airConfirmOk" class="air-confirm-ok">일정 추가</button></div>
+  </section>
+</div>
+<script>
+  // 점검 상태를 확인하기 전까지는 잠가 둔다. 확인 후 풀거나 게이트를 띄운다.
+  window.HNUBS_GATE_BLOCKED = true;
+  (() => {
+    const frame = document.getElementById('design-frame');
+    const mobileQuery = window.matchMedia('(max-width: 1100px)');
+    const showDesign = () => {
+      // 점검 중이고 아직 통과 못 했으면 앱을 만들지 않는다. 덮개만 씌우면 뚫린다.
+      if (window.HNUBS_GATE_BLOCKED) return;
+      const next = mobileQuery.matches ? 'standalone-mobile.html?v=185' : 'standalone-desktop.html?v=185';
+      if (!frame.src.endsWith(next)) frame.src = next;
+    };
+    window.hnubsStartApp = () => {
+      window.HNUBS_GATE_BLOCKED = false;
+      const engine = document.getElementById('engine-frame');
+      if (engine && !engine.src && engine.dataset.src) engine.src = engine.dataset.src;
+      showDesign();
+    };
+    showDesign();
+    mobileQuery.addEventListener?.('change', showDesign);
+
+    /* ---------------- 점검 모드 ----------------
+       비밀번호 확인은 서버에서만 한다. 여기서 비교하면 개발자 도구로 뚫린다.
+       통과 기록은 탭을 닫으면 사라지는 sessionStorage 에만 둔다. */
+    const apiBase = () => (location.pathname.startsWith('/scheduler') ? '/scheduler' : '');
+    const BYPASS = 'hnubs-maint-ok';
+    const gate = document.getElementById('maintGate');
+    const gateMsg = document.getElementById('maintMsg');
+    const gateDesc = document.getElementById('maintDesc');
+
+    const maintApi = async payload => {
+      const res = await fetch(`${apiBase()}/api/maintenance`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `요청 실패 (${res.status})`);
+      return data;
+    };
+    window.hnubsMaintenance = maintApi;
+
+    const passed = () => { try { return sessionStorage.getItem(BYPASS) === '1'; } catch { return false; } };
+    const showGate = state => {
+      gateDesc.textContent = state.message
+        || '스케줄러가 점검 중입니다. 잠시 후 다시 접속해 주세요.';
+      gate.hidden = false;
+    };
+
+    (async () => {
+      try {
+        const state = await maintApi({ action: 'status' });
+        window.HNUBS_MAINT = state;
+        if (state.blocked && !passed()) { showGate(state); return; }   // 통과 전에는 앱을 만들지 않는다
+      } catch (error) {
+        // 점검 상태를 못 읽었다고 앱을 막지는 않는다. 막는 쪽이 더 큰 피해다.
+        window.hnubsLog?.('error', `점검 상태 확인 실패 · ${error.message}`);
+      }
+      window.hnubsStartApp?.();
+    })();
+
+    document.getElementById('maintForm').addEventListener('submit', async event => {
+      event.preventDefault();
+      const password = document.getElementById('maintPw').value;
+      gateMsg.textContent = '확인 중…';
+      try {
+        await maintApi({ action: 'verify', password });
+        try { sessionStorage.setItem(BYPASS, '1'); } catch { /* 저장 못해도 이번 세션은 통과시킨다 */ }
+        gate.hidden = true;
+        gateMsg.textContent = '';
+        window.hnubsStartApp?.();
+      } catch (error) {
+        gateMsg.textContent = error.message;
+      }
+    });
+
+    const engineWindow = () => document.getElementById('engine-frame')?.contentWindow;
+    const palButton = document.getElementById('aiPalButton');
+    const palChat = document.getElementById('aiPalChat');
+    const palBubble = document.getElementById('aiPalBubble');
+    const palStatus = document.getElementById('aiPalStatus');
+    const palMessages = document.getElementById('aiPalMessages');
+    const palInput = document.getElementById('aiPalInput');
+    /* 붙여넣은 글이 길면 입력창이 따라 늘어나야 내용을 확인하고 보낼 수 있다.
+       Enter 는 전송, Shift+Enter 는 줄바꿈. */
+    const growInput = () => {
+      palInput.style.height = 'auto';
+      palInput.style.height = Math.min(palInput.scrollHeight, 160) + 'px';
+    };
+    palInput.addEventListener('input', growInput);
+    palInput.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
+      event.preventDefault();
+      palInput.form.requestSubmit();
+    });
+
+    const airConfirm = document.getElementById('airConfirm');
+    const askAirConfirm = (title, details, confirmLabel = '일정 추가') => new Promise(resolve => {
+      document.getElementById('airConfirmTitle').textContent = title;
+      document.getElementById('airConfirmDetails').textContent = details;
+      document.getElementById('airConfirmOk').textContent = confirmLabel;
+      airConfirm.hidden = false;
+      const finish = value => { airConfirm.hidden = true; resolve(value); };
+      document.getElementById('airConfirmOk').onclick = () => finish(true);
+      document.getElementById('airConfirmCancel').onclick = () => finish(false);
+      airConfirm.onclick = event => { if (event.target === airConfirm) finish(false); };
+    });
+    const fmtHour = value => `${String(Math.floor(+value)).padStart(2, '0')}:${String(Math.round((+value % 1) * 60)).padStart(2, '0')}`;
+    let previousJobStatus = '';
+    const bubble = message => {
+      palBubble.textContent = message; palBubble.classList.add('show');
+      clearTimeout(bubble.timer); bubble.timer = setTimeout(() => palBubble.classList.remove('show'), 5000);
+    };
+    palButton.addEventListener('click', () => { palChat.classList.toggle('open'); if (palChat.classList.contains('open')) palInput.focus(); });
+    document.getElementById('aiPalClose').addEventListener('click', () => palChat.classList.remove('open'));
+    setInterval(() => {
+      try {
+        const snap = engineWindow()?.HNUBS_ENGINE?.snapshot?.();
+        if (!snap) return;
+        const configured = snap.ai?.health?.configured;
+        const job = snap.ai?.job;
+        palStatus.textContent = job?.status === 'running' || job?.status === 'queued' ? `분석 중 · ${job.progress || 0}%` : configured ? 'NVIDIA NIM 연결됨' : 'AI 서버 확인 필요';
+        if (previousJobStatus && ['running','queued'].includes(previousJobStatus) && job?.status === 'completed') bubble(`분석이 끝났어요! ${job.scenes?.length || 0}개 장면을 정리했어요.`);
+        if (previousJobStatus && ['running','queued'].includes(previousJobStatus) && job?.status === 'failed') bubble('분석 중 문제가 생겼어요. 결과를 확인해 주세요.');
+        previousJobStatus = job?.status || previousJobStatus;
+      } catch (_) {}
+    }, 1500);
+    let chatBusy = false;
+    const chatHistory = [];
+    // 관리자 패널 '연결 로그'에서 볼 수 있게 최근 동작·오류 기록을 남긴다.
+    // 엔진(app.js)이 다른 프레임에 있으므로 부모인 여기에 모아 둔다.
+    window.HNUBS_LOG = [];
+    window.hnubsLog = (level, message) => {
+      const d = new Date();
+      const at = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+        + ` ${d.toTimeString().slice(0, 8)}`;
+      window.HNUBS_LOG.push({ at, level, message: String(message ?? '') });
+      if (window.HNUBS_LOG.length > 200) window.HNUBS_LOG.shift();
+    };
+    window.hnubsLogClear = () => { window.HNUBS_LOG.length = 0; };
+    window.HNUBS_AIR_LOG = [];
+    const logAir = entry => {
+      window.HNUBS_AIR_LOG.push({ at: new Date().toTimeString().slice(0, 8), ...entry });
+      if (window.HNUBS_AIR_LOG.length > 20) window.HNUBS_AIR_LOG.shift();
+      // 실패는 동작 로그에도 남겨 한 줄기로 보이게 한다.
+      if (!entry.ok) window.hnubsLog('error', `Air 호출 실패 · ${entry.note || entry.status || ''} (${entry.ms}ms)`);
+    };
+    /** 같은 사람이 같은 시간에 다른 촬영에 잡혀 있으면 확인창에 적어 준다.
+        시간만 겹치는 건 문제가 아니다. 막지 않고 알리기만 한다. */
+    function castClashNote(engine, records) {
+      try {
+        const lines = [];
+        for (const r of [].concat(records)) {
+          for (const c of (engine?.shootConflicts?.(r) || [])) {
+            lines.push(`· ${c.title} (${c.time}) → ${c.people.join(', ')}`);
+          }
+        }
+        if (!lines.length) return '';
+        const uniq = [...new Set(lines)].slice(0, 6);
+        return `\n\n⚠ 같은 시간에 이미 잡힌 인원이 있어요\n${uniq.join('\n')}`;
+      } catch (_) { return ''; }
+    }
+
+    /** '서연' 처럼 이름 일부만 말해도 등록 인원을 찾는다.
+        정확히 같은 사람이 먼저고, 없으면 끝이 같은 사람(이서연) 을 본다.
+        두 명 이상이 걸리면 고르지 않는다. 엉뚱한 사람을 넣느니 비우는 게 낫다. */
+    function matchMember(name, members) {
+      const who = String(name || '').trim();
+      const list = members || [];
+      if (!who) return null;
+      const exact = list.find(m => m.name === who);
+      if (exact) return exact;
+      const tail = list.filter(m => String(m.name).endsWith(who));
+      if (tail.length === 1) return tail[0];
+      const part = list.filter(m => String(m.name).includes(who));
+      return part.length === 1 ? part[0] : null;
+    }
+
+    async function fetchAirReply(payload) {
+      const url = `${location.pathname.startsWith('/scheduler') ? '/scheduler' : ''}/api/chat`;
+      const startedAt = performance.now();
+      // 재시도하지 않는다. 타임아웃에 재시도하면 사용자가 두 배로 기다린 뒤 실패한다.
+      let response;
+      try {
+        response = await fetch(url, {
+          signal: AbortSignal.timeout(28000),
+          method:'POST',
+          headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
+          body:JSON.stringify(payload),
+        });
+      } catch (error) {
+        const ms = Math.round(performance.now() - startedAt);
+        logAir({ ms, ok:false, note: error.name === 'TimeoutError' ? '클라이언트 타임아웃' : error.message });
+        throw new Error(error.name === 'TimeoutError'
+          ? 'AI 서버가 28초 안에 응답하지 않았어요. 잠시 후 다시 질문해 주세요.'
+          : 'AI 서버에 연결하지 못했어요. 네트워크를 확인해 주세요.');
+      }
+      const ms = Math.round(performance.now() - startedAt);
+      const raw = await response.text();
+      let data = null;
+      try { data = JSON.parse(raw); }
+      catch {
+        // 정적 서버로 열면 함수가 없어 404 HTML 이 온다. 코드 문제와 구분해서 남긴다.
+        const missing = response.status === 404;
+        logAir({ ms, ok:false, status:response.status,
+          note: missing ? 'AI 서버 없음 · 정적 서버로 열린 상태입니다' : 'HTML 응답 · 백그라운드로 전환' });
+        if (missing) throw new Error('이 주소에는 AI 서버가 없습니다. 배포된 사이트에서 이용해 주세요.');
+        if (/^\s*</.test(raw)) return fetchAirReplyAsync(payload, url);
+        throw new Error('AI 서버 응답 형식이 올바르지 않습니다.');
+      }
+      // 에어가 어떤 도구를 썼는지 로그에 남긴다. 무엇을 근거로 답했는지 보여야 한다.
+      logAir({ ms, ok:response.ok, status:response.status, nimMs:data.timing?.nimMs,
+        note:data.error || (data.tools?.length ? `도구: ${data.tools.join(' → ')}` : '') });
+      if (response.ok) return data;
+      /* 시간 초과(504)뿐 아니라 혼잡(429/500/502/503)도 백그라운드로 넘긴다.
+         백그라운드는 15분까지 살아 있어 재시도할 여유가 있다. */
+      if ([429, 500, 502, 503, 504].includes(response.status)) return fetchAirReplyAsync(payload, url);
+      throw new Error(data.error || `AI 서버 오류 (${response.status})`);
+    }
+
+    /** 백그라운드 함수에 맡기고 결과를 폴링한다. (Netlify 30초 제한 우회) */
+    async function fetchAirReplyAsync(payload, url) {
+      const startedAt = performance.now();
+      const started = await fetch(url, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
+        body:JSON.stringify({ ...payload, mode:'async' }),
+      });
+      const job = await started.json().catch(() => ({}));
+      if (!started.ok || !job.jobId) {
+        logAir({ ms:Math.round(performance.now() - startedAt), ok:false, note:'백그라운드 시작 실패' });
+        throw new Error(job.error || 'AI 서버가 응답하지 않았어요. 잠시 후 다시 질문해 주세요.');
+      }
+      for (let waited = 0; waited < 180000; waited += 1500) {
+        await new Promise(r => setTimeout(r, 1500));
+        const res = await fetch(`${url}/jobs/${job.jobId}?id=${encodeURIComponent(job.jobId)}`, { headers:{ Accept:'application/json' } });
+        const data = await res.json().catch(() => null);
+        if (!data) continue;
+        if (data.status === 'completed') {
+          logAir({ ms:Math.round(performance.now() - startedAt), ok:true, nimMs:data.timing?.nimMs, note:'백그라운드' });
+          return data;
+        }
+        if (data.status === 'failed') {
+          logAir({ ms:Math.round(performance.now() - startedAt), ok:false, note:'백그라운드 실패' });
+          throw new Error(data.error || 'AI가 답변을 만들지 못했어요.');
+        }
+      }
+      logAir({ ms:Math.round(performance.now() - startedAt), ok:false, note:'백그라운드 시간 초과' });
+      throw new Error('AI 응답이 너무 오래 걸려요. 잠시 후 다시 질문해 주세요.');
+    }
+    document.getElementById('aiPalForm').addEventListener('submit', async event => {
+      event.preventDefault();
+      if (chatBusy) { bubble('에어가 앞 질문에 답하는 중이에요.'); return; }
+      const form = event.currentTarget;
+      const sendButton = form.querySelector('button');
+      const message = palInput.value.trim(); if (!message) return;
+      chatBusy = true;
+      const startedAt = performance.now();
+      palInput.disabled = true;
+      sendButton.disabled = true;
+      palInput.value = ''; growInput();   // 보낸 뒤에는 한 줄로 되돌린다
+      const user = document.createElement('div'); user.className = 'ai-pal-msg user'; user.textContent = message; palMessages.append(user);
+      const wait = document.createElement('div'); wait.className = 'ai-pal-msg bot wait'; wait.setAttribute('aria-label','Air가 답변을 생성하고 있습니다');
+      wait.innerHTML = '<span class="air-pulse" aria-hidden="true"><i></i><i></i><i></i></span><span class="air-elapsed">0.0초</span>';
+      palMessages.append(wait); palMessages.scrollTop = palMessages.scrollHeight;
+      // 기다리는 동안 경과 시간을 보여준다. 오래 걸리면 안내 문구로 바뀐다.
+      const elapsedEl = wait.querySelector('.air-elapsed');
+      const elapsedTimer = setInterval(() => {
+        const sec = (performance.now() - startedAt) / 1000;
+        elapsedEl.textContent = sec >= 15 ? `${sec.toFixed(1)}초 · 오래 걸리고 있어요` : `${sec.toFixed(1)}초`;
+      }, 100);
+      try {
+        const snap = engineWindow()?.HNUBS_ENGINE?.snapshot?.() || {};
+        const context = {
+          // toISOString() 은 UTC 라 KST 자정 무렵 하루가 밀린다. 로컬 기준으로 만든다.
+          currentDate: (d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)(new Date()),
+          currentHour: new Date().getHours(),
+          weekLabel: snap.weekLabel,
+          dates: snap.dates || [],
+          hours: snap.hours || [],
+          /* 개인 일정·반복 수업도 실어 보낸다. 에어의 get_member_schedule 이 이걸 읽는다.
+             모델에게는 요약만 가므로 토큰이 늘지 않는다. path 같은 내부 값은 빼고 보낸다. */
+          members: (snap.members||[]).map(m => ({
+            id:m.id, name:m.name, dept:m.department, hours:m.availableHours,
+            schedules:m.schedules || {},
+            fixedSchedule: Object.fromEntries(Object.entries(m.fixedSchedule || {})
+              .map(([day, list]) => [day, (list||[]).map(x => ({ start:x.start, end:x.end, label:x.label }))])),
+          })),
+          availability: snap.availability || [],
+          availableNames: snap.availableNames || [],
+          dateIsos: snap.dateIsos || [],
+          projects: (snap.projects||[]).map(p => p.name),
+          shoots: snap.shoots || [],
+          analysis: snap.ai?.job ? { status:snap.ai.job.status, progress:snap.ai.job.progress, scenes:snap.ai.job.scenes } : null,
+        };
+        const data = await fetchAirReply({ message, context, history:chatHistory.slice(-10) });
+        clearInterval(elapsedTimer);
+        wait.classList.remove('wait'); wait.removeAttribute('aria-label'); wait.textContent = data.reply || '답변을 받지 못했어요.';
+        const took = document.createElement('span');
+        took.className = 'air-took';
+        took.textContent = `${((performance.now() - startedAt) / 1000).toFixed(1)}초`;
+        wait.append(took);
+        chatHistory.push({ role:'user', content:message }, { role:'assistant', content:data.reply || '' });
+        if (chatHistory.length > 10) chatHistory.splice(0, chatHistory.length - 10);
+        if (data.action?.type === 'personal_schedule') {
+          const actionButton = document.createElement('button');
+          actionButton.type = 'button'; actionButton.className = 'ai-pal-action'; actionButton.textContent = '개인 일정에 추가';
+          actionButton.style.cssText = 'align-self:flex-start;border:0;border-radius:12px;padding:10px 13px;background:#397ff4;color:#fff;font-weight:800;cursor:pointer';
+          actionButton.addEventListener('click', async () => {
+            const a=data.action;
+            if (!await askAirConfirm('개인 일정에 추가할까요?', `${a.memberName}\n${a.date} · ${fmtHour(a.start)}–${fmtHour(a.end)}\n${a.status}`, '개인 일정 추가')) return;
+            actionButton.disabled=true; actionButton.textContent='저장 중…';
+            try { await engineWindow()?.HNUBS_ENGINE?.addPersonalSchedule?.(a); actionButton.textContent='저장 완료'; bubble('개인 일정에 저장했어요.'); }
+            catch(error){ actionButton.disabled=false; actionButton.textContent='다시 저장'; bubble(error.message); }
+          });
+          palMessages.append(actionButton);
+        }
+        /* 액션 하나짜리 버튼은 모양이 같아 한 함수로 만든다. */
+        const simpleAction = (label, title, detail, run, okLabel) => {
+          const b = document.createElement('button');
+          b.type = 'button'; b.className = 'ai-pal-action'; b.textContent = label;
+          b.style.cssText = 'align-self:flex-start;border:0;border-radius:12px;padding:10px 13px;background:#397ff4;color:#fff;font-weight:800;cursor:pointer';
+          b.addEventListener('click', async () => {
+            if (!await askAirConfirm(title, detail, okLabel)) return;
+            b.disabled = true; b.textContent = '처리 중…';
+            try { await run(); b.textContent = '완료'; bubble('반영했어요.'); }
+            catch (error) { b.disabled = false; b.textContent = '다시 시도'; bubble(error.message); }
+          });
+          palMessages.append(b);
+        };
+        if (data.action?.type === 'personal_delete') {
+          const a = data.action;
+          simpleAction('개인 일정 삭제', '개인 일정을 삭제할까요?', `${a.memberName}\n${a.date} 하루 전체`, 
+            () => engineWindow()?.HNUBS_ENGINE?.deletePersonalScheduleDay?.(a), '삭제');
+        }
+        if (data.action?.type === 'fixed_class') {
+          const a = data.action, dow = ['월','화','수','목','금','토','일'][a.day] || '';
+          simpleAction('반복 수업 등록', '매주 반복 일정을 등록할까요?',
+            `${a.memberName}\n매주 ${dow}요일 ${fmtHour(a.start)}–${fmtHour(a.end)}\n${a.title}`,
+            () => engineWindow()?.HNUBS_ENGINE?.saveFixedClass?.(a), '등록');
+        }
+        if (data.action?.type === 'personal_schedules' && data.action.items?.length) {
+          const items = data.action.items;
+          const actionButton = document.createElement('button');
+          actionButton.type = 'button'; actionButton.className = 'ai-pal-action';
+          actionButton.textContent = `개인 일정 ${items.length}건 추가`;
+          actionButton.style.cssText = 'align-self:flex-start;border:0;border-radius:12px;padding:10px 13px;background:#397ff4;color:#fff;font-weight:800;cursor:pointer';
+          actionButton.addEventListener('click', async () => {
+            const lines = items.map(a => `${a.date} ${fmtHour(a.start)}–${fmtHour(a.end)} ${a.status}${a.memo ? ' · ' + a.memo : ''}`).join(String.fromCharCode(10));
+            if (!await askAirConfirm(`개인 일정 ${items.length}건을 추가할까요?`, `${items[0].memberName}${String.fromCharCode(10)}${lines}`, '전부 추가')) return;
+            actionButton.disabled = true; actionButton.textContent = '저장 중…';
+            let done = 0; const failed = [];
+            for (const item of items) {
+              try { await engineWindow()?.HNUBS_ENGINE?.addPersonalSchedule?.(item); done += 1; }
+              catch (error) { failed.push(`${item.date} ${error.message}`); }
+            }
+            // 몇 건이 실패했는지 숨기지 않는다.
+            actionButton.textContent = failed.length ? `${done}건 저장 · ${failed.length}건 실패` : '저장 완료';
+            bubble(failed.length ? `${done}건 저장했고 ${failed.length}건은 실패했어요. ${failed[0]}` : `개인 일정 ${done}건을 저장했어요.`);
+            if (failed.length) actionButton.disabled = false;
+          });
+          palMessages.append(actionButton);
+        }
+        if (data.action?.type === 'shoot_schedules' && data.action.items?.length) {
+          const actionButton = document.createElement('button');
+          const count = data.action.items.length;
+          actionButton.type = 'button'; actionButton.className = 'ai-pal-action'; actionButton.textContent = `촬영 일정 ${count}건 추가`;
+          actionButton.style.cssText = 'align-self:flex-start;border:0;border-radius:12px;padding:10px 13px;background:#397ff4;color:#fff;font-weight:800;cursor:pointer';
+          actionButton.addEventListener('click', async () => {
+            const items = data.action.items;
+            const summary = items.slice(0, 20).map(x => `${x.date} ${fmtHour(x.startH)}–${fmtHour(x.endH)} · ${x.title}`).join('\n');
+            const engine = engineWindow()?.HNUBS_ENGINE;
+            if (!engine?.saveShoot) { bubble('일정 저장 엔진을 준비 중입니다.'); return; }
+            const toRecord = item => {
+              const project = (snap.projects || []).find(p => p.name === item.projectName);
+              const cast = (item.castNames || []).map(name => matchMember(name, snap.members)).filter(Boolean).map(m => ({ id: m.id, name: m.name }));
+              return { ...item, projectId: project?.id || null, cast };
+            };
+            const records = items.map(toRecord);
+            const warn = castClashNote(engine, records);
+            if (!await askAirConfirm(`촬영 일정 ${items.length}건을 추가할까요?`, `${summary}${items.length > 20 ? `\n외 ${items.length - 20}건` : ''}${warn}`, '촬영 일정 추가')) return;
+            actionButton.disabled = true; actionButton.textContent = '저장 중…';
+            try {
+              for (const record of records) await engine.saveShoot(record);
+              actionButton.textContent = `촬영 일정 ${count}건 저장 완료`; bubble('촬영 일정을 저장했어요.');
+            } catch (error) { actionButton.disabled = false; actionButton.textContent = '다시 저장'; bubble(error.message); }
+          });
+          palMessages.append(actionButton);
+        }
+        if (data.action?.type === 'shoot_update' && data.action.item) {
+          const actionButton=document.createElement('button'), a=data.action, item=a.item;
+          actionButton.type='button'; actionButton.className='ai-pal-action'; actionButton.textContent='촬영 일정 수정';
+          actionButton.style.cssText='align-self:flex-start;border:0;border-radius:12px;padding:10px 13px;background:#6b63e8;color:#fff;font-weight:800;cursor:pointer';
+          actionButton.addEventListener('click',async()=>{
+            if(!(snap.shoots||[]).some(s=>s.id===a.id)){bubble('수정할 촬영 일정을 찾지 못했어요.');return;}
+            const engine=engineWindow()?.HNUBS_ENGINE, project=(snap.projects||[]).find(p=>p.name===item.projectName);
+            const cast=(item.castNames||[]).map(name=>matchMember(name,snap.members)).filter(Boolean).map(m=>({id:m.id,name:m.name}));
+            const warn=castClashNote(engine,{...item,id:a.id,projectId:project?.id||null,cast});
+            if(!await askAirConfirm('촬영 일정을 수정할까요?',`${item.date} ${fmtHour(item.startH)}–${fmtHour(item.endH)}\n${item.title}${item.location?' · '+item.location:''}${warn}`,'수정하기'))return;
+            actionButton.disabled=true;actionButton.textContent='수정 중…';
+            try{await engine.saveShoot({...item,id:a.id,projectId:project?.id||null,cast});actionButton.textContent='수정 완료';bubble('촬영 일정을 수정했어요.');}
+            catch(error){actionButton.disabled=false;actionButton.textContent='다시 수정';bubble(error.message);}
+          }); palMessages.append(actionButton);
+        }
+        if (data.action?.type === 'shoot_delete' && data.action.id) {
+          const actionButton=document.createElement('button'), a=data.action;
+          actionButton.type='button'; actionButton.className='ai-pal-action'; actionButton.textContent='촬영 일정 삭제';
+          actionButton.style.cssText='align-self:flex-start;border:0;border-radius:12px;padding:10px 13px;background:#df5c72;color:#fff;font-weight:800;cursor:pointer';
+          actionButton.addEventListener('click',async()=>{
+            const target=(snap.shoots||[]).find(s=>s.id===a.id);if(!target){bubble('삭제할 촬영 일정을 찾지 못했어요.');return;}
+            if(!await askAirConfirm('촬영 일정을 삭제할까요?',`${target.date} ${fmtHour(target.startH)}–${fmtHour(target.endH)}\n${target.title}`,'삭제하기'))return;
+            actionButton.disabled=true;actionButton.textContent='삭제 중…';
+            try{await engineWindow()?.HNUBS_ENGINE?.deleteShoot?.(a.id);actionButton.textContent='삭제 완료';bubble('촬영 일정을 삭제했어요.');}
+            catch(error){actionButton.disabled=false;actionButton.textContent='다시 삭제';bubble(error.message);}
+          }); palMessages.append(actionButton);
+        }
+        if (data.action?.type === 'plan_exclude_scenes') {
+          const actionButton=document.createElement('button'), a=data.action;
+          const 넣기=(a.remove||[]).length && !(a.add||[]).length;
+          actionButton.type='button'; actionButton.className='ai-pal-action';
+          actionButton.textContent = a.clear ? '씬 제외 모두 해제' : 넣기 ? '씬 다시 넣기' : '이 씬 빼고 다시 추천';
+          actionButton.style.cssText='align-self:flex-start;border:0;border-radius:12px;padding:10px 13px;background:#8a6a1f;color:#fff;font-weight:800;cursor:pointer';
+          actionButton.addEventListener('click',async()=>{
+            const engine=engineWindow()?.HNUBS_ENGINE;
+            if(!engine?.setPlanOptions){bubble('촬영안 엔진을 준비 중입니다.');return;}
+            const now=(engine.getPlanOptions?.().excludeScenes||[]).map(String);
+            const next = a.clear ? [] : [...new Set([...now, ...(a.add||[])])].filter(x=>!(a.remove||[]).includes(x));
+            const 설명 = a.clear ? '제외한 씬을 모두 되돌릴까요?'
+              : `${(a.add||[]).join(', ') || (a.remove||[]).join(', ')}
+뺀 씬은 사라지지 않고 미배정으로 남습니다.`;
+            if(!await askAirConfirm('촬영안 조건을 바꿀까요?', 설명, '적용'))return;
+            actionButton.disabled=true;actionButton.textContent='적용 중…';
+            try{ await engine.setPlanOptions({ excludeScenes: next });
+              actionButton.textContent='적용 완료'; bubble(next.length?`제외 중인 씬: ${next.join(', ')}`:'씬 제외를 모두 해제했어요.'); }
+            catch(error){actionButton.disabled=false;actionButton.textContent='다시 적용';bubble(error.message);}
+          }); palMessages.append(actionButton);
+        }
+      } catch (error) {
+        clearInterval(elapsedTimer);
+        wait.classList.remove('wait'); wait.removeAttribute('aria-label');
+        wait.textContent = error.message || 'AI 응답을 받지 못했습니다. 잠시 후 다시 시도해 주세요.';
+        const took = document.createElement('span');
+        took.className = 'air-took';
+        took.textContent = `${((performance.now() - startedAt) / 1000).toFixed(1)}초 만에 실패`;
+        wait.append(took);
+      }
+      finally {
+        clearInterval(elapsedTimer);
+        chatBusy = false;
+        palInput.disabled = false;
+        sendButton.disabled = false;
+        palStatus.textContent = `Air 연결됨 · ${((performance.now() - startedAt) / 1000).toFixed(1)}초`;
+        while (palMessages.children.length > 40) palMessages.firstElementChild?.remove();
+        palInput.focus();
+      }
+      palMessages.scrollTop = palMessages.scrollHeight;
+    });
+  })();
+</script>
+</body>
+</html>

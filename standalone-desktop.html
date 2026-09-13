@@ -304,6 +304,22 @@
           </div>
 
           <div style="display:flex;flex-direction:column;gap:16px">
+            <div style="background:#fff;border:1px solid #dce7ff;border-radius:20px;padding:20px;box-shadow:0 10px 26px rgba(90,105,180,.07)">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                <div><div style="font-size:16px;font-weight:800;color:#222c52">촬영 가능 씬</div><div style="font-size:12px;color:#8b93b8;margin-top:4px;font-weight:600">날짜를 고르면 AI가 검토합니다 · {{ copilotDateLabel }}</div></div>
+                <span style="padding:5px 9px;border-radius:8px;background:#eef4ff;color:#3b82f6;font-size:11px;font-weight:800">사람이 확정</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
+                <sc-for list="{{ copilotScenes }}" as="s" hint-placeholder-count="5">
+                  <button sc-camel-on-click="{{ s.pick }}" style="display:block;width:100%;padding:11px 12px;border:1px solid {{ s.tone }};border-radius:14px;background:{{ s.tone }};text-align:left;cursor:pointer">
+                    <div style="display:flex;align-items:center;gap:8px"><strong style="font-size:13px;color:#222c52">{{ s.id }}</strong><span style="padding:3px 7px;border-radius:7px;background:#fff;color:{{ s.fg }};font-size:10.5px;font-weight:800">{{ s.level }}</span></div>
+                    <div style="font-size:11.5px;color:#596486;margin-top:5px;line-height:1.45">{{ s.people }} · {{ s.location }}</div>
+                    <div style="font-size:11px;color:{{ s.fg }};margin-top:4px;font-weight:700">{{ s.reason }}</div>
+                  </button>
+                </sc-for>
+                <sc-if value="{{ copilotScenesEmpty }}" hint-placeholder-val="{{ true }}"><div style="padding:18px 4px;text-align:center;font-size:12px;color:#a1a7c6">분석된 씬이 없습니다. AI 분석에서 대본을 먼저 분석하세요.</div></sc-if>
+              </div>
+            </div>
             <div style="background:#fff;border:1px solid #eceefa;border-radius:20px;padding:20px;box-shadow:0 10px 26px rgba(90,105,180,.07)">
               <div style="display:flex;align-items:baseline;justify-content:space-between">
                 <div style="font-size:16px;font-weight:800;color:#222c52">이번 주 요약</div>
@@ -2107,6 +2123,16 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
     });
   };
 
+  /** 사람이 날짜를 고른 뒤 씬을 직접 배치하는 촬영 코파일럿. */
+  openCopilotScene = (scene) => {
+    if (!scene) return;
+    if (scene.level === '불가') window.alert(`${scene.id}은(는) 현재 선택한 날짜에 촬영할 수 없습니다.\n${scene.reason}`);
+    this.setState({ modalOpen: true, shootEditId: '', shootDay: this.state.shootDay,
+      shootDate: scene.date, shootTitle: scene.id, shootPlace: scene.location || '', shootNote: scene.reason || '',
+      shootProjectId: this.state.aiProjectId || '', shootStart: this.hhmm(scene.start || 18), shootEnd: this.hhmm((scene.end || scene.start || 18) + Math.max(.5, (scene.minutes || 30) / 60)),
+      shootCast: (scene.requiredPeople || []).map(x => x.id).filter(Boolean) });
+  };
+
   /** 삭제는 되돌릴 수 없다. 무엇을 지우는지 보여주고 두 번 확인받는다. */
   removeShoot = async () => {
     try {
@@ -3111,6 +3137,29 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
         return out.sort((a, b) => a._d - b._d || String(a.time).localeCompare(String(b.time)));
       })(),
       shootListEmpty: !(() => { for (let i = 0; i < 7; i++) if (filteredShoot(i).length) return true; return false; })(),
+      copilotDateLabel: `${this.fmt(dates[st.shootDay])} (${this.dowOf(dates[st.shootDay])})`,
+      copilotScenes: (() => {
+        const selectedIso = iso(dates[st.shootDay]);
+        const scenes = live?.ai?.scenes || [];
+        const groups = live?.ai?.sceneGroups || [];
+        const rows = scenes.map((scene, index) => {
+          const id = scene.sceneId || `S#${index + 1}`;
+          const group = groups.find(g => (g.sceneIds || []).map(String).includes(String(id)));
+          const candidate = (group?.candidates || []).find(c => (c.date || (dates[c.day] && iso(dates[c.day]))) === selectedIso);
+          const total = candidate?.total || (scene.requiredPeople || scene.speakingCharacters || []).length || 0;
+          const available = candidate?.available?.length || 0;
+          const level = !candidate ? '불가' : available >= total ? (filteredShoot(st.shootDay).length ? '추천' : '가능') : '조건부';
+          const levelRank = { 추천: 0, 가능: 1, 조건부: 2, 불가: 3 }[level];
+          const start = candidate?.time ?? 18;
+          const location = scene.location || group?.location || '장소 미정';
+          const people = (scene.requiredPeople || scene.speakingCharacters || []).map(x => x.name || x.character || x).filter(Boolean);
+          const reason = !candidate ? '출연진 또는 필수 인원의 공통 가능 시간이 없습니다.' : level === '조건부' ? `${available}/${total}명 가능 · 가능한 시간대가 일부입니다.` : `${available}/${total}명 가능 · ${location}`;
+          return { id, date: selectedIso, level, levelRank, location, people, requiredPeople: scene.requiredPeople || [], minutes: Number(scene.estimatedMinutes) || 30, start, end: candidate?.endTime || start + Math.max(.5, (Number(scene.estimatedMinutes) || 30) / 60), reason,
+            tone: level === '추천' ? '#e9f8ef' : level === '가능' ? '#eef4ff' : level === '조건부' ? '#fff6e6' : '#fff1f3', fg: level === '추천' ? '#237a4f' : level === '가능' ? '#3b82f6' : level === '조건부' ? '#8a6a1f' : '#b03650', pick: () => this.openCopilotScene({ id, date: selectedIso, level, location, requiredPeople: scene.requiredPeople || [], minutes: Number(scene.estimatedMinutes) || 30, start, end: candidate?.endTime || start + .5, reason }) };
+        });
+        return rows.sort((a, b) => a.levelRank - b.levelRank || Number(String(a.id).match(/\d+/)?.[0] || 999) - Number(String(b.id).match(/\d+/)?.[0] || 999));
+      })(),
+      copilotScenesEmpty: !(live?.ai?.scenes || []).length,
       shootDays: dates.map((d, i) => ({
         md: this.fmtShort(d), dow: '(' + this.dowOf(d) + ')', items: filteredShoot(i),
         bg: st.shootDay === i ? '#eef4ff' : '#fff',
@@ -3122,6 +3171,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
       shootDayTitle: this.fmt(dates[st.shootDay]) + ' (' + DOW[st.shootDay] + ') 촬영 일정',
       shootDayCount: filteredShoot(st.shootDay).length + '건',
       shootDayItems: filteredShoot(st.shootDay),
+      openCopilotScene: this.openCopilotScene,
       shootSummary: (() => {
         const weekIso = dates.map(iso);
         const wk = (live?.shoots || []).filter(s => weekIso.includes(s.date));

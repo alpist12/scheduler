@@ -582,6 +582,13 @@
               </div>
             </div>
 
+            <div style="margin-top:14px;padding:15px;border:1px solid #dce7ff;border-radius:16px;background:#fbfdff">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div><div style="font-size:14px;font-weight:800;color:#222c52">촬영 일정 코파일럿</div><div style="font-size:11px;color:#8b93b8;margin-top:3px">날짜를 고르면 촬영하기 좋은 씬을 보여줍니다.</div></div><span style="padding:4px 7px;border-radius:7px;background:#eef4ff;color:#3b82f6;font-size:9.5px;font-weight:800">사람이 확정</span></div>
+              <div style="display:flex;gap:5px;overflow:auto;margin-top:10px"><sc-for list="{{ copilotDateChoices }}" as="d" hint-placeholder-count="7"><button sc-camel-on-click="{{ d.pick }}" style="flex:0 0 auto;padding:6px 8px;border:1px solid {{ d.line }};border-radius:8px;background:{{ d.bg }};color:{{ d.fg }};font-size:10.5px;font-weight:800;cursor:pointer">{{ d.label }}</button></sc-for></div>
+              <div style="display:flex;flex-direction:column;gap:7px;margin-top:10px"><sc-for list="{{ copilotScenes }}" as="s" hint-placeholder-count="5"><button sc-camel-on-click="{{ s.pick }}" style="display:block;width:100%;padding:10px;border:1px solid {{ s.tone }};border-radius:11px;background:{{ s.tone }};text-align:left;cursor:pointer"><div style="display:flex;align-items:center;gap:6px"><strong style="font-size:11.5px;color:#222c52">{{ s.id }}</strong><span style="padding:2px 5px;border-radius:5px;background:#fff;color:{{ s.fg }};font-size:9px;font-weight:800">{{ s.level }}</span></div><div style="font-size:10.5px;color:#596486;margin-top:4px">{{ s.people }} · {{ s.location }}</div><div style="font-size:10px;color:{{ s.fg }};margin-top:3px;font-weight:700">{{ s.reason }}</div></button></sc-for></div>
+              <sc-if value="{{ copilotScenesEmpty }}" hint-placeholder-val="{{ true }}"><div style="padding:12px 2px;text-align:center;font-size:11px;color:#a1a7c6">분석된 씬이 없습니다.</div></sc-if>
+            </div>
+
             <sc-for list="{{ planDays }}" as="p" hint-placeholder-count="2">
               <div style="background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:17px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
                 <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
@@ -635,7 +642,7 @@
 
         <sc-if value="{{ aiShowMain }}" hint-placeholder-val="{{ true }}">
 
-        <div style="background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:16px;margin-top:16px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
+        <div style="display:{{ aiSetupShellDisplay }};background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:16px;margin-top:16px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
           <div style="display:flex;flex-direction:column;gap:12px">
             <sc-for list="{{ aiWizard }}" as="w" hint-placeholder-count="3">
               <div style="position:relative;display:flex;align-items:center;gap:11px">
@@ -650,6 +657,10 @@
           </div>
 
           <div style="height:1px;background:#f0f1fb;margin:16px 0"></div>
+
+          <sc-if value="{{ aiBackVisible }}" hint-placeholder-val="{{ false }}">
+            <button sc-camel-on-click="{{ backAiStage }}" style="padding:8px 11px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#66709d;font-size:11.5px;font-weight:700;cursor:pointer">‹ {{ aiBackLabel }}</button>
+          </sc-if>
 
           <div style="display:flex;align-items:center;gap:9px">
             <strong style="flex:0 0 auto;font-size:12.5px;color:#5a6595">프로젝트</strong>
@@ -771,6 +782,7 @@
 
         <sc-if value="{{ aiRunning }}" hint-placeholder-val="{{ false }}">
           <div style="background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:18px;margin-top:14px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
+            <div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button sc-camel-on-click="{{ backAiStage }}" style="padding:8px 11px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#66709d;font-size:11.5px;font-weight:700;cursor:pointer">‹ 조건으로 돌아가기</button></div>
             <div style="display:flex;align-items:center;gap:13px">
               <img src="assets/ai-analysis.gif" alt="AI 분석 중" style="width:64px;height:64px;flex:0 0 64px;object-fit:contain">
               <span style="flex:1;min-width:0">
@@ -1282,6 +1294,10 @@ class Component extends DCLogic {
     } catch(error) { window.alert(error.message); }
   };
   editAiConditions = () => this.setState({ aiStage: 'options' });
+  backAiStage = () => {
+    const stage = this.state.aiStage;
+    this.setState({ aiStage: stage === 'results' || stage === 'running' ? 'options' : 'upload' });
+  };
 
   pickAiFile = async event => {
     const file=event.target.files?.[0]; if(!file)return;
@@ -1912,9 +1928,28 @@ class Component extends DCLogic {
       aiShowPlan: st.aiView === 'plan',
       aiShowMain: st.aiView !== 'plan',
       aiSetupDisplay: ['upload','options'].includes(st.aiStage) ? 'block' : 'none',
+      aiSetupShellDisplay: ['upload','options'].includes(st.aiStage) ? 'block' : 'none',
       aiUploadDisplay: st.aiStage === 'upload' ? 'block' : 'none',
       aiOptionsDisplay: st.aiStage === 'options' ? 'block' : 'none',
       aiSupportDisplay: st.aiStage === 'running' ? 'block' : 'none',
+      aiBackVisible: st.aiStage !== 'upload',
+      aiBackLabel: st.aiStage === 'results' ? '분석 조건으로 돌아가기' : st.aiStage === 'running' ? '옵션으로 돌아가기' : '대본 선택으로 돌아가기',
+      copilotScenes: (() => {
+        const selectedIso = iso(dates[st.shootDay]);
+        const scenes = live?.ai?.scenes || [];
+        const groups = live?.ai?.sceneGroups || [];
+        return scenes.map((scene, index) => {
+          const id = scene.sceneId || `S#${index + 1}`;
+          const group = groups.find(g => (g.sceneIds || []).map(String).includes(String(id)));
+          const candidate = (group?.candidates || []).find(c => (c.date || '') === selectedIso);
+          const people = (scene.requiredPeople || scene.speakingCharacters || []).map(x => x.name || x.character || x).filter(Boolean);
+          const level = candidate ? '가능' : '불가';
+          const reason = candidate ? `${candidate.available?.length || people.length}명 가능 · ${scene.location || group?.location || '장소 미정'}` : '출연진 또는 필수 인원의 공통 가능 시간이 없습니다.';
+          return { id, level, people: people.join(', ') || '출연 미지정', location: scene.location || group?.location || '장소 미정', reason, tone: level === '가능' ? '#eef4ff' : '#fff1f3', fg: level === '가능' ? '#3b82f6' : '#b03650', pick: () => this.setState({ tab:'shoot', shootDate:selectedIso, shootTitle:id, shootProjectId:st.aiProjectId || '' }) };
+        }).sort((a,b) => Number(String(a.id).match(/\d+/)?.[0] || 999) - Number(String(b.id).match(/\d+/)?.[0] || 999));
+      })(),
+      copilotScenesEmpty: !(live?.ai?.scenes || []).length,
+      copilotDateChoices: dates.map((d, i) => ({ label: `${this.fmtShort(d)} ${this.dowOf(d)}`, bg: st.shootDay === i ? '#3b82f6' : '#fff', fg: st.shootDay === i ? '#fff' : '#5a6595', line: st.shootDay === i ? '#3b82f6' : '#e1e7f5', pick: () => this.setState({ shootDay: i }) })),
       aiViewTabs: ['분석', '촬영안'].map(label => {
         const key = label === '촬영안' ? 'plan' : 'analysis';
         const on = (st.aiView || 'analysis') === key;
@@ -2164,6 +2199,7 @@ class Component extends DCLogic {
 
       runAnalyze: this.runAnalyze,
       editAiConditions: this.editAiConditions,
+      backAiStage: this.backAiStage,
       pickAiFile: this.pickAiFile,
       resetAnalysis: async () => { if (st.aiProjectId) { await this.engine()?.resetAnalysis?.(st.aiProjectId); this.setState({ aiFile:null, aiPhase:'idle', aiPct:0 }); } },
       aiFileName: st.aiFile, aiHasFile: !!st.aiFile,

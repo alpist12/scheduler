@@ -390,6 +390,12 @@
               <button sc-camel-on-click="{{ reanalyzeLeftovers }}" style="flex:0 0 auto;padding:10px 16px;border:1px solid #dbe4fb;border-radius:12px;background:#fff;color:#3b82f6;font-size:12.5px;font-weight:800;cursor:pointer">제외 되돌리기</button>
               <button sc-camel-on-click="{{ reoptimizeAll }}" style="flex:0 0 auto;padding:10px 16px;border:1px solid #e5e8f7;border-radius:12px;background:#fff;color:#7b83a8;font-size:12.5px;font-weight:800;cursor:pointer">전체 다시 최적화</button>
             </div>
+            <div style="margin-top:18px;padding:18px;border:1px solid #dce7ff;border-radius:18px;background:#fbfdff">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:15px;font-weight:800;color:#222c52">촬영 일정 코파일럿</div><div style="font-size:11.5px;color:#8b93b8;margin-top:4px">날짜를 고르면 이날 촬영하기 좋은 씬을 AI가 분류합니다. 배치는 직접 확정하세요.</div></div><span style="padding:5px 9px;border-radius:8px;background:#eef4ff;color:#3b82f6;font-size:10.5px;font-weight:800">사람이 확정</span></div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px"><sc-for list="{{ copilotDateChoices }}" as="d" hint-placeholder-count="7"><button sc-camel-on-click="{{ d.pick }}" style="padding:7px 10px;border:1px solid {{ d.line }};border-radius:9px;background:{{ d.bg }};color:{{ d.fg }};font-size:11.5px;font-weight:800;cursor:pointer">{{ d.label }}</button></sc-for></div>
+              <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px"><sc-for list="{{ copilotScenes }}" as="s" hint-placeholder-count="6"><button sc-camel-on-click="{{ s.pick }}" style="display:block;width:100%;padding:11px;border:1px solid {{ s.tone }};border-radius:13px;background:{{ s.tone }};text-align:left;cursor:pointer"><div style="display:flex;align-items:center;gap:7px"><strong style="font-size:12.5px;color:#222c52">{{ s.id }}</strong><span style="padding:3px 6px;border-radius:6px;background:#fff;color:{{ s.fg }};font-size:10px;font-weight:800">{{ s.level }}</span></div><div style="font-size:11px;color:#596486;margin-top:5px;line-height:1.4">{{ s.people }}<br>{{ s.location }}</div><div style="font-size:10.5px;color:{{ s.fg }};margin-top:4px;font-weight:700">{{ s.reason }}</div></button></sc-for></div>
+              <sc-if value="{{ copilotScenesEmpty }}" hint-placeholder-val="{{ true }}"><div style="padding:14px 4px;text-align:center;font-size:12px;color:#a1a7c6">분석된 씬이 없습니다. 먼저 대본을 분석하세요.</div></sc-if>
+            </div>
             <sc-if value="{{ planDone }}" hint-placeholder-val="{{ false }}">
               <div style="margin-top:16px;padding:14px 16px;border-radius:15px;background:#eaf7ef;display:flex;align-items:center;gap:11px">
                 <span style="font-size:19px">✅</span>
@@ -484,7 +490,7 @@
         </div>
       </sc-if>
       <div style="margin-top:22px;display:{{ aiMainDisplay }};grid-template-columns:{{ aiMainColumns }};gap:20px;align-items:start;animation:screenIn .2s ease-out both">
-        <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+        <div style="display:{{ aiMainLeftDisplay }};flex-direction:column;gap:16px;min-width:0">
           <div style="display:{{ aiSetupDisplay }};background:#fff;border:1px solid #f0f1fb;border-radius:26px;padding:24px;box-shadow:0 20px 38px rgba(122,134,205,.16),inset 0 2px 3px rgba(255,255,255,.95),inset 0 -7px 14px rgba(150,162,215,.13)">
             <div style="display:flex;align-items:center;gap:10px">
               <sc-for list="{{ aiWizard }}" as="w" hint-placeholder-count="3">
@@ -498,6 +504,10 @@
                 </div>
               </sc-for>
             </div>
+
+            <sc-if value="{{ aiBackVisible }}" hint-placeholder-val="{{ false }}">
+              <button sc-camel-on-click="{{ backAiStage }}" style="margin-top:14px;padding:8px 12px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#66709d;font-size:12px;font-weight:700;cursor:pointer">‹ {{ aiBackLabel }}</button>
+            </sc-if>
 
             <div style="height:1px;background:#f0f1fb;margin:22px 0"></div>
 
@@ -584,6 +594,7 @@
             <div style="background:#fff;border:1px solid #f0f1fb;border-radius:26px;padding:24px;box-shadow:0 20px 38px rgba(122,134,205,.16),inset 0 2px 3px rgba(255,255,255,.95),inset 0 -7px 14px rgba(150,162,215,.13)">
               <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:18px">
                 <div><div style="font-size:22px;font-weight:800;color:#1f2a52">분석 결과</div><div style="font-size:12.5px;color:#8b93b8;margin-top:5px;font-weight:600">AI는 후보를 제안하고, 최종 배치는 사람이 결정합니다.</div></div>
+                <button sc-camel-on-click="{{ backAiStage }}" style="padding:9px 12px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#66709d;font-size:12px;font-weight:700;cursor:pointer">‹ 조건으로 돌아가기</button>
                 <span style="padding:7px 11px;border-radius:9px;background:#eef4ff;color:#3b82f6;font-size:11.5px;font-weight:800">결과 전용 화면</span>
               </div>
               <div style="display:flex;align-items:center;gap:14px;padding:16px 18px;background:#f2fbf5;border:1px solid #dcf1e3;border-radius:18px">
@@ -715,7 +726,7 @@
                 </div>
               </sc-if>
 
-              <div style="margin-top:18px;padding:18px;border:1px solid #dce7ff;border-radius:18px;background:#fbfdff">
+              <div style="display:none;margin-top:18px;padding:18px;border:1px solid #dce7ff;border-radius:18px;background:#fbfdff">
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:15px;font-weight:800;color:#222c52">촬영 일정 코파일럿</div><div style="font-size:11.5px;color:#8b93b8;margin-top:4px">날짜를 선택하면 이날 찍기 좋은 씬을 먼저 보여줍니다.</div></div><span style="padding:5px 9px;border-radius:8px;background:#eef4ff;color:#3b82f6;font-size:10.5px;font-weight:800">사람이 확정</span></div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px"><sc-for list="{{ copilotDateChoices }}" as="d" hint-placeholder-count="7"><button sc-camel-on-click="{{ d.pick }}" style="padding:7px 10px;border:1px solid {{ d.line }};border-radius:9px;background:{{ d.bg }};color:{{ d.fg }};font-size:11.5px;font-weight:800;cursor:pointer">{{ d.label }}</button></sc-for></div>
                 <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px"><sc-for list="{{ copilotScenes }}" as="s" hint-placeholder-count="6"><button sc-camel-on-click="{{ s.pick }}" style="display:block;width:100%;padding:11px;border:1px solid {{ s.tone }};border-radius:13px;background:{{ s.tone }};text-align:left;cursor:pointer"><div style="display:flex;align-items:center;gap:7px"><strong style="font-size:12.5px;color:#222c52">{{ s.id }}</strong><span style="padding:3px 6px;border-radius:6px;background:#fff;color:{{ s.fg }};font-size:10px;font-weight:800">{{ s.level }}</span></div><div style="font-size:11px;color:#596486;margin-top:5px;line-height:1.4">{{ s.people }}<br>{{ s.location }}</div><div style="font-size:10.5px;color:{{ s.fg }};margin-top:4px;font-weight:700">{{ s.reason }}</div></button></sc-for></div>
@@ -1584,6 +1595,10 @@ class Component extends DCLogic {
     } catch (error) { window.alert(error.message); }
   };
   editAiConditions = () => this.setState({ aiStage: 'options' });
+  backAiStage = () => {
+    const stage = this.state.aiStage;
+    this.setState({ aiStage: stage === 'results' || stage === 'running' ? 'options' : 'upload' });
+  };
 
   pickAiFile = async event => {
     const file = event.target.files?.[0];
@@ -2533,9 +2548,12 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
       aiUploadDisplay: st.aiStage === 'upload' ? 'block' : 'none',
       aiOptionsDisplay: st.aiStage === 'options' ? 'block' : 'none',
       aiSetupColumns: 'minmax(0,1fr)',
-      aiMainColumns: st.aiStage === 'results' ? 'minmax(0,1fr)' : 'minmax(0,1fr) 330px',
-      aiSidebarDisplay: st.aiStage === 'results' ? 'none' : 'flex',
+      aiMainLeftDisplay: st.aiStage === 'running' ? 'none' : 'flex',
+      aiMainColumns: 'minmax(0,1fr)',
+      aiSidebarDisplay: st.aiStage === 'running' ? 'flex' : 'none',
       aiResultDisplay: st.aiStage === 'results' ? 'block' : 'none',
+      aiBackVisible: st.aiStage !== 'upload',
+      aiBackLabel: st.aiStage === 'results' ? '분석 조건으로 돌아가기' : st.aiStage === 'running' ? '옵션으로 돌아가기' : '대본 선택으로 돌아가기',
 
       // 인원 관리도 '이번 주 가능 시간'을 보여주므로 주차를 바꿀 수 있어야 한다.
       showWeekNav: ['weekly', 'shoot', 'personal', 'members'].indexOf(st.screen) >= 0,
@@ -2966,6 +2984,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
       })(),
       runAnalyze: this.runAnalyze,
       editAiConditions: this.editAiConditions,
+      backAiStage: this.backAiStage,
 
       ...(() => {
         const plan = this.planOptions();

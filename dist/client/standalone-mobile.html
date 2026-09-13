@@ -659,7 +659,7 @@
             <button sc-camel-on-click="{{ resetAnalysis }}" style="flex:0 0 auto;padding:10px 11px;border:1px solid #f1d8de;border-radius:11px;background:#fff7f8;color:#d94d67;font-weight:700;font-size:12px;cursor:pointer">초기화</button>
           </div>
 
-          <div style="border:1px solid #eef0fa;border-radius:20px;padding:26px 18px;text-align:center;background:linear-gradient(180deg,#fdfdff,#f7f9ff);margin-top:14px">
+          <div style="display:{{ aiUploadDisplay }};border:1px solid #eef0fa;border-radius:20px;padding:26px 18px;text-align:center;background:linear-gradient(180deg,#fdfdff,#f7f9ff);margin-top:14px">
             <div style="width:88px;height:88px;margin:0 auto;background:url(&quot;assets/standalone/f8b81a54-c444-48e1-94ff-d88685a73cad.png&quot;) no-repeat;background-size:203px auto;background-position:3% 50%"></div>
             <div style="margin-top:14px;font-size:16px;font-weight:800;color:#1f2a52">대본 파일을 업로드하세요</div>
             <div style="margin-top:6px;font-size:12px;color:#8b93b8;font-weight:700">(PDF, DOCX, TXT)</div>
@@ -669,7 +669,7 @@
             <label style="display:inline-flex;align-items:center;gap:8px;margin-top:16px;padding:13px 28px;border-radius:99px;background:linear-gradient(135deg,#4f8ef7,#3b82f6);color:#fff;font-size:13.5px;font-weight:700;cursor:pointer;box-shadow:0 10px 22px rgba(59,130,246,.3)"><span class="ms" style="font-size:17px">folder_open</span>파일 선택하기<input type="file" accept=".pdf,.docx,.txt" sc-camel-on-change="{{ pickAiFile }}" style="display:none"></label>
           </div>
 
-          <div style="border:1px solid #eef0fa;border-radius:18px;padding:16px;margin-top:12px">
+          <div style="display:{{ aiOptionsDisplay }};border:1px solid #eef0fa;border-radius:18px;padding:16px;margin-top:12px">
             <div style="font-size:13.5px;font-weight:800;color:#222c52">분석 옵션</div>
             <div style="display:flex;flex-direction:column;gap:9px;margin-top:12px">
               <sc-for list="{{ aiOptions }}" as="o" hint-placeholder-count="4">
@@ -698,7 +698,7 @@
           </div>
         </div>
 
-        <div style="background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:16px;margin-top:12px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
+        <div style="display:{{ aiSupportDisplay }};background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:16px;margin-top:12px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
           <div style="display:flex;align-items:baseline;justify-content:space-between">
             <span style="font-size:15px;font-weight:800;color:#222c52">분석 진행 상황</span>
             <span style="display:flex;align-items:baseline;gap:7px"><span style="font-size:11px;font-weight:700;color:#a1a7c6;font-variant-numeric:tabular-nums">{{ aiElapsedText }}</span><span style="font-size:14px;font-weight:800;color:#7b6ef0">{{ aiProgressLabel }}</span></span>
@@ -830,7 +830,7 @@
             <div style="display:flex;gap:8px;margin-top:16px">
               <button sc-camel-on-click="{{ copyAiResults }}" style="flex:1;padding:13px 0;border:1px solid #e5e8f7;background:#fff;border-radius:14px;font-size:12.5px;font-weight:700;color:#5a6595;cursor:pointer">결과 복사</button>
               <button sc-camel-on-click="{{ openAiSchedule }}" style="flex:1;padding:13px 0;border:1px solid #e5e8f7;background:#fff;border-radius:14px;font-size:12.5px;font-weight:700;color:#5a6595;cursor:pointer">선택 일정 추가</button>
-              <button sc-camel-on-click="{{ runAnalyze }}" style="flex:1.3;padding:13px 0;border:0;border-radius:14px;background:linear-gradient(135deg,#5b8def,#7b6ef0);color:#fff;font-size:12.5px;font-weight:700;cursor:pointer">다시 분석</button>
+              <button sc-camel-on-click="{{ editAiConditions }}" style="flex:1.3;padding:13px 0;border:0;border-radius:14px;background:linear-gradient(135deg,#5b8def,#7b6ef0);color:#fff;font-size:12.5px;font-weight:700;cursor:pointer">조건 바꾸기</button>
             </div>
           </div>
         </sc-if>
@@ -1224,7 +1224,7 @@ class Component extends DCLogic {
     logOpen: false, roleProject: null, roleKey: 'planning', roleSel: [],
     splash: true, splashOut: false, tab: 'home', weekOffset: 0,
     slots: [], shootDay: 2, shootView: '목록', personalView: '주간 시간표',
-    aiPhase: 'idle', aiPct: 0, aiStartedAt: 0, aiTick: 0, aiToggle: [true, true, false], aiOpts: [true,true,true,true], aiSceneIndex: 0, aiCandidateIndex: 0,
+    aiPhase: 'idle', aiStage: 'upload', aiPct: 0, aiStartedAt: 0, aiTick: 0, aiToggle: [true, true, false], aiOpts: [true,true,true,true], aiSceneIndex: 0, aiCandidateIndex: 0,
     sheetOpen: false, live: null, aiProjectId: '', aiFile: null, mPerson: '',
     mfTitle: '', mfPlace: '', mfStart: '14:00', mfEnd: '16:00', mfDay: 2, mfStatus: '가능', mfKind: '이번 주 일정',
     mfEditId: '', mfCast: [], mfNote: '',
@@ -1248,7 +1248,7 @@ class Component extends DCLogic {
       if (live && live.revision !== this.state.live?.revision) {
         const job = live.ai?.job;
         const phase = job ? (job.status === 'completed' ? 'done' : ['running','queued'].includes(job.status) ? 'running' : 'idle') : this.state.aiPhase;
-        this.setState({ live, weekOffset:live.weekOffset||0, aiPhase:phase, aiPct:job?.progress || 0,
+        this.setState({ live, weekOffset:live.weekOffset||0, aiPhase:phase, aiStage: phase === 'running' ? 'running' : phase === 'done' ? 'results' : this.state.aiStage, aiPct:job?.progress || 0,
           aiProjectId:this.state.aiProjectId||live.ai?.projectId||'', aiFile:live.ai?.fileName||this.state.aiFile });
       }
     } catch (_) {}
@@ -1276,16 +1276,17 @@ class Component extends DCLogic {
     this.setState({tab:'ai'});
     try {
       const engine=this.engine(); if(!engine) throw new Error('데이터 연결을 준비 중입니다.');
-      this.setState({ aiPhase:'running', aiPct:0, aiStartedAt:Date.now(), aiSceneIndex:0, aiCandidateIndex:0 });
+      this.setState({ aiPhase:'running', aiStage:'running', aiPct:0, aiStartedAt:Date.now(), aiSceneIndex:0, aiCandidateIndex:0 });
       await engine.startAnalysis(this.state.aiProjectId,this.state.aiOpts);
       this.readLive();
     } catch(error) { window.alert(error.message); }
   };
+  editAiConditions = () => this.setState({ aiStage: 'options' });
 
   pickAiFile = async event => {
     const file=event.target.files?.[0]; if(!file)return;
-    this.setState({tab:'ai',aiFile:file.name,aiPhase:'idle',aiPct:0});
-    try { const engine=this.engine(); if(!engine) throw new Error('데이터 연결을 준비 중입니다.'); await engine.prepareFile(file,this.state.aiProjectId); this.readLive(); }
+    this.setState({tab:'ai',aiFile:file.name,aiPhase:'idle',aiStage:'upload',aiPct:0});
+    try { const engine=this.engine(); if(!engine) throw new Error('데이터 연결을 준비 중입니다.'); await engine.prepareFile(file,this.state.aiProjectId); this.setState({aiStage:'options'}); this.readLive(); }
     catch(error){this.setState({aiFile:null});window.alert(error.message);}
   };
 
@@ -1910,6 +1911,10 @@ class Component extends DCLogic {
       })(),
       aiShowPlan: st.aiView === 'plan',
       aiShowMain: st.aiView !== 'plan',
+      aiSetupDisplay: ['upload','options'].includes(st.aiStage) ? 'block' : 'none',
+      aiUploadDisplay: st.aiStage === 'upload' ? 'block' : 'none',
+      aiOptionsDisplay: st.aiStage === 'options' ? 'block' : 'none',
+      aiSupportDisplay: st.aiStage === 'running' ? 'block' : 'none',
       aiViewTabs: ['분석', '촬영안'].map(label => {
         const key = label === '촬영안' ? 'plan' : 'analysis';
         const on = (st.aiView || 'analysis') === key;
@@ -2158,13 +2163,14 @@ class Component extends DCLogic {
         {c:'#f87171',t:'개인 불가능'}, {c:'#c3c8dd',t:'기타'} ],
 
       runAnalyze: this.runAnalyze,
+      editAiConditions: this.editAiConditions,
       pickAiFile: this.pickAiFile,
       resetAnalysis: async () => { if (st.aiProjectId) { await this.engine()?.resetAnalysis?.(st.aiProjectId); this.setState({ aiFile:null, aiPhase:'idle', aiPct:0 }); } },
       aiFileName: st.aiFile, aiHasFile: !!st.aiFile,
       aiProjectId: st.aiProjectId,
       aiProjects: [{ id: '', name: '프로젝트를 선택하세요' }, ...(live?.projects || [])],
-      changeAiProject:e=>{const id=e.target.value,p=(live?.projects||[]).find(x=>x.id===id);this.engine()?.selectAnalysisProject?.(id);this.setState({aiProjectId:id,aiFile:p?.aiAnalysis?.script?.filename||null,aiPhase:p?.aiAnalysis?'done':'idle',aiPct:p?.aiAnalysis?100:0,aiSceneIndex:0,aiCandidateIndex:0});},
-      aiRunning: st.aiPhase === 'running', aiDone: st.aiPhase === 'done' || (live?.ai?.sceneCount || 0) > 0, aiIdle: st.aiPhase === 'idle',
+      changeAiProject:e=>{const id=e.target.value,p=(live?.projects||[]).find(x=>x.id===id);this.engine()?.selectAnalysisProject?.(id);this.setState({aiProjectId:id,aiFile:p?.aiAnalysis?.script?.filename||null,aiPhase:p?.aiAnalysis?'done':'idle',aiStage:p?.aiAnalysis?'results':'upload',aiPct:p?.aiAnalysis?100:0,aiSceneIndex:0,aiCandidateIndex:0});},
+      aiRunning: st.aiStage === 'running' || st.aiPhase === 'running', aiDone: st.aiStage === 'results' && (st.aiPhase === 'done' || (live?.ai?.sceneCount || 0) > 0), aiIdle: st.aiStage === 'upload',
       aiResultTitle: live?.ai?.job?.status === 'completed' ? '분석이 완료되었어요!' : st.aiPhase === 'running' ? '분석된 씬부터 확인할 수 있어요.' : '일부 결과만 확인되었습니다. 서버 로그를 확인해 주세요.',
       aiPct: st.aiPct + '%',
       // 진행 중에는 실제로 끝난 묶음 수만 보여준다. 남은 시간을 지어내지 않는다.
@@ -2191,10 +2197,10 @@ class Component extends DCLogic {
       aiStartFg: (st.aiProjectId && live?.ai?.hasScript) ? '#fff' : '#b0b6d1',
       aiStartShadow: (st.aiProjectId && live?.ai?.hasScript) ? '0 10px 22px rgba(96,110,230,.26)' : 'none',
       aiSteps: AI_STEPS.map((l, i) => ({ label: l, color: st.aiPct >= i * 25 ? '#5b6ee0' : '#b9bfd8' })),
-      aiWizard: ['대본 업로드','AI 분석 진행','결과 확인'].map((label, i) => {
-        const cur = st.aiPhase === 'idle' ? 0 : st.aiPhase === 'running' ? 1 : 2;
+      aiWizard: ['대본 선택','옵션·세부 조건','분석 진행','결과'].map((label, i) => {
+        const cur = st.aiStage === 'upload' ? 0 : st.aiStage === 'options' ? 1 : st.aiStage === 'running' ? 2 : 3;
         const on = i <= cur;
-        return { n: i + 1, label, desc: ['파일을 업로드하세요','씬 분류 및 인원 분석','촬영 후보 시간·인원 추천'][i],
+        return { n: i + 1, label, desc: ['파일을 선택하세요','분석 조건을 정하세요','AI가 분석 중입니다','결과를 확인하세요'][i],
           bubbleBg: on ? 'linear-gradient(135deg,#4f8ef7,' + A + ')' : '#f2f4fd',
           bubbleFg: on ? '#fff' : '#a7adcd', labelColor: on ? '#222c52' : '#a7adcd',
           lineVisible: i < 2, lineColor: i < cur ? '#5b8def' : '#eef0fa' };

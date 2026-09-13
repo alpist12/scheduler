@@ -13,6 +13,7 @@ for (const name of [
   'index.html',
   'index.integrated.html',
   'app.js',
+  'schedule-rules.mjs',
   'app.css',
   'claude-handoff.css',
   'refresh.css',

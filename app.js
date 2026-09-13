@@ -3,6 +3,7 @@ import {
   getFirestore, doc, collection, collectionGroup, onSnapshot,
   setDoc, deleteDoc, getDocs, query, where, writeBatch,
 } from 'https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js';
+import { candidateStarts, continuityScore, hourText, locationAffinity, sceneMinutes } from './schedule-rules.mjs';
 
 const app = initializeApp({
   apiKey: 'AIzaSyDXmeiQpRSZshFA1_BgZ2z_8AKLy6_Nc8M',
@@ -990,7 +991,7 @@ function planDates() {
   return out;
 }
 
-function aiCandidates(scenes = [], durationHours = 1) {
+function aiCandidates(scenes = [], durationHours = 0) {
   const plan = aiState.planOptions || {};
   const excluded = new Set((Array.isArray(plan.excludeDates) ? plan.excludeDates : []).map(String));
   const priority = new Set((Array.isArray(plan.priorityMembers) ? plan.priorityMembers : []).map(String));
@@ -1010,16 +1011,22 @@ function aiCandidates(scenes = [], durationHours = 1) {
   const spans = [];
   let cursor = 0;
   for (const scene of scenes) {
-    const mins = Number(scene?.estimatedMinutes) || 30;
+    const mins = sceneMinutes(scene);
     const who = new Set(sceneRequiredCharacters(scene).map(resolveMemberId).filter(id => base[id]));
     spans.push({ who, from: cursor / 60, to: (cursor + mins) / 60 });
     cursor += mins;
   }
   // 기획·촬영 담당은 어느 씬에도 안 적혀 있으니 전 구간을 지킨다.
-  const totalHours = Math.max(durationHours, cursor / 60) || durationHours;
+  const totalHours = Math.max(Number(durationHours) || 0, cursor / 60, .5);
   const freeIn = (member, iso, a, b) => rangesOn(member, iso).some(r => +r.start <= a && +r.end >= b);
 
-  const items = TIMES.filter(time => time + totalHours <= 23).flatMap(time => days.map(({ iso, dayIndex }) => {
+  const items = days.flatMap(({ iso, dayIndex }) => {
+    const windows = all.flatMap(([id, member]) => {
+      const mine = spans.filter(span => span.who.has(id));
+      return (mine.length ? mine : [{ from: 0, to: totalHours }])
+        .map(span => ({ ...span, ranges: rangesOn(member, iso) }));
+    });
+    return candidateStarts({ totalHours, windows }).map(time => {
     const yes = all.filter(([id, member]) => {
       const mine = spans.filter(s => s.who.has(id));
       // 출연하지 않는 사람(기획·촬영)은 처음부터 끝까지 있어야 한다
@@ -1027,11 +1034,16 @@ function aiCandidates(scenes = [], durationHours = 1) {
       return mine.every(s => freeIn(member, iso, time + s.from, time + s.to));
     });
     const yesIds = new Set(yes.map(([id]) => id));
+    const continuity = continuityScore({
+      date: iso, start: time, end: time + totalHours, requiredIds: [...ids],
+      shoots: Object.values(shoots), memberIdsOfShoot: shootMemberIds,
+    });
     return {
       iso, day: dayIndex, time, endTime: time + totalHours, all, yes,
+      full: yes.length === ids.size, continuityHits: continuity.score, continuity: continuity.label,
       missing: [...state.required].filter(id => !yesIds.has(id)).map(id => members()[id]?.name).filter(Boolean),
     };
-  }))
+  }); })
     .filter(slot => new Date(`${slot.iso}T${String(slot.time).padStart(2, '0')}:00:00`).getTime() >= Date.now())
     // 기획자가 뺀 날짜는 후보에서 제외한다.
     .filter(slot => !excluded.has(slot.iso))
@@ -1045,7 +1057,9 @@ function aiCandidates(scenes = [], durationHours = 1) {
     /* 정렬 기준: 우선 인원 → 가능 인원(10% 단위) → 가까운 날짜 → 이른 시간.
        비율을 그대로 쓰면 5/6 과 6/6 처럼 한 명 차이로 2주 뒤가 1순위가 된다.
        10% 단위로 묶어 비슷하면 가까운 날을 고른다. */
-    .sort((a, b) => b.priorityHits - a.priorityHits
+    .sort((a, b) => Number(b.full) - Number(a.full)
+      || b.continuityHits - a.continuityHits
+      || b.priorityHits - a.priorityHits
       || Math.round(b.ratio * 10) - Math.round(a.ratio * 10)
       || (a.iso < b.iso ? -1 : a.iso > b.iso ? 1 : 0)
       || a.time - b.time
@@ -1054,9 +1068,9 @@ function aiCandidates(scenes = [], durationHours = 1) {
   return { ids, items };
 }
 
-const clockText = totalMinutes => `${String(Math.floor(totalMinutes / 60)).padStart(2, '0')}:${String(totalMinutes % 60).padStart(2, '0')}`;
+const clockText = totalMinutes => hourText(Number(totalMinutes) / 60);
 
-/** 바로 앞 씬과 공통 출연자가 최대가 되도록 순서를 잡는다. 장소는 점수에 넣지 않는다. */
+/** 공통 출연자와 같은 장소가 이어지도록 실제 이동이 적은 순서를 잡는다. */
 function orderSceneGroup(rows) {
   if (rows.length < 2) return rows;
   const overlap = (a, b) => [...a.cast].filter(id => b.cast.has(id)).length;
@@ -1069,7 +1083,10 @@ function orderSceneGroup(rows) {
     }
     return ordered;
   };
-  const score = ordered => ordered.slice(1).reduce((sum, row, i) => sum + overlap(ordered[i], row) * 10 - Math.abs(ordered[i].cast.size - row.cast.size), 0);
+  const score = ordered => ordered.slice(1).reduce((sum, row, i) => sum
+    + overlap(ordered[i], row) * 10
+    + locationAffinity(ordered[i].scene, row.scene) * 8
+    - Math.abs(ordered[i].cast.size - row.cast.size), 0);
   return rows.map(build).sort((a, b) => score(b) - score(a))[0];
 }
 
@@ -1090,7 +1107,7 @@ const spanMinutes = hour => Math.round(Number(hour) * 60);
 /** 출연자 중첩 → 공통 가능 시간 → 호출 횟수 → 씬 순서 순으로 촬영안을 계산한다. */
 function buildSceneSchedule(scenes = [], options = {}) {
   const castOf = scene => new Set(sceneRequiredCharacters(scene).map(resolveMemberId).filter(id => base[id]));
-  const allRows = scenes.map((scene, index) => ({ index, scene, cast: castOf(scene), minutes: Number(scene.estimatedMinutes) || 30 }));
+  const allRows = scenes.map((scene, index) => ({ index, scene, cast: castOf(scene), minutes: sceneMinutes(scene) }));
 
   /* 대본에 같은 씬 번호가 두 번 나오는 일이 있다(예: 'S#13 원형광장' 두 개).
      이름만으로 구분하면 두 씬이 한 씬으로 합쳐져 미배정이 유령으로 남고,
@@ -1184,7 +1201,8 @@ function buildSceneSchedule(scenes = [], options = {}) {
           const added = [...row.cast].filter(id => !groupCast.has(id)).length;
           /* 겹치는 사람은 이득, 새로 부르는 사람은 손해. 호출 인원이 늘기만 하는 씬은 넣지 않는다.
              1인 씬은 먼저 챙긴다. 뒤로 밀면 하루 분량이 차서 혼자 하루를 쓰게 된다. */
-          return { row, overlap, score: overlap * 2 - added + (row.cast.size === 1 ? 3 : 0) };
+          const samePlace = selected.reduce((n, picked) => n + locationAffinity(row.scene, picked.scene), 0);
+          return { row, overlap, score: overlap * 2 + samePlace * 3 - added + (row.cast.size === 1 ? 3 : 0) };
         })
         // 1인 씬은 그 사람이 이미 오는 날이면 무조건 끼워 넣는다. 혼자 하루를 잡을 이유가 없다.
         .filter(item => item.overlap > 0 && (item.score > 0 || item.row.cast.size === 1))
@@ -1197,13 +1215,31 @@ function buildSceneSchedule(scenes = [], options = {}) {
        들어갈 시간이 없으면 뒤 씬부터 덜어내고, 덜어낸 씬은 다음 그룹으로 돌린다.
        강제로 묶으라고 한 씬은 덜어내지 않는다. */
     let ordered = orderSceneGroup(selected);
-    let result = aiCandidates(ordered.map(row => row.scene), Math.max(1, Math.ceil(ordered.reduce((s, r) => s + r.minutes, 0) / 60)));
-    while (!result.items.length && ordered.length > 1) {
-      const dropIndex = [...ordered].reverse().findIndex(row => !pinnedOf(row));
-      if (dropIndex < 0) break;
-      const [dropped] = ordered.splice(ordered.length - 1 - dropIndex, 1);
-      used.delete(dropped.index);
-      result = aiCandidates(ordered.map(row => row.scene), Math.max(1, Math.ceil(ordered.reduce((s, r) => s + r.minutes, 0) / 60)));
+    const calculate = list => aiCandidates(list.map(row => row.scene), list.reduce((s, r) => s + r.minutes, 0) / 60);
+    const hasFull = value => value.items.some(slot => slot.full);
+    let result = calculate(ordered);
+    while (!hasFull(result) && ordered.length > 1) {
+      /* 통째로 찍을 시간이 없으면 아무 씬이나 뒤에서 자르지 않는다.
+         한 씬씩 빼 본 뒤 전원 가능 후보와 장소 묶음이 가장 잘 남는 조합을 고른다. */
+      const choices = ordered.map((row, index) => ({ row, index }))
+        .filter(({ row }) => !pinnedOf(row))
+        .map(choice => {
+          const kept = ordered.filter((_, index) => index !== choice.index);
+          const candidate = calculate(kept);
+          const fullCount = candidate.items.filter(slot => slot.full).length;
+          const placeScore = kept.reduce((sum, row, index) => sum
+            + kept.slice(index + 1).reduce((n, other) => n + locationAffinity(row.scene, other.scene), 0), 0);
+          return { ...choice, kept, candidate, fullCount, placeScore };
+        })
+        .sort((a, b) => b.fullCount - a.fullCount
+          || (b.candidate.items[0]?.continuityHits || 0) - (a.candidate.items[0]?.continuityHits || 0)
+          || b.placeScore - a.placeScore
+          || b.row.index - a.row.index);
+      const choice = choices[0];
+      if (!choice) break;
+      ordered = choice.kept;
+      used.delete(choice.row.index);
+      result = choice.candidate;
     }
     const groupScenes = ordered.map(row => row.scene);
     const everyone = new Set(ordered.flatMap(row => [...row.cast]));
@@ -1232,6 +1268,7 @@ function buildSceneSchedule(scenes = [], options = {}) {
         rank: rank + 1, day: slot.day, date: slot.iso, time: slot.time, endTime: slot.endTime,
         available: slot.yes.map(([id, person]) => ({ id, name: person.name })), total: result.ids.size,
         full: !missingIds.length,
+        continuity: slot.continuity,
         // '기획 확인 필요' 만 적으면 몇 명이 막히는지 알 수 없다. 숫자와 이름을 같이 적는다.
         status: missingIds.length
           ? `${requiredIds.length - missingIds.length}/${requiredIds.length}명 가능`
@@ -1282,12 +1319,17 @@ function buildSceneSchedule(scenes = [], options = {}) {
       ordered.length > 1 ? `따로 찍으면 ${ordered.length}번 불러야 할 인원을 한 번에 모을 수 있습니다.` : '',
     ].filter(Boolean).join(' ');
 
+    const placeLinks = [];
+    for (let i = 0; i + 1 < ordered.length; i += 1) {
+      if (!locationAffinity(ordered[i].scene, ordered[i + 1].scene)) continue;
+      placeLinks.push(`${sceneIdAt(ordered[i].index)}과 ${sceneIdAt(ordered[i + 1].index)}은(는) 같은 장소 동선입니다`);
+    }
     groups.push({
       key: ordered.map(row => row.index).join('-'), sceneIndexes: ordered.map(row => row.index),
       reason,
       sceneIds: ordered.map(row => sceneIdAt(row.index)),
       totalPeople: everyone.size, sharedNames: shared.map(id => base[id]?.name || '').filter(Boolean),
-      sharedIds: shared, linkLines: links,
+      sharedIds: shared, linkLines: [...placeLinks.slice(0, 2), ...links].slice(0, 3),
       partialNames: partial.map(id => base[id]?.name || '').filter(Boolean), estimatedMinutes: minutes,
       candidates,
       // 후보 자체가 없을 때만 '못 잡은' 것이다. 일부 인원만 빠지는 건 묶음 카드에서 보여 준다.
@@ -1316,7 +1358,13 @@ function buildSceneSchedule(scenes = [], options = {}) {
   }
   const planned = new Set(groups.flatMap(g => g.sceneIds));
   return {
-    groups: groups.sort((a, b) => b.sceneIndexes.length - a.sceneIndexes.length),
+    groups: groups.sort((a, b) => {
+      const x = a.candidates.find(candidate => candidate.full) || a.candidates[0];
+      const y = b.candidates.find(candidate => candidate.full) || b.candidates[0];
+      return String(x?.date || '9999').localeCompare(String(y?.date || '9999'))
+        || Number(x?.time || 99) - Number(y?.time || 99)
+        || b.sceneIndexes.length - a.sceneIndexes.length;
+    }),
     unassigned, confirmed,
     // 미배정이 0 이 될 때까지 추적할 수 있어야 한다.
     totals: {

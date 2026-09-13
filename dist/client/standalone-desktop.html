@@ -717,7 +717,7 @@
           </div>
         </div>
 
-        <div style="display:flex;flex-direction:column;gap:16px">
+        <div style="display:{{ aiSidebarDisplay }};flex-direction:column;gap:16px">
           <div style="background:#fff;border:1px solid #f0f1fb;border-radius:24px;padding:20px;box-shadow:0 20px 38px rgba(122,134,205,.16),inset 0 2px 3px rgba(255,255,255,.95),inset 0 -7px 14px rgba(150,162,215,.13)">
             <sc-if value="{{ aiRunning }}"><img src="assets/ai-analysis.gif" alt="AI 분석 중" style="display:block;width:92px;height:92px;object-fit:contain;margin:0 auto 12px"></sc-if>
             <div style="display:flex;align-items:baseline;justify-content:space-between">
@@ -2499,6 +2499,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
       aiOptionsDisplay: st.aiStage === 'options' ? 'block' : 'none',
       aiSetupColumns: 'minmax(0,1fr)',
       aiMainColumns: st.aiStage === 'results' ? 'minmax(0,1fr)' : 'minmax(0,1fr) 330px',
+      aiSidebarDisplay: st.aiStage === 'results' ? 'none' : 'flex',
       aiResultDisplay: st.aiStage === 'results' ? 'block' : 'none',
 
       // 인원 관리도 '이번 주 가능 시간'을 보여주므로 주차를 바꿀 수 있어야 한다.

@@ -2820,7 +2820,12 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
             const chip = on => on
               ? { bg: '#eef4ff', fg: '#3b82f6', line: '#bcd3fb' }
               : { bg: '#fff', fg: '#7b83a8', line: '#e7ebf9' };
-            const sceneIds = [...new Set(groups.flatMap(g => g.sceneIds))];
+            const sceneNumber = id => {
+              const m = String(id).match(/(?:S#)?\s*(\d+)/i);
+              return m ? Number(m[1]) : Number.POSITIVE_INFINITY;
+            };
+            const sceneIds = [...new Set(groups.flatMap(g => g.sceneIds))]
+              .sort((a, b) => sceneNumber(a) - sceneNumber(b) || String(a).localeCompare(String(b), 'ko', { numeric: true }));
             const excluded = plan.excludeDates || [];
             const priority = plan.priorityMembers || [];
             const rules = [

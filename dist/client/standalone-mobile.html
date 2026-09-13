@@ -1748,7 +1748,12 @@ class Component extends DCLogic {
 
             /* 그 날 못 찍는 씬(제외 + 출연 불가)은 버튼을 누를 것도 없이
                바로 다음 가능한 날짜로 옮겨 두 번째 카드로 보여 준다. */
-            const mk = (chosenOpt, ids, keyPrefix, carry, useOpts) => {
+            const mk = (chosenOpt, rawIds, keyPrefix, carry, useOpts) => {
+              const sceneNumber = id => {
+                const m = String(id).match(/(?:S#)?\s*(\d+)/i);
+                return m ? Number(m[1]) : Number.POSITIVE_INFINITY;
+              };
+              const ids = rawIds.slice().sort((a, b) => sceneNumber(a) - sceneNumber(b) || String(a).localeCompare(String(b), 'ko', { numeric: true }));
               const list = useOpts || opts;
               const c = chosenOpt?.slot;
               const forced = !!chosenOpt?.forced;

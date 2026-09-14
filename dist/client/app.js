@@ -979,8 +979,6 @@ function resolveMemberId(name) {
  *  범위를 지정하지 않으면 지금 보고 있는 주 7일만 본다. */
 function planDates() {
   const plan = aiState.planOptions || {};
-  const scenePeriods = plan.scenePeriods || {};
-  const periodFor = row => scenePeriods[idOfRow(row)] || scenePeriods[String(row.index)] || '';
   const from = String(plan.dateFrom || '').trim(), to = String(plan.dateTo || '').trim();
   const start = new Date(`${from}T12:00:00`), end = new Date(`${to}T12:00:00`);
   if (!from || !to || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
@@ -1294,6 +1292,8 @@ function buildSceneSchedule(scenes = [], options = {}) {
 
   /* 기획자가 건 조건. 씬 번호(S#3)나 순번 둘 다 받는다. */
   const plan = aiState.planOptions || {};
+  const scenePeriods = plan.scenePeriods || {};
+  const periodFor = row => scenePeriods[idOfRow(row)] || scenePeriods[String(row.index)] || '';
   const idOf = row => sceneIdAt(row.index);
   const keyset = list => new Set((Array.isArray(list) ? list : []).map(String));
   // 강제 묶기: 같은 묶음에 적힌 씬들은 반드시 한 그룹으로 간다.

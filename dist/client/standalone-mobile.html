@@ -559,6 +559,9 @@
         </sc-raw-select>
 
         <sc-if value="{{ aiShowPlan }}" hint-placeholder-val="{{ false }}">
+          <sc-if value="{{ planLoading }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:30px 18px;margin-top:14px;text-align:center;box-shadow:0 14px 28px rgba(122,134,205,.13);color:#66709d;font-size:12.5px;font-weight:800">분석 결과를 불러오는 중…</div>
+          </sc-if>
           <sc-if value="{{ planEmpty }}" hint-placeholder-val="{{ false }}">
             <div style="background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:30px 18px;margin-top:14px;text-align:center;box-shadow:0 14px 28px rgba(122,134,205,.13)">
               <div style="font-size:30px">📋</div>
@@ -652,6 +655,9 @@
                 <button sc-camel-on-click="{{ exportPlanImage }}" style="flex:1;padding:9px;border:0;border-radius:9px;background:#5b6ee0;color:#fff;font-size:11px;font-weight:800;cursor:pointer">이미지 저장</button>
                 <button sc-camel-on-click="{{ copyPlanText }}" style="flex:1;padding:9px;border:1px solid #e5e8f7;border-radius:9px;background:#fff;color:#5a6595;font-size:11px;font-weight:800;cursor:pointer">복사</button>
               </div>
+            <sc-if value="{{ planCalculating }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:20px;border:1px solid #e5e8f7;border-radius:14px;background:#fafbff;text-align:center;color:#66709d;font-size:12px;font-weight:800">선택한 조건으로 재배치 계산 중…</div>
+            </sc-if>
             <sc-for list="{{ planDays }}" as="p" hint-placeholder-count="2">
               <div style="background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:17px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
                 <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
@@ -676,6 +682,10 @@
                         <span style="min-width:0;font-size:11px;font-weight:700;color:#2b3560">{{ s.sceneId }} · {{ s.location }}</span>
                       </div>
                     </sc-for>
+                  </div>
+                  <div style="display:flex;gap:7px;margin-top:12px">
+                    <button sc-camel-on-click="{{ cancelPlanConditions }}" style="flex:1;padding:10px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#7b83a8;font-size:12px;font-weight:800">취소</button>
+                    <button sc-camel-on-click="{{ applyPlanConditions }}" style="flex:1;padding:10px;border:0;border-radius:10px;background:#5b6ee0;color:#fff;font-size:12px;font-weight:800">이 조건으로 재배치</button>
                   </div>
                 </div>
                 <sc-for list="{{ p.sections }}" as="sec" hint-placeholder-count="3">
@@ -1625,18 +1635,25 @@ class Component extends DCLogic {
   /** 그 날 선택한 씬만 촬영 일정으로 확정한다. 뺀 씬은 미배정으로 남는다. */
   /** 이월된 씬만 따로 다시 계산한다. 원래 묶음의 후보는 15씬짜리 4시간 블록이라
       1~2씬만 남은 이월 카드에는 맞지 않는다. 엔진에 그 씬들만 다시 물어본다. */
+  memoPlanDays = (sig, build) => {
+    if (this._planDaysCache?.sig === sig) return this._planDaysCache.value;
+    const value = build();
+    this._planDaysCache = { sig, value };
+    return value;
+  };
   carryGroup = (projectId, ids, tick) => {
-    const sig = `${projectId}|${tick}|${ids.join(',')}`;
-    if (!this._carryCache || this._carryCache.sig !== sig) {
+    const sig = `${projectId}|${this.state.live?.revision || 0}|${tick}|${ids.join(',')}`;
+    this._carryCache ||= new Map();
+    if (!this._carryCache.has(sig)) {
       let group = null;
       try {
         const project = (this.state.live?.projects || []).find(x => x.id === projectId);
         const scenes = (project?.aiAnalysis?.scenes || []).filter(s => ids.includes(s.sceneId));
         if (scenes.length) group = this.engine()?.previewSchedule?.(scenes)?.groups?.[0] || null;
       } catch (error) { group = null; }
-      this._carryCache = { sig, group };
+      this._carryCache.set(sig, group);
     }
-    return this._carryCache.group;
+    return this._carryCache.get(sig);
   };
 
   confirmDay = async (group, slot) => {
@@ -1717,6 +1734,42 @@ class Component extends DCLogic {
     catch (e) { window.alert('조건을 적용하지 못했습니다: ' + e.message); }
     this.readLive();
     this.setState({ planTick: (this.state.planTick || 0) + 1 });
+  };
+  loadAiProject = (id, project = null) => {
+    const analyzed = !!project?.aiAnalysis;
+    this.setState({ aiProjectId: id, aiFile: project?.aiAnalysis?.script?.filename || null,
+      aiPhase: analyzed ? 'done' : 'idle', aiStage: analyzed ? 'results' : 'upload', aiPct: analyzed ? 100 : 0,
+      aiSceneIndex: 0, aiCandidateIndex: 0, autoPlanOpen: false, aiLoadingProject: !!id });
+    requestAnimationFrame(() => setTimeout(() => {
+      try { this.engine()?.selectAnalysisProject?.(id); }
+      catch (e) { this.setState({ aiLoadingProject: false }); window.alert('분석 결과를 불러오지 못했습니다: ' + e.message); return; }
+      const live = this.engine()?.snapshot?.();
+      this.setState({ ...(live ? { live } : {}), aiLoadingProject: false });
+    }, 30));
+  };
+  planOptions = () => {
+    try {
+      const saved = this.engine()?.getPlanOptions?.() || {};
+      return this.state.planCondOpen && this.state.planDraft ? { ...saved, ...this.state.planDraft } : saved;
+    } catch (_) { return this.state.planDraft || {}; }
+  };
+  setPlanDraft = patch => this.setState({ planDraft: { ...(this.state.planDraft || this.planOptions()), ...patch } });
+  togglePlanConditions = () => {
+    if (this.state.planCondOpen) { this.setState({ planCondOpen: false, planDraft: null }); return; }
+    let saved = {};
+    try { saved = { ...(this.engine()?.getPlanOptions?.() || {}) }; } catch (_) {}
+    this.setState({ planCondOpen: true, planDraft: saved });
+  };
+  cancelPlanConditions = () => this.setState({ planCondOpen: false, planDraft: null });
+  applyPlanConditions = () => {
+    const next = this.state.planDraft || {};
+    this.setState({ planCondOpen: false, planDraft: null, planCalculating: true });
+    setTimeout(() => {
+      try { this.engine()?.setPlanOptions?.(next); }
+      catch (e) { this.setState({ planCalculating: false }); window.alert('조건을 적용하지 못했습니다: ' + e.message); return; }
+      this.readLive();
+      this.setState({ planCalculating: false, planTick: (this.state.planTick || 0) + 1 });
+    }, 30);
   };
 
   removePersonalDay = async dayIdx => {
@@ -2084,7 +2137,11 @@ class Component extends DCLogic {
             }
             return [...byDate.values()].map(x => `${this.dowOf(x.when)}은 ${[...new Set(x.ids)].join(', ')}`).join(' · ') || '조건에 맞는 촬영 날짜를 계산 중입니다.';
           })(),
-          planDays: (() => {
+          planCalculating: !!st.planCalculating,
+          planDays: (!st.autoPlanOpen || st.planCondOpen || st.planCalculating || st.aiLoadingProject) ? [] : this.memoPlanDays(JSON.stringify([
+            live?.revision || 0, st.aiProjectId, st.planVariant || 0, st.planTick || 0,
+            st.droppedScenes || {}, st.planPickedSlot || {},
+          ]), () => {
             /* 시간이 겹치는 것 자체는 문제가 아니다. 배우가 다르면 두 팀이 같은 시간에 찍어도 된다.
                같은 사람이 두 촬영에 동시에 들어갈 때만 다른 시간으로 민다. */
             const taken = [];
@@ -2242,7 +2299,7 @@ class Component extends DCLogic {
             }
             return cards;
             });
-          })(),
+          }),
           planAlternatives: Array.from({ length: 5 }, (_, i) => { const gs = this.engine()?.snapshot?.()?.ai?.sceneGroups || []; const ds = [...new Set(gs.map(g => { const c = (g.candidates || [])[Math.min(i, Math.max(0, (g.candidates || []).length - 1))] || g.candidates?.[0]; return c ? this.dowOf(c.date ? new Date(`${c.date}T12:00:00`) : dates[c.day]) : ''; }).filter(Boolean))]; return { label: `${i + 1}안 ${ds.join(' ') || '계산 중'}`, bg: (st.planVariant || 0) === i ? '#5b6ee0' : '#fff', fg: (st.planVariant || 0) === i ? '#fff' : '#5a6595', line: (st.planVariant || 0) === i ? '#5b6ee0' : '#e5e8f7', go: () => this.setState({ planVariant: i }) }; }),
           exportPlanImage: this.exportPlanImage,
           copyPlanText: this.copyPlanText,
@@ -2262,8 +2319,9 @@ class Component extends DCLogic {
               { label: '일정 충돌', value: `${tt.conflicts}건`, tint: tt.conflicts ? '#fff1f3' : '#eaf7ef', fg: tt.conflicts ? '#b03650' : '#237a4f' },
             ];
           })(),
-          planEmpty: groups.length === 0,
-          planReady: groups.length > 0,
+          planLoading: !!st.aiLoadingProject,
+          planEmpty: groups.length === 0 && !st.aiLoadingProject,
+          planReady: groups.length > 0 && !st.aiLoadingProject,
           planEmptyTitle: !st.aiProjectId ? '프로젝트를 선택하세요'
             : !(live?.projects || []).find(x => x.id === st.aiProjectId)?.aiAnalysis ? '아직 분석하지 않은 프로젝트입니다'
             : '묶을 수 있는 씬이 없습니다',
@@ -2295,11 +2353,13 @@ class Component extends DCLogic {
           planCondOpen: !!st.planCondOpen,
           planCondTurn: st.planCondOpen ? '180deg' : '0deg',
           planCondHeadBg: st.planCondOpen ? '#f8faff' : '#fff',
-          togglePlanCond: () => this.setState({ planCondOpen: !st.planCondOpen }),
+          togglePlanCond: this.togglePlanConditions,
+          cancelPlanConditions: this.cancelPlanConditions,
+          applyPlanConditions: this.applyPlanConditions,
           planFrom: plan.dateFrom || '',
           planTo: plan.dateTo || '',
-          changePlanFrom: e => this.setPlan({ dateFrom: e.target.value }),
-          changePlanTo: e => this.setPlan({ dateTo: e.target.value }),
+          changePlanFrom: e => this.setPlanDraft({ dateFrom: e.target.value }),
+          changePlanTo: e => this.setPlanDraft({ dateTo: e.target.value }),
           planRangeText: (plan.dateFrom && plan.dateTo)
             ? `${plan.dateFrom} ~ ${plan.dateTo} · ${this.hhmmOf(Number(plan.dayStart) || 18)}~${this.hhmmOf(Number(plan.dayEnd) || 22.5)}`
             : `보고 있는 주 · ${this.hhmmOf(Number(plan.dayStart) || 18)}~${this.hhmmOf(Number(plan.dayEnd) || 22.5)}`,
@@ -2307,17 +2367,17 @@ class Component extends DCLogic {
             { label: '이번 주', from: '', to: '' },
             { label: '2주', from: shift(0), to: shift(13) },
             { label: '4주', from: shift(0), to: shift(27) },
-          ].map(r => ({ label: r.label, pick: () => this.setPlan({ dateFrom: r.from, dateTo: r.to }) })),
+          ].map(r => ({ label: r.label, pick: () => this.setPlanDraft({ dateFrom: r.from, dateTo: r.to }) })),
           planWeekdays: ['월','화','수','목','금','토','일'].map((label, day) => {
             const on = allowedWeekdays.includes(day);
             return { label, bg: on ? '#5b6ee0' : '#fff', fg: on ? '#fff' : '#7b83a8', line: on ? '#5b6ee0' : '#e5e8f7',
-              toggle: () => this.setPlan({ allowedWeekdays: on ? allowedWeekdays.filter(x => x !== day) : [...allowedWeekdays, day].sort() }) };
+              toggle: () => this.setPlanDraft({ allowedWeekdays: on ? allowedWeekdays.filter(x => x !== day) : [...allowedWeekdays, day].sort() }) };
           }),
           planHourOptions: hours,
           planDayStart: String(Number(plan.dayStart) || 18),
           planDayEnd: String(Number(plan.dayEnd) || 22.5),
-          changeDayStart: e => this.setPlan({ dayStart: Number(e.target.value) }),
-          changeDayEnd: e => this.setPlan({ dayEnd: Number(e.target.value) }),
+          changeDayStart: e => this.setPlanDraft({ dayStart: Number(e.target.value) }),
+          changeDayEnd: e => this.setPlanDraft({ dayEnd: Number(e.target.value) }),
         };
       })(),
       autoPlanOpen: !!st.autoPlanOpen,
@@ -2713,7 +2773,7 @@ class Component extends DCLogic {
       aiFileName: st.aiFile, aiHasFile: !!st.aiFile,
       aiProjectId: st.aiProjectId,
       aiProjects: [{ id: '', name: '프로젝트를 선택하세요' }, ...(live?.projects || [])],
-      changeAiProject:e=>{const id=e.target.value,p=(live?.projects||[]).find(x=>x.id===id);this.engine()?.selectAnalysisProject?.(id);this.setState({aiProjectId:id,aiFile:p?.aiAnalysis?.script?.filename||null,aiPhase:p?.aiAnalysis?'done':'idle',aiStage:p?.aiAnalysis?'results':'upload',aiPct:p?.aiAnalysis?100:0,aiSceneIndex:0,aiCandidateIndex:0});},
+      changeAiProject:e=>{const id=e.target.value,p=(live?.projects||[]).find(x=>x.id===id);this.loadAiProject(id,p);},
       aiRunning: st.aiStage === 'running' || st.aiPhase === 'running', aiDone: st.aiStage === 'results' && (st.aiPhase === 'done' || (live?.ai?.sceneCount || 0) > 0), aiIdle: st.aiStage === 'upload',
       aiResultTitle: live?.ai?.job?.status === 'completed' ? '분석이 완료되었어요!' : st.aiPhase === 'running' ? '분석된 씬부터 확인할 수 있어요.' : '일부 결과만 확인되었습니다. 서버 로그를 확인해 주세요.',
       aiPct: st.aiPct + '%',

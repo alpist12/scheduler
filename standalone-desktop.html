@@ -351,6 +351,9 @@
     <!-- AI 분석 -->
     <sc-if value="{{ isAI }}" hint-placeholder-val="{{ false }}">
       <sc-if value="{{ aiShowPlan }}" hint-placeholder-val="{{ false }}">
+        <sc-if value="{{ planLoading }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:22px;background:#fff;border:1px solid #f0f1fb;border-radius:24px;padding:42px 24px;text-align:center;box-shadow:0 18px 34px rgba(122,134,205,.14);color:#66709d;font-size:14px;font-weight:800">분석 결과를 불러오는 중…</div>
+        </sc-if>
         <sc-if value="{{ planEmpty }}" hint-placeholder-val="{{ false }}">
           <div style="margin-top:22px;background:#fff;border:1px solid #f0f1fb;border-radius:24px;padding:40px 24px;text-align:center;box-shadow:0 18px 34px rgba(122,134,205,.14)">
             <div style="font-size:34px">📋</div>
@@ -414,7 +417,7 @@
             <div data-plan-conditions style="margin:0 0 14px;padding:16px;border:1px solid #dce7ff;border-radius:16px;background:#f8faff">
               <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
                 <div style="font-size:13.5px;font-weight:800;color:#222c52">자동배치 조건</div>
-                <button sc-camel-on-click="{{ planConditionClick }}" style="padding:6px 10px;border:1px solid #e5e8f7;border-radius:9px;background:#fff;color:#7b83a8;font-size:11px;font-weight:700;cursor:pointer">닫기</button>
+                <button sc-camel-on-click="{{ cancelPlanConditions }}" style="padding:6px 10px;border:1px solid #e5e8f7;border-radius:9px;background:#fff;color:#7b83a8;font-size:11px;font-weight:700;cursor:pointer">닫기</button>
               </div>
               <div style="font-size:12px;font-weight:800;color:#5a6595;margin-top:13px">촬영할 요일</div>
               <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-top:8px">
@@ -436,7 +439,14 @@
                 <sc-raw-select value="{{ planDayEnd }}" sc-camel-on-change="{{ changeDayEnd }}" style="flex:1;padding:10px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#3a4373"><sc-for list="{{ planHourOptions }}" as="h"><option value="{{ h.value }}">{{ h.label }}</option></sc-for></sc-raw-select>
               </div>
               <div style="font-size:11px;color:#9098ba;margin-top:8px">선택한 요일 중 개인 일정과 다른 프로젝트 촬영을 피하고, 가능한 가장 빠른 날짜부터 배치합니다.</div>
+              <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+                <button sc-camel-on-click="{{ cancelPlanConditions }}" style="padding:9px 14px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#7b83a8;font-size:12px;font-weight:800;cursor:pointer">취소</button>
+                <button sc-camel-on-click="{{ applyPlanConditions }}" style="padding:9px 16px;border:0;border-radius:10px;background:#5b6ee0;color:#fff;font-size:12px;font-weight:800;cursor:pointer">이 조건으로 재배치</button>
+              </div>
             </div>
+          </sc-if>
+          <sc-if value="{{ planCalculating }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:24px;border:1px solid #e5e8f7;border-radius:16px;background:#fafbff;text-align:center;color:#66709d;font-size:13px;font-weight:800">선택한 조건으로 재배치 계산 중…</div>
           </sc-if>
           <sc-for list="{{ planDays }}" as="p" hint-placeholder-count="2">
             <div style="background:#fff;border:1px solid #f0f1fb;border-radius:24px;padding:22px 24px;box-shadow:0 18px 34px rgba(122,134,205,.14)">
@@ -2099,18 +2109,25 @@ class Component extends DCLogic {
 
   /** 이월된 씬만 따로 다시 계산한다. 원래 묶음의 후보는 15씬짜리 4시간 블록이라
       1~2씬만 남은 이월 카드에는 맞지 않는다. 엔진에 그 씬들만 다시 물어본다. */
+  memoPlanDays = (sig, build) => {
+    if (this._planDaysCache?.sig === sig) return this._planDaysCache.value;
+    const value = build();
+    this._planDaysCache = { sig, value };
+    return value;
+  };
   carryGroup = (projectId, ids, tick) => {
-    const sig = `${projectId}|${tick}|${ids.join(',')}`;
-    if (!this._carryCache || this._carryCache.sig !== sig) {
+    const sig = `${projectId}|${this.state.live?.revision || 0}|${tick}|${ids.join(',')}`;
+    this._carryCache ||= new Map();
+    if (!this._carryCache.has(sig)) {
       let group = null;
       try {
         const project = (this.state.live?.projects || []).find(x => x.id === projectId);
         const scenes = (project?.aiAnalysis?.scenes || []).filter(s => ids.includes(s.sceneId));
         if (scenes.length) group = this.engine()?.previewSchedule?.(scenes)?.groups?.[0] || null;
       } catch (error) { group = null; }
-      this._carryCache = { sig, group };
+      this._carryCache.set(sig, group);
     }
-    return this._carryCache.group;
+    return this._carryCache.get(sig);
   };
 
   /** 묶음 추천을 그대로 촬영 일정으로 등록한다. 연출 의도에 맞게 시간은 사용자가 고른 값을 쓴다. */
@@ -2311,12 +2328,44 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
   /* ---------------- 묶음 조건 ----------------
      엔진이 조건을 들고 있으므로 화면은 조건을 읽고 바꾸기만 한다. */
   planOptions = () => {
-    try { return this.engine()?.getPlanOptions?.() || {}; } catch (e) { return {}; }
+    try {
+      const saved = this.engine()?.getPlanOptions?.() || {};
+      return this.state.advancedOpen && this.state.planDraft ? { ...saved, ...this.state.planDraft } : saved;
+    } catch (e) { return this.state.planDraft || {}; }
+  };
+  setPlanDraft = patch => this.setState({ planDraft: { ...(this.state.planDraft || this.planOptions()), ...patch } });
+  openPlanConditions = () => {
+    let saved = {};
+    try { saved = { ...(this.engine()?.getPlanOptions?.() || {}) }; } catch (_) {}
+    this.setState({ advancedOpen: true, autoPlanOpen: true, planDraft: saved });
+  };
+  cancelPlanConditions = () => this.setState({ advancedOpen: false, planDraft: null });
+  applyPlanConditions = () => {
+    const next = this.state.planDraft || {};
+    this.setState({ advancedOpen: false, planDraft: null, planCalculating: true });
+    setTimeout(() => {
+      try { this.engine()?.setPlanOptions?.(next); }
+      catch (e) { this.setState({ planCalculating: false }); window.alert('조건을 적용하지 못했습니다: ' + e.message); return; }
+      this.readLive();
+      this.setState({ planCalculating: false, planTick: (this.state.planTick || 0) + 1 });
+    }, 30);
   };
   setPlan = patch => {
     try { this.engine()?.setPlanOptions?.(patch); } catch (e) { window.alert('조건을 적용하지 못했습니다: ' + e.message); }
     this.readLive();
     this.setState({ planTick: (this.state.planTick || 0) + 1 });
+  };
+  loadAiProject = (id, project = null, extras = {}) => {
+    const analyzed = !!project?.aiAnalysis;
+    this.setState({ aiProjectId: id, aiFile: project?.aiAnalysis?.script?.filename || null,
+      aiPhase: analyzed ? 'done' : 'idle', aiStage: analyzed ? 'results' : 'upload', aiPct: analyzed ? 100 : 0,
+      aiSceneIndex: 0, aiCandidateIndex: 0, autoPlanOpen: false, aiLoadingProject: !!id, ...extras });
+    requestAnimationFrame(() => setTimeout(() => {
+      try { this.engine()?.selectAnalysisProject?.(id); }
+      catch (e) { this.setState({ aiLoadingProject: false }); window.alert('분석 결과를 불러오지 못했습니다: ' + e.message); return; }
+      const live = this.engine()?.snapshot?.();
+      this.setState({ ...(live ? { live } : {}), aiLoadingProject: false });
+    }, 30));
   };
   togglePlanScene = id => {
     const picked = this.state.planPicked || [];
@@ -3017,7 +3066,11 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
             }
             return [...byDate.values()].map(x => `${this.dowOf(x.when)}은 ${[...new Set(x.ids)].join(', ')}`).join(' · ') || '조건에 맞는 촬영 날짜를 계산 중입니다.';
           })(),
-          planDays: (() => {
+          planCalculating: !!st.planCalculating,
+          planDays: (!st.autoPlanOpen || st.advancedOpen || st.planCalculating || st.aiLoadingProject) ? [] : this.memoPlanDays(JSON.stringify([
+            live?.revision || 0, st.aiProjectId, st.planVariant || 0, st.planTick || 0,
+            st.droppedScenes || {}, st.planPickedSlot || {},
+          ]), () => {
             /* 시간이 겹치는 것 자체는 문제가 아니다. 배우가 다르면 두 팀이 같은 시간에 찍어도 된다.
                같은 사람이 두 촬영에 동시에 들어갈 때만 다른 시간으로 민다. */
             const taken = [];
@@ -3181,7 +3234,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
             }
             return cards;
             });
-          })(),
+          }),
           planAlternatives: Array.from({ length: 5 }, (_, i) => { const gs = this.engine()?.snapshot?.()?.ai?.sceneGroups || []; const ds = [...new Set(gs.map(g => { const c = (g.candidates || [])[Math.min(i, Math.max(0, (g.candidates || []).length - 1))] || g.candidates?.[0]; return c ? this.dowOf(c.date ? new Date(`${c.date}T12:00:00`) : dates[c.day]) : ''; }).filter(Boolean))]; return { label: `${i + 1}안 ${ds.join(' ') || '계산 중'}`, bg: (st.planVariant || 0) === i ? '#5b6ee0' : '#fff', fg: (st.planVariant || 0) === i ? '#fff' : '#5a6595', line: (st.planVariant || 0) === i ? '#5b6ee0' : '#e5e8f7', go: () => this.setState({ planVariant: i }) }; }),
           exportPlanImage: this.exportPlanImage,
           copyPlanText: this.copyPlanText,
@@ -3189,8 +3242,9 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
 
           planProjectName: (live?.projects || []).find(x => x.id === st.aiProjectId)?.name || '선택한 프로젝트',
           // 분석 결과가 없으면 빈 화면 대신 무엇을 해야 하는지 알려 준다.
-          planEmpty: groups.length === 0,
-          planReady: groups.length > 0,
+          planLoading: !!st.aiLoadingProject,
+          planEmpty: groups.length === 0 && !st.aiLoadingProject,
+          planReady: groups.length > 0 && !st.aiLoadingProject,
           planEmptyTitle: !st.aiProjectId ? '프로젝트를 선택하세요'
             : !(live?.projects || []).find(x => x.id === st.aiProjectId)?.aiAnalysis ? '아직 분석하지 않은 프로젝트입니다'
             : '묶을 수 있는 씬이 없습니다',
@@ -3222,7 +3276,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
             return `전체 ${tt.all || 0}씬 확정 · 미배정 0 · 충돌 0 · 총 촬영일 ${days}일`;
           })(),
           goShootTab: () => this.setState({ screen: 'shoot', shootView: 'list' }),
-          openPlanConditions: () => { this.setState({ advancedOpen: true, autoPlanOpen: true }); },
+          openPlanConditions: this.openPlanConditions,
           reoptimizeAll: () => {
             const nl = String.fromCharCode(10);
             if (!window.confirm(`확정한 일정까지 포함해 처음부터 다시 계산합니다.${nl}이미 만든 촬영 일정은 지워지지 않습니다.${nl}${nl}계속할까요?`)) return;
@@ -3252,7 +3306,9 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
           advancedOpen: !!st.advancedOpen,
           advancedLabel: st.advancedOpen ? '▾ 세부 조건 닫기' : '▸ 세부 조건 (묶기 · 기간 · 제외 날짜 · 우선 인원)',
               toggleAdvanced: () => this.setState({ advancedOpen: !st.advancedOpen }),
-              planConditionClick: () => this.setState({ advancedOpen: !st.advancedOpen, autoPlanOpen: true }),
+              planConditionClick: st.advancedOpen ? this.cancelPlanConditions : this.openPlanConditions,
+              cancelPlanConditions: this.cancelPlanConditions,
+              applyPlanConditions: this.applyPlanConditions,
           // 씬을 전부 나열하면 15개까지 이어져 카드 밖으로 나간다. 앞 두 개만 적고 나머지는 개수로.
           ...(() => {
             const plan = this.planOptions();
@@ -3365,8 +3421,8 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
         return {
           planFrom: plan.dateFrom || '',
           planTo: plan.dateTo || '',
-          changePlanFrom: e => this.setPlan({ dateFrom: e.target.value }),
-          changePlanTo: e => this.setPlan({ dateTo: e.target.value }),
+          changePlanFrom: e => this.setPlanDraft({ dateFrom: e.target.value }),
+          changePlanTo: e => this.setPlanDraft({ dateTo: e.target.value }),
           planRangeText: (plan.dateFrom && plan.dateTo)
             ? `${plan.dateFrom} ~ ${plan.dateTo} 안에서 촬영 날짜를 찾습니다.`
             : '비워두면 지금 보고 있는 주 안에서만 찾습니다.',
@@ -3374,24 +3430,24 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
             { label: '이번 주', from: '', to: '' },
             { label: '2주', from: iso(new Date()), to: shift(13) },
             { label: '4주', from: iso(new Date()), to: shift(27) },
-          ].map(r => ({ label: r.label, pick: () => this.setPlan({ dateFrom: r.from, dateTo: r.to }) })),
+          ].map(r => ({ label: r.label, pick: () => this.setPlanDraft({ dateFrom: r.from, dateTo: r.to }) })),
           planWeekdays: ['월','화','수','목','금','토','일'].map((label, day) => {
             const on = allowedWeekdays.includes(day);
             return { label, bg: on ? '#5b6ee0' : '#fff', fg: on ? '#fff' : '#7b83a8', line: on ? '#5b6ee0' : '#e5e8f7',
-              toggle: () => this.setPlan({ allowedWeekdays: on ? allowedWeekdays.filter(x => x !== day) : [...allowedWeekdays, day].sort() }) };
+              toggle: () => this.setPlanDraft({ allowedWeekdays: on ? allowedWeekdays.filter(x => x !== day) : [...allowedWeekdays, day].sort() }) };
           }),
           planHourOptions: hours,
           planDayStart: String(Number(plan.dayStart) || 18),
           planDayEnd: String(Number(plan.dayEnd) || 22.5),
-          changeDayStart: e => this.setPlan({ dayStart: Number(e.target.value) }),
-          changeDayEnd: e => this.setPlan({ dayEnd: Number(e.target.value) }),
+          changeDayStart: e => this.setPlanDraft({ dayStart: Number(e.target.value) }),
+          changeDayEnd: e => this.setPlanDraft({ dayEnd: Number(e.target.value) }),
         };
       })(),
 
       pickAiFile: this.pickAiFile,
       aiProjectId: st.aiProjectId,
       aiProjects: [{ id: '', name: '프로젝트를 선택하세요' }, ...(live?.projects || [])],
-      changeAiProject: e => { const id=e.target.value, p=(live?.projects||[]).find(x=>x.id===id); this.engine()?.selectAnalysisProject?.(id); this.setState({ aiProjectId:id, aiFile:p?.aiAnalysis?.script?.filename||null, aiPhase:p?.aiAnalysis?'done':'idle', aiStage:p?.aiAnalysis?'results':'upload', aiPct:p?.aiAnalysis?100:0, aiSceneIndex:0, aiCandidateIndex:0 }); },
+      changeAiProject: e => { const id=e.target.value, p=(live?.projects||[]).find(x=>x.id===id); this.loadAiProject(id, p); },
       resetAnalysis: this.resetAnalysis,
 
       aiFileName: st.aiFile, aiHasFile: !!st.aiFile, aiNoFile: !st.aiFile,
@@ -3443,7 +3499,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
         const at = a.updatedAt ? a.updatedAt.slice(0, 16).replace('T', ' ') : '';
         const ok = sceneN > 0;
         return { project: p.name || '이름 없는 프로젝트', name: fname, ext, at, badge: ok ? `씬 ${sceneN}개${a.elapsedMs ? ` · ${Math.round(a.elapsedMs / 1000)}초` : ''}${a.missingScenes ? ` · ${a.missingScenes}개 누락` : ''}` : '분석 기록',
-          badgeBg: ok ? '#e9f8ef' : '#eef1ff', badgeFg: ok ? '#2b8a5b' : '#3b82f6', tint: ok ? '#fdeef0' : '#eef1ff', open:()=>{ this.engine()?.selectAnalysisProject?.(p.id); this.setState({aiProjectId:p.id,aiFile:fname,aiPhase:'done',aiStage:'results',aiPct:100,aiSceneIndex:0,aiCandidateIndex:0,aiView:'results'}); } };
+          badgeBg: ok ? '#e9f8ef' : '#eef1ff', badgeFg: ok ? '#2b8a5b' : '#3b82f6', tint: ok ? '#fdeef0' : '#eef1ff', open:()=>this.loadAiProject(p.id, p, { aiView: 'results' }) };
       }),
       aiRecentEmpty: !((live?.projects || []).some(p => p.aiAnalysis)),
       aiOutcomes: [

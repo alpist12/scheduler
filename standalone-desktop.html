@@ -2173,6 +2173,17 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
     this.setPlan({ split: [...(this.planOptions().split || []), picked] });
     this.setState({ planPicked: [] });
   };
+  addRepeatPersonal = async () => {
+    const live = this.state.live || {}, target = (live.members || []).find(m => m.name === this.state.person) || (live.members || [])[0];
+    if (!target) { window.alert('인원을 선택하세요.'); return; }
+    const title = window.prompt('반복 개인 일정 내용', '개인 일정'); if (!title) return;
+    const day = Number(window.prompt('요일 번호 (월=0, 일=6)', '0')); const start = Number(window.prompt('시작 시각 (예: 18)', '18')); const end = Number(window.prompt('종료 시각 (예: 20)', '20')); const weeks = Number(window.prompt('반복 주 수', '8'));
+    if (![day,start,end,weeks].every(Number.isFinite) || day < 0 || day > 6 || end <= start || weeks < 1) return;
+    const engine = this.engine(); if (!engine) return;
+    const base = this.weekDates()[day];
+    for (let i = 0; i < Math.min(52, weeks); i++) { const d = new Date(base); d.setDate(d.getDate() + i * 7); const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; await engine.addPersonalSchedule({ memberName: target.name, date: iso, start, end, status: '불가능', memo: title.trim() }); }
+    this.readLive(); window.alert(`${Math.min(52, weeks)}주 반복 개인 일정을 등록했습니다.`);
+  };
   setPickedPeriod = period => {
     const picked = this.state.planPicked || [];
     if (!picked.length) { window.alert('먼저 씬을 선택하세요.'); return; }
@@ -3548,7 +3559,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
       shootTimeOptions: this.halfHourList(9, 22),
       shootEndTimeOptions: this.halfHourList(9, 23),
       resetForm: () => this.setState({ formTitle: '', formType: '가능', formStart: '09:00', formEnd: '10:00', formDay: 0 }),
-      openRepeat: () => this.addFixedClass(),
+      openRepeat: this.addRepeatPersonal,
       formDays: dates.map((d, i) => ({ i, label: `${d.getMonth() + 1}. ${d.getDate()} (${this.dowOf(d)})` })),
       formDay: st.formDay,
       changeFormDay: e => this.setState({ formDay: Number(e.target.value) }),

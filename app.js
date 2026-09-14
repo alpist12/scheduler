@@ -1314,10 +1314,10 @@ function buildSceneSchedule(scenes = [], options = {}) {
   const pace = { '빡빡하게': 1.35, '보통': 1, '여유롭게': 0.7 }[appSettings.shootPace || '보통'] ?? 1;
   const capacity = Math.max(60, Math.round((Number(appSettings.shootDayHours) || 4) * 60 * pace));
   // 보조 제한. 시간이 남아도 씬 수가 너무 많으면 나눈다.
-  // 스케줄러 기준: 보통 1~2씬, 조건이 좋으면 3~4씬, 한 장소·출연진 집중일도 최대 5씬.
-  // 기존 설정이 비어 있어도 하루에 전 씬을 몰아 넣지 않도록 5씬 상한을 기본 적용한다.
-  const configuredMaxScenes = Number(appSettings.shootMaxScenes) || 5;
-  const maxScenes = Math.min(5, Math.max(1, configuredMaxScenes));
+  // 스케줄러 기준: 보통 1~2씬, 조건이 좋으면 3~4씬.
+  // 기존 설정이 비어 있어도 하루에 전 씬을 몰아 넣지 않도록 4씬 상한을 기본 적용한다.
+  const configuredMaxScenes = Number(appSettings.shootMaxScenes) || 4;
+  const maxScenes = Math.min(4, Math.max(1, configuredMaxScenes));
 
   // 덜어낸 씬이 다시 잡히도록 '아직 안 쓴 씬'을 매번 새로 찾는다.
   let guard = rows.length * 4;

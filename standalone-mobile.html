@@ -2036,7 +2036,7 @@ class Component extends DCLogic {
             return cards;
             });
           })(),
-          planAlternatives: Array.from({ length: 5 }, (_, i) => ({ label: `${i + 1}안`, bg: (st.planVariant || 0) === i ? '#5b6ee0' : '#fff', fg: (st.planVariant || 0) === i ? '#fff' : '#5a6595', line: (st.planVariant || 0) === i ? '#5b6ee0' : '#e5e8f7', go: () => this.setState({ planVariant: i }) })),
+          planAlternatives: Array.from({ length: 5 }, (_, i) => { const gs = this.engine()?.snapshot?.()?.ai?.sceneGroups || []; const ds = [...new Set(gs.map(g => { const c = (g.candidates || [])[Math.min(i, Math.max(0, (g.candidates || []).length - 1))] || g.candidates?.[0]; return c ? this.dowOf(c.date ? new Date(`${c.date}T12:00:00`) : dates[c.day]) : ''; }).filter(Boolean))]; return { label: `${i + 1}안 ${ds.join(' ') || '계산 중'}`, bg: (st.planVariant || 0) === i ? '#5b6ee0' : '#fff', fg: (st.planVariant || 0) === i ? '#fff' : '#5a6595', line: (st.planVariant || 0) === i ? '#5b6ee0' : '#e5e8f7', go: () => this.setState({ planVariant: i }) }; }),
           exportPlanImage: this.exportPlanImage,
           copyPlanText: this.copyPlanText,
           planProjectName: (live?.projects || []).find(x => x.id === st.aiProjectId)?.name || '선택한 프로젝트',

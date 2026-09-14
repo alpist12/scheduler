@@ -48,6 +48,10 @@ const PROJECT_ROLE_DEFS = [
   ['production', '촬영/편집', '카메라·후반 작업'],
   ['cast', '출연', '진행·인터뷰·배우'],
 ];
+// 디자인 화면은 별도 iframe이 담당한다. 숨겨진 데이터 엔진에서는 기존 UI를
+// 한 번 더 만들지 않고, 상태가 바뀌었다는 숫자만 올려 스냅샷을 갱신한다.
+const ENGINE_ONLY = new URLSearchParams(location.search).get('engine') === '1';
+let engineRevision = 0;
 
 /* ------------------------------------------------------------------ state */
 const state = {
@@ -1674,6 +1678,8 @@ const VIEWS = { home: renderMobileHome, week: renderWeek, analysis: renderAnalys
 const MOBILE_VIEWS = { home: renderMobileHome, week: renderMobileWeek, analysis: renderMobileAnalysis, shoot: renderMobileShoot, personal: renderMobilePersonal, ai: renderMobileAI, settings: renderMobileSettings };
 
 function render() {
+  engineRevision += 1;
+  if (ENGINE_ONLY) return;
   const mobile = window.matchMedia('(max-width: 760px)').matches;
   const renderer = mobile ? (MOBILE_VIEWS[state.view] || renderMobileHome) : (VIEWS[state.view] || renderWeek);
   $app().innerHTML = renderSidebar() + renderer() + renderMobileBottomNav() + renderDataWarning();
@@ -2586,22 +2592,12 @@ setTimeout(() => {
 /* ================================================================== DESIGN HANDOFF ENGINE */
 // Same-origin desktop/mobile handoff screens consume this API. Reads and writes
 // continue to use the original Firebase/NVIDIA implementation above.
-/* 스냅샷 캐시: 폴링(약 1초)마다 전체 데이터를 직렬화하면 프레임이 끊긴다.
-   revision 문자열이 그대로면 이전에 만든 객체를 그대로 돌려준다. */
+/* 스냅샷 캐시: 폴링 때는 숫자 비교만 하고, 실제 데이터 변경 때만 다시 만든다. */
 let snapshotCache = null, snapshotRevision = null;
 
 window.HNUBS_ENGINE = {
   snapshot() {
-    const revision = JSON.stringify([
-      base, week, fixedSchedules, projects, shoots, storageWeekKey(),
-      aiState.job, aiState.extracting, aiState.extractedText.length, aiState.health, pendingData.size,
-      aiState.planOptions,   // 묶음 조건이 바뀌면 다시 계산해야 한다
-      aiState.mappings,
-      appSettings, state.aiProjectPicked,
-      state.weekOffset,
-      state.filter instanceof Set ? [...state.filter] : null,
-      state.required instanceof Set ? [...state.required] : null,
-    ]);
+    const revision = engineRevision;
     if (snapshotCache && revision === snapshotRevision) return snapshotCache;
     const memberEntries = Object.entries(members());
     const weekDates = dates();

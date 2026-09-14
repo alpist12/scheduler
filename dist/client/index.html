@@ -131,8 +131,12 @@
         window.HNUBS_MAINT = state;
         if (state.blocked && !passed()) { showGate(state); return; }   // 통과 전에는 앱을 만들지 않는다
       } catch (error) {
-        // 점검 상태를 못 읽었다고 앱을 막지는 않는다. 막는 쪽이 더 큰 피해다.
+        /* 점검 상태를 못 읽으면 열어 주지 않는다. 예전에는 열어 줬고, 그래서
+           점검 API 가 없는 배포(/api/* 404)에서는 아무 확인 없이 전부 들어왔다.
+           부원 일정이 URL 만으로 열리는 것보다 못 들어오는 쪽이 낫다. */
         window.hnubsLog?.('error', `점검 상태 확인 실패 · ${error.message}`);
+        showGate({ message: `점검 상태를 확인하지 못했습니다 · ${error.message}` });
+        return;
       }
       window.hnubsStartApp?.();
     })();
@@ -481,11 +485,19 @@
           actionButton.addEventListener('click',async()=>{
             if(!(snap.shoots||[]).some(s=>s.id===a.id)){bubble('수정할 촬영 일정을 찾지 못했어요.');return;}
             const engine=engineWindow()?.HNUBS_ENGINE, project=(snap.projects||[]).find(p=>p.name===item.projectName);
-            const cast=(item.castNames||[]).map(name=>matchMember(name,snap.members)).filter(Boolean).map(m=>({id:m.id,name:m.name}));
-            const warn=castClashNote(engine,{...item,id:a.id,projectId:project?.id||null,cast});
+            /* 에어가 안 건드린 항목은 넘기지 않는다. 빈 값으로 넘기면 출연진과 프로젝트 연결이
+               말없이 지워진다 ('제목만 바꿔줘' 에 출연 5명이 사라지던 문제). */
+            const named=Array.isArray(item.castNames)?item.castNames:null;
+            const matched=named?named.map(name=>matchMember(name,snap.members)).filter(Boolean):null;
+            const miss=named&&matched.length<named.length?`
+⚠ 못 찾은 이름 ${named.length-matched.length}명은 빠집니다`:'';
+            const patch={...item,id:a.id,
+              ...(item.projectName?{projectId:project?.id||null}:{}),
+              ...(matched?{cast:matched.map(m=>({id:m.id,name:m.name}))}:{})};
+            const warn=castClashNote(engine,patch)+miss;
             if(!await askAirConfirm('촬영 일정을 수정할까요?',`${item.date} ${fmtHour(item.startH)}–${fmtHour(item.endH)}\n${item.title}${item.location?' · '+item.location:''}${warn}`,'수정하기'))return;
             actionButton.disabled=true;actionButton.textContent='수정 중…';
-            try{await engine.saveShoot({...item,id:a.id,projectId:project?.id||null,cast});actionButton.textContent='수정 완료';bubble('촬영 일정을 수정했어요.');}
+            try{await engine.saveShoot(patch);actionButton.textContent='수정 완료';bubble('촬영 일정을 수정했어요.');}
             catch(error){actionButton.disabled=false;actionButton.textContent='다시 수정';bubble(error.message);}
           }); palMessages.append(actionButton);
         }

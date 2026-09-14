@@ -14,7 +14,7 @@ for (const ui of [desktop, mobile]) {
   assert.match(ui, /이 조건으로 재배치/);
   assert.match(ui, /memoPlanDays = \(sig, build\)/);
   assert.match(ui, /this\._carryCache \|\|= new Map\(\)/);
-  assert.match(ui, /planDays: \(!st\.autoPlanOpen \|\| st\.(?:advancedOpen|planCondOpen) \|\| st\.planCalculating \|\| st\.aiLoadingProject\) \? \[\]/);
+  assert.match(ui, /planDaysAll = \(!st\.autoPlanOpen \|\| st\.(?:advancedOpen|planCondOpen) \|\| st\.planCalculating \|\| st\.aiLoadingProject\) \? \[\]/);
   assert.match(ui, /setTimeout\(\(\) => \{/);
   assert.match(ui, /aiLoadingProject/);
 }

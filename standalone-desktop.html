@@ -2144,7 +2144,7 @@ class Component extends DCLogic {
       const when = slot.date ? new Date(`${slot.date}T12:00:00`) : this.weekDates()[slot.day];
       const miss = (slot.blockedNames || []).length ? `${nl}빠지는 인원: ${slot.blockedNames.join(', ')}` : '';
       const leftText = left.length ? `${nl}${nl}미배정으로 남는 씬: ${left.join(', ')}` : '';
-      if (!window.confirm(`${this.fmt(when)} (${this.dowOf(when)}) ${slot.time}시${nl}씬 ${kept.length}개 확정${miss}${leftText}`)) return;
+      if (!window.confirm(`${this.fmt(when)} (${this.dowOf(when)}) ${this.hourLabel(slot.time)}–${this.hourLabel(slot.endTime || slot.time + 1)}${nl}씬 ${kept.length}개 확정${miss}${leftText}`)) return;
       await this.addGroupShoot({ ...group, sceneIds: kept }, slot, true);
       this.readLive();
       window.alert(left.length
@@ -2155,39 +2155,25 @@ class Component extends DCLogic {
   };
 
   /** 추천 계획을 한 번에 촬영 일정으로 만든다. 몇 건 실패했는지 숨기지 않는다. */
-  registerAllDays = async (groups) => {
+  registerAllDays = async () => {
     return this.once('registerAllDays', async () => {
     try {
       const engine = this.engine();
       if (!engine) throw new Error('데이터 연결을 준비 중입니다.');
-      const picked = this.state.planPickedSlot || {};
-      /* 화면과 같은 규칙으로 고른다. 여기서 그냥 첫 후보를 쓰면
-         두 일차가 같은 시간에 잡혀 실제로 못 찍는 일정이 만들어진다. */
-      const taken = [];
-      // 화면과 같은 규칙: 시간이 겹쳐도 사람이 안 겹치면 같은 시간에 둘 다 찍는다.
-      const idsOf = c => new Set((c?.available || []).map(p => p.id));
-      const clashes = c => taken.some(x => x.date === (c.date || '')
-        && c.time < x.end && (c.endTime || c.time + 1) > x.start
-        && [...idsOf(c)].some(id => x.ids.has(id)));
-      const jobs = groups.map(g => {
-        const list = g.candidates || [];
-        const manual = list.find(c => `${c.date || c.day}:${c.time}` === picked[g.key]);
-        const free = (manual && !clashes(manual)) ? manual : list.find(c => !clashes(c)) || null;
-        const slot = free || list[0] || null;
-        if (slot) taken.push({ date: slot.date || '', start: slot.time, end: slot.endTime || slot.time + 1, ids: idsOf(slot) });
-        // 같은 사람이 겹치는데도 억지로 잡은 날은 조용히 넘기지 않는다. 확인 창에 표시한다.
-        return { group: g, slot, forced: !free };
-      }).filter(x => x.slot);
+      /* 후보를 여기서 다시 고르지 않는다. 예전에는 화면과 '같은 규칙'을 손으로 옮겨 적었고,
+         1안~5안 선택도 이월 카드도 반영되지 않아 눈에 보이는 것과 다른 일정이 등록됐다.
+         화면이 이미 카드마다 등록할 묶음과 시간을 정해 뒀으니 그대로 쓴다. */
+      const jobs = (this.lastPlanDays || []).filter(card => card.job)
+        .map(card => ({ group: card.job.group, slot: card.job.slot, forced: card.forced, nth: card.nth, when: card.when }));
       if (!jobs.length) throw new Error('등록할 수 있는 시간이 없습니다. 기간을 넓혀 보세요.');
       const nl = String.fromCharCode(10);
       const dropped = this.state.droppedScenes || {};
       const keptOf = g => g.sceneIds.filter(id => !dropped[`${g.key}|${id}`]);
       const left = jobs.flatMap(({ group }) => group.sceneIds.filter(id => dropped[`${group.key}|${id}`]));
-      const lines = jobs.map(({ group, slot, forced }, i) => {
-        const when = slot.date ? new Date(`${slot.date}T12:00:00`) : this.weekDates()[slot.day];
+      const lines = jobs.map(({ group, slot, forced, nth, when }) => {
         const miss = (slot.blockedNames || []).length ? ` (${slot.blockedNames.join(', ')} 빠짐)` : '';
         const bump = forced ? ' \u26a0 \uac19\uc740 \ucd9c\uc5f0\uc790 \uc2dc\uac04 \uacb9\uce68' : '';
-        return `${i + 1}\uc77c\ucc28 ${this.fmt(when)} ${slot.time}\uc2dc \u00b7 \uc528 ${keptOf(group).length}\uac1c${miss}${bump}`;
+        return `${nth} ${when} \u00b7 \uc528 ${keptOf(group).length}\uac1c${miss}${bump}`;
       }).join(nl);
       const leftText = left.length ? `${nl}${nl}제외한 씬(미정으로 남습니다): ${left.join(', ')}` : '';
       if (!window.confirm(`촬영 일정 ${jobs.length}건을 만들까요?${nl}${nl}${lines}${leftText}`)) return;
@@ -2219,7 +2205,10 @@ class Component extends DCLogic {
       const date = new Date(`${isoStr}T12:00:00`);
       // 후보가 끝 시각을 들고 있으면 그걸 쓴다. 분량으로 되계산하면 후보와 어긋난다.
       const hours = Math.max(1, Math.ceil((group.estimatedMinutes || 60) / 60));
-      const endH = Math.min(24, slot.endTime || slot.time + hours);
+      /* 촬영 목록·달력은 정시 단위로 찍는다(`startH:00`). 21.5 나 22.25 를 그대로 저장하면
+         '21.5:00' 으로 깨지므로, 실제 촬영 구간을 감싸는 정시로 넓혀 저장한다. */
+      const startH = Math.floor(slot.time);
+      const endH = Math.min(24, Math.max(startH + 1, Math.ceil(slot.endTime || slot.time + hours)));
       // 촬영명이 너무 길면 목록·달력에서 다 깨진다. 앞 두 씬만 남기고 나머지는 개수로.
       const title = group.sceneIds.length > 3
         ? `${group.sceneIds.slice(0, 2).join(' + ')} 외 ${group.sceneIds.length - 2}씬`
@@ -2227,13 +2216,13 @@ class Component extends DCLogic {
       // 한 명이 안 된다고 등록 자체를 막으면 영영 못 잡는다. 누가 빠지는지 알리고 결정은 맡긴다.
       const blocked = (slot.blockedNames || []).length ? `${String.fromCharCode(10)}빠지는 인원: ${slot.blockedNames.join(', ')}` : '';
       if (!quiet && !window.confirm(`${title}
-${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
+${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.hourLabel(endH)}
 출연 ${slot.available.length}/${slot.total}명${blocked}
 
 촬영 일정으로 등록할까요?`)) return;
-      if (!this.confirmCastClash({ date: isoStr, startH: slot.time, endH, castIds, projectId: this.state.aiProjectId || '' })) return;
+      if (!this.confirmCastClash({ date: isoStr, startH, endH, castIds, projectId: this.state.aiProjectId || '' })) return;
       await engine.saveShoot({
-        date: isoStr, title, startH: slot.time, endH,
+        date: isoStr, title, startH, endH,
         projectId: this.state.aiProjectId || '',
         cast: slot.available.map(p => ({ id: p.id, name: p.name })),
         // 어떤 씬을 확정했는지 남긴다. 이게 있어야 재분석에서 확정 씬을 빼고 계산한다.
@@ -2737,12 +2726,15 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
   }
   /** 시간 표시 형식 설정에 따라 'HH:00' 또는 'H AM/PM' 으로 만든다. */
   hourLabel(h) {
-    const n = Math.floor(h);
+    /* 씬 분량이 30분 배수가 아니면 끝 시각이 22.25 처럼 나온다. 분을 그대로 쓴다.
+       30분으로 반올림해 버리면 21:00–22:15 촬영이 21:00–22:30 으로 표시된다. */
+    const total = Math.round(Number(h) * 60) || 0;
+    const n = Math.floor(total / 60), m = total % 60, mm = String(m).padStart(2, '0');
     if (this.setting('timeFormat', '24시간 (예: 14:00)').startsWith('12')) {
       const ampm = n < 12 ? 'AM' : 'PM'; const t = n % 12 || 12;
-      return h % 1 ? `${t}:30 ${ampm}` : `${t} ${ampm}`;
+      return m ? `${t}:${mm} ${ampm}` : `${t} ${ampm}`;
     }
-    return String(n).padStart(2, '0') + (h % 1 ? ':30' : ':00');
+    return `${String(n).padStart(2, '0')}:${mm}`;
   }
   /** 표시 순서와 무관하게 날짜 자체의 요일을 돌려준다. */
   dowOf(d) { return DOW[(d.getDay() + 6) % 7]; }
@@ -3044,30 +3036,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
       aiPct: st.aiPct + '%',
       ...(() => {
         const groups = st.aiProjectId ? (live?.ai?.sceneGroups || []) : [];
-        return {
-          hasSceneGroups: groups.length > 0,
-
-          /* 묶음마다 고르게 하지 않는다. 며칠에 나눠 언제 찍을지 한눈에 보이고
-             버튼 하나로 전부 등록한다. 세부 조건은 접어 둔다. */
-          planSummary: (() => {
-            const scenes = groups.reduce((n, g) => n + g.sceneIds.length, 0);
-            const mins = groups.reduce((n, g) => n + (g.estimatedMinutes || 0), 0);
-            return `${groups.length}일에 나눠 찍으면 됩니다 · 총 ${scenes}씬 · ${Math.floor(mins / 60)}시간 ${mins % 60}분`;
-          })(),
-          planDaySummary: (() => {
-            const byDate = new Map();
-            for (const g of groups) {
-              const c = g.candidates?.find(x => x.full) || g.candidates?.[0];
-              if (!c) continue;
-              const key = c.date || String(c.day);
-              const when = c.date ? new Date(`${c.date}T12:00:00`) : dates[c.day];
-              if (!byDate.has(key)) byDate.set(key, { when, ids: [] });
-              byDate.get(key).ids.push(...g.sceneIds);
-            }
-            return [...byDate.values()].map(x => `${this.dowOf(x.when)}은 ${[...new Set(x.ids)].join(', ')}`).join(' · ') || '조건에 맞는 촬영 날짜를 계산 중입니다.';
-          })(),
-          planCalculating: !!st.planCalculating,
-          planDays: (!st.autoPlanOpen || st.advancedOpen || st.planCalculating || st.aiLoadingProject) ? [] : this.memoPlanDays(JSON.stringify([
+        const planDaysAll = (!st.autoPlanOpen || st.advancedOpen || st.planCalculating || st.aiLoadingProject) ? [] : this.memoPlanDays(JSON.stringify([
             live?.revision || 0, st.aiProjectId, st.planVariant || 0, st.planTick || 0,
             st.droppedScenes || {}, st.planPickedSlot || {},
           ]), () => {
@@ -3080,8 +3049,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
               && [...idsOf(c)].some(id => x.ids.has(id)));
             const hold = c => taken.push({ date: c.date || '', start: c.time, end: c.endTime || c.time + 1, ids: idsOf(c) });
             const dropped = st.droppedScenes || {};
-            let nth = 0;
-            return groups.flatMap((g) => {
+            const out = groups.flatMap((g) => {
             const opts = (g.candidates || []).map(c => {
               const when = c.date ? new Date(`${c.date}T12:00:00`) : dates[c.day];
               return {
@@ -3096,6 +3064,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
               const list = useOpts || opts;
               const c = chosenOpt?.slot;
               const forced = !!chosenOpt?.forced;
+              const clash = !!chosenOpt?.clash;
               const when = c ? (c.date ? new Date(`${c.date}T12:00:00`) : dates[c.day]) : null;
               const full = c ? c.available.length >= c.total && !forced : false;
               const bd = c?.breakdown || { core: [], optional: [], blocked: [] };
@@ -3112,9 +3081,17 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
                   return { n: index + 1, sceneId: scene.sceneId, location: scene.location || '장소 미정',
                     time: c ? `${this.hourLabel(start / 60)}–${this.hourLabel(sequenceCursor / 60)}` : '시간 미정' };
                 });
-              nth += 1;
+              /* 일차 번호는 여기서 매기지 않는다. 카드가 묶음 순서로 나오기 때문에
+                 전부 모아 날짜 순으로 세운 뒤에 매긴다. (아래 정렬 블록) */
+              const dayKey = when ? when.toISOString().slice(0, 10) : '';
+              /* 카드 하나가 곧 등록 한 건이다. '전부 등록' 도 이걸 그대로 쓴다.
+                 거기서 후보를 다시 고르면 화면에 보이는 날짜와 다른 일정이 등록된다. */
+              const job = c ? { group: { ...g, key: keyPrefix, estimatedMinutes: mins,
+                sceneIds: ids.filter(id => !blockedHere.has(id)) }, slot: c } : null;
               return {
-                nth: carry ? `${nth}일차 (이월)` : `${nth}일차`,
+                nth: '',
+                dayKey, carryCard: carry,
+                sortKey: when ? `${dayKey}T${String(c.time).padStart(5, '0')}` : '',
                 when: when ? `${this.fmt(when)} (${this.dowOf(when)}) ${hourLabel(c.time)}–${hourLabel(c.endTime || c.time + 1)}` : '가능한 시간 없음',
                 who: c ? `${c.available.length}/${c.total}명` : '-',
                 tint: (!c || forced) ? '#fff1f3' : full ? '#eaf7ef' : '#fff6e6',
@@ -3159,7 +3136,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
                 reasonLines: (() => {
                   const out = [];
                   if (carry) out.push(`앞 일차에서 빠진 ${ids.length}씬을 다음 가능한 날짜로 자동 이월했습니다`);
-                  if (forced) out.push('\u26a0 \uac19\uc740 \ucd9c\uc5f0\uc790\uac00 \uc55e \uc77c\ucc28\uc640 \uac19\uc740 \uc2dc\uac04\uc5d0 \uc7a1\ud600 \uc788\uc2b5\ub2c8\ub2e4. \ub2e4\ub978 \ub0a0\uc9dc\ub97c \uace8\ub77c \uc8fc\uc138\uc694 (\uc7ac\uc870\uc815 \ud544\uc694)');
+                  if (forced) out.push(clash ? '\u26a0 \uac19\uc740 \ucd9c\uc5f0\uc790\uac00 \uc55e \uc77c\ucc28\uc640 \uac19\uc740 \uc2dc\uac04\uc5d0 \uc7a1\ud600 \uc788\uc2b5\ub2c8\ub2e4. \ub2e4\ub978 \ub0a0\uc9dc\ub97c \uace8\ub77c \uc8fc\uc138\uc694 (\uc7ac\uc870\uc815 \ud544\uc694)' : '\u26a0 \uc778\uc6d0\uc774 \ub2e4 \ub418\ub294 \ub0a0\uc774 \uc5c6\uc5b4 \uacb9\ucce0\uc9c0 \uc54a\ub294 \ub2e4\ub978 \ub0a0\ub85c \ubc00\uc5c8\uc2b5\ub2c8\ub2e4. \ud655\uc778\ud574 \uc8fc\uc138\uc694');
                   // 엔진이 이미 이름으로 내려준다. 화면에는 base 가 없다.
                   for (const nm of (g.sharedNames || []).slice(0, 2)) {
                     out.push(`${nm} \u2192 ${ids.slice(0, 4).join(', ')}${ids.length > 4 ? ' 외' : ''} 공통 출연`);
@@ -3173,7 +3150,8 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
                 confirmLabel: '선택한 씬 일정 확정',
                 // 그 날 못 찍는 씬까지 확정하면 안 된다. 충돌 씬은 빼고 넘긴다.
                 // 이월 카드는 묶음 일부다. 원래 묶음의 226분을 그대로 쓰면 1씬짜리가 4시간으로 등록된다.
-                confirm: () => this.confirmDay({ ...g, key: keyPrefix, estimatedMinutes: mins, sceneIds: ids.filter(id => !blockedHere.has(id)) }, c),
+                job,
+                confirm: () => this.confirmDay(job?.group, job?.slot),
                 reason: carry ? '앞 일차에서 제외했거나 출연이 안 되던 씬들입니다.' : (g.reason || '출연자가 겹치는 씬끼리 묶었습니다.'),
                 // 필요하면 특정 씬만 빼고 등록할 수 있다. 뺀 씬은 다음 날로 이월된다.
                 keepCount: `${ids.filter(id => !dropped[keyOf(id)] && !blockedHere.has(id)).length}/${ids.length}개`,
@@ -3202,9 +3180,15 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
               const ok = o => o.key !== skipKey && !clashes(o.slot) && fit(o.slot);
               const available = opts.filter(ok);
               const free = (manual && ok(manual)) ? manual : available[Math.min(variant, Math.max(0, available.length - 1))] || null;
-              const chosen = free || (skipKey ? null : opts[0] || null);
+              /* 전부 겹치면 첫 후보로 떨어지지 않는다. 그러면 같은 날 같은 시간에
+                 같은 사람이 두 촬영에 들어가는 일정표가 조용히 만들어진다.
+                 아직 아무도 안 쓴 날짜를 먼저 고르고, 그것도 없을 때만 첫 후보다. */
+              const usedDates = new Set(taken.map(x => x.date));
+              const chosen = free || (skipKey ? null
+                : opts.find(o => !usedDates.has(o.slot.date || '')) || opts[0] || null);
+              const clash = !!chosen && !free && clashes(chosen.slot);
               if (chosen) hold(chosen.slot);
-              return chosen ? { ...chosen, forced: !free } : null;
+              return chosen ? { ...chosen, forced: !free, clash } : null;
             };
 
             const first = pick(g.key, () => true, '');
@@ -3228,17 +3212,55 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
               const manual = carryOpts.find(o => o.key === (st.planPickedSlot || {})[carryKey]);
               const ok = o => !clashes(o.slot) && fit(o.slot);
               const free = (manual && ok(manual)) ? manual : carryOpts.find(ok) || null;
-              const use = free || carryOpts.find(o => o.key !== (first?.key || '')) || null;
+              const usedDates = new Set(taken.map(x => x.date));
+              const use = free || carryOpts.find(o => !usedDates.has(o.slot.date || ''))
+                || carryOpts.find(o => o.key !== (first?.key || '')) || null;
+              const clash = !!use && !free && clashes(use.slot);
               if (use) hold(use.slot);
-              cards.push(mk(use ? { ...use, forced: !free } : null, leftIds, carryKey, true, carryOpts));
+              cards.push(mk(use ? { ...use, forced: !free, clash } : null, leftIds, carryKey, true, carryOpts));
             }
             return cards;
             });
-          }),
+            /* 카드는 묶음 순서대로 나온다. 날짜가 뒤섞인 채로 1일차·2일차를 매기면
+               3일차가 2일차보다 앞 날짜가 된다. 날짜 순으로 세운 뒤에 매긴다. */
+            out.sort((a, b) => (a.sortKey || '\uffff').localeCompare(b.sortKey || '\uffff'));
+            const dayNo = new Map();
+            for (const card of out) {
+              const k = card.dayKey || `x${dayNo.size}`;
+              if (!dayNo.has(k)) dayNo.set(k, dayNo.size + 1);
+              card.nth = card.carryCard ? `${dayNo.get(k)}일차 (이월)` : `${dayNo.get(k)}일차`;
+            }
+            return out;
+        });
+        // '전부 등록' 이 화면과 같은 카드를 쓰도록 남겨 둔다.
+        this.lastPlanDays = planDaysAll;
+        return {
+          hasSceneGroups: groups.length > 0,
+
+          /* 묶음마다 고르게 하지 않는다. 며칠에 나눠 언제 찍을지 한눈에 보이고
+             버튼 하나로 전부 등록한다. 세부 조건은 접어 둔다. */
+          planSummary: (() => {
+            const scenes = groups.reduce((n, g) => n + g.sceneIds.length, 0);
+            const mins = groups.reduce((n, g) => n + (g.estimatedMinutes || 0), 0);
+            return `${new Set(planDaysAll.map(d => d.dayKey).filter(Boolean)).size || groups.length}일에 나눠 찍으면 됩니다 · 총 ${scenes}씬 · ${Math.floor(mins / 60)}시간 ${mins % 60}분`;
+          })(),
+          planDaySummary: (() => {
+            /* 요약을 따로 계산하면 카드에 보이는 날짜와 다른 날짜가 요약에 뜬다. 카드에서 그대로 만든다. */
+            const byDay = new Map();
+            for (const d of planDaysAll) {
+              if (!d.dayKey) continue;
+              if (!byDay.has(d.dayKey)) byDay.set(d.dayKey, []);
+              byDay.get(d.dayKey).push(...(d.sequence || []).map(s => s.sceneId));
+            }
+            return [...byDay].map(([k, ids]) => `${this.dowOf(new Date(`${k}T12:00:00`))}은 ${[...new Set(ids)].join(', ')}`)
+              .join(' · ') || '조건에 맞는 촬영 날짜를 계산 중입니다.';
+          })(),
+          planCalculating: !!st.planCalculating,
+          planDays: (!st.autoPlanOpen || st.advancedOpen || st.planCalculating || st.aiLoadingProject) ? [] : planDaysAll,
           planAlternatives: Array.from({ length: 5 }, (_, i) => { const gs = this.engine()?.snapshot?.()?.ai?.sceneGroups || []; const ds = [...new Set(gs.map(g => { const c = (g.candidates || [])[Math.min(i, Math.max(0, (g.candidates || []).length - 1))] || g.candidates?.[0]; return c ? this.dowOf(c.date ? new Date(`${c.date}T12:00:00`) : dates[c.day]) : ''; }).filter(Boolean))]; return { label: `${i + 1}안 ${ds.join(' ') || '계산 중'}`, bg: (st.planVariant || 0) === i ? '#5b6ee0' : '#fff', fg: (st.planVariant || 0) === i ? '#fff' : '#5a6595', line: (st.planVariant || 0) === i ? '#5b6ee0' : '#e5e8f7', go: () => this.setState({ planVariant: i }) }; }),
           exportPlanImage: this.exportPlanImage,
           copyPlanText: this.copyPlanText,
-          registerAllDays: () => this.registerAllDays(groups),
+          registerAllDays: () => this.registerAllDays(),
 
           planProjectName: (live?.projects || []).find(x => x.id === st.aiProjectId)?.name || '선택한 프로젝트',
           // 분석 결과가 없으면 빈 화면 대신 무엇을 해야 하는지 알려 준다.

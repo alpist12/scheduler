@@ -2506,8 +2506,15 @@ const subRowsOf = snap => snap.docs.map(d => ({
 }));
 
 // 촬영은 castIds(고정 ID)만 저장한다. 이름은 인원 목록에서 그때그때 붙인다.
+/* 촬영 화면·주간 달력은 정시 칸으로만 그린다(TIMES = 9..22, `+s.startH === time`).
+   21.5 같은 값이 한 번이라도 저장되면 그 촬영은 달력에서 조용히 사라진다.
+   읽을 때 한 번 격자에 맞춰 두면 예전에 그렇게 저장된 것까지 다시 보인다. */
+const gridHours = data => {
+  const startH = Math.floor(Number(data.startH) || 0);
+  return { startH, endH: Math.max(startH + 1, Math.ceil(Number(data.endH) || 0)) };
+};
 const hydrateShoot = (id, data) => ({
-  ...data, id,
+  ...data, id, ...gridHours(data),
   cast: (Array.isArray(data.castIds) ? data.castIds : (Array.isArray(data.cast) ? data.cast : []))
     .map(value => { const mid = typeof value === 'string' ? value : value?.id;
       return mid && base[mid] ? { id: mid, name: base[mid].name } : value?.name ? value : null; }).filter(Boolean),
@@ -2630,7 +2637,10 @@ window.HNUBS_ENGINE = {
           || String(x.name).localeCompare(String(y.name), 'ko');
       });
     const currentAiJob = aiCurrentJob();
-    const currentScenes = currentAiJob?.scenes || [];
+    /* AI 는 모르는 값을 UNKNOWN 으로 채운다. 장소까지 그렇게 오면 카드에 'S#15 · UNKNOWN' 이 뜬다.
+       스냅샷 입구에서 한 번 비워 두면 화면마다 있는 '장소 미정' 폴백이 그대로 동작한다. */
+    const currentScenes = (currentAiJob?.scenes || []).map(scene =>
+      /^(unknown|n\/a)$/i.test(String(scene.location || '').trim()) ? { ...scene, location: '' } : scene);
     const currentCandidates = currentAiJob ? aiCandidates(currentScenes) : { ids: new Set(), items: [] };
     const sceneSchedule = currentAiJob
       ? buildSceneSchedule(currentScenes, { includeConfirmed: !!aiState.planOptions?.includeConfirmed })
@@ -2736,10 +2746,13 @@ window.HNUBS_ENGINE = {
   },
   async saveShoot(record = {}) {
     const id = record.id || crypto.randomUUID();
-    if (!record.title || !(+record.endH > +record.startH)) throw new Error('촬영명과 시간을 확인해 주세요.');
     // 기존 기록 위에 덮어쓴다. 이렇게 하지 않으면 화면이 모르는 필드(scenes 등)가 사라진다.
     const previous = record.id ? (shoots[record.id] || {}) : {};
     const pick = (key, fallback) => (record[key] === undefined ? (previous[key] ?? fallback) : record[key]);
+    /* 날짜·촬영명·시간도 안 넘어오면 기존 값을 쓴다. 예전에는 record 를 그대로 썼고,
+       에어가 '제목만' 바꾸면 끝 시각이 비어 촬영이 1시간으로 줄어들었다. */
+    const rawStart = Number(pick('startH', NaN)), rawEnd = Number(pick('endH', NaN));
+    if (!pick('title', '') || !(rawEnd > rawStart)) throw new Error('촬영명과 시간을 확인해 주세요.');
     const projectId = pick('projectId', null) || null;
     /* 스태프를 cast 에 섞지 않는다. 섞으면 촬영 카드마다 기획·촬영 담당이
        출연진으로 나온다. 일정 충돌 계산은 shootMemberIds 가 프로젝트 역할에서
@@ -2749,7 +2762,7 @@ window.HNUBS_ENGINE = {
       .map(person => ({ id: person.id, name: base[person.id]?.name || person.name || '' }));
     await saveDoc(`shoots/${id}`, {
       ...previous,
-      date: record.date, title: record.title, startH: +record.startH, endH: +record.endH,
+      date: pick('date', ''), title: pick('title', ''), ...gridHours({ startH: rawStart, endH: rawEnd }),
       location: pick('location', ''), note: pick('note', ''), cast, castIds: cast.map(person => person.id),
       // 어떤 씬을 확정했는지. 이게 있어야 재분석에서 확정 씬을 뺀다.
       sceneIds: pick('sceneIds', []),

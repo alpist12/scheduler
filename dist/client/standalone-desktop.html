@@ -3036,7 +3036,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
             return `전체 ${tt.all || 0}씬 확정 · 미배정 0 · 충돌 0 · 총 촬영일 ${days}일`;
           })(),
           goShootTab: () => this.setState({ screen: 'shoot', shootView: 'list' }),
-          openPlanConditions: () => { this.setState({ advancedOpen: true }); },
+          openPlanConditions: () => { this.setState({ advancedOpen: true, autoPlanOpen: true }); },
           reoptimizeAll: () => {
             const nl = String.fromCharCode(10);
             if (!window.confirm(`확정한 일정까지 포함해 처음부터 다시 계산합니다.${nl}이미 만든 촬영 일정은 지워지지 않습니다.${nl}${nl}계속할까요?`)) return;

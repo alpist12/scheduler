@@ -1353,10 +1353,12 @@ function buildSceneSchedule(scenes = [], options = {}) {
           /* 겹치는 사람은 이득, 새로 부르는 사람은 손해. 호출 인원이 늘기만 하는 씬은 넣지 않는다.
              1인 씬은 먼저 챙긴다. 뒤로 밀면 하루 분량이 차서 혼자 하루를 쓰게 된다. */
           const samePlace = selected.reduce((n, picked) => n + locationAffinity(row.scene, picked.scene), 0);
-          return { row, overlap, score: overlap * 2 + samePlace * 3 - added + (row.cast.size === 1 ? 3 : 0) };
+          // 하루 1~2씬을 기본으로 보고, 같은 장소·출연진이 이어질 때만 3~5씬까지 확장한다.
+          const practical = selected.length < 2 || (overlap > 0 && samePlace > 0);
+          return { row, overlap, samePlace, practical, score: overlap * 2 + samePlace * 3 - added + (row.cast.size === 1 ? 3 : 0) };
         })
         // 1인 씬은 그 사람이 이미 오는 날이면 무조건 끼워 넣는다. 혼자 하루를 잡을 이유가 없다.
-        .filter(item => item.overlap > 0 && (item.score > 0 || item.row.cast.size === 1))
+        .filter(item => item.practical && item.overlap > 0 && (item.score > 0 || item.row.cast.size === 1))
         .sort((a, b) => b.score - a.score || b.overlap - a.overlap || a.row.index - b.row.index)[0]?.row;
       if (!next) break;
       take(next);

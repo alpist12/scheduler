@@ -215,7 +215,10 @@ scenes.characters에는 배우 이름이 아니라 대본의 역할명을 유지
 반환 전 제공된 씬 목록과 결과를 순서대로 대조하여 누락이 없는지 확인하세요. 장황한 요약보다 모든 씬 보존이 우선입니다.
 location 은 씬 제목 줄에 적힌 장소를 그대로 씁니다.
 실내/실외와 낮/밤은 씬 제목이나 지문에 단서가 있을 때만 채우고, 없으면 UNKNOWN 으로 둡니다.
-추측하지 말고 모르는 값은 빈 문자열, 빈 배열, UNKNOWN 또는 0으로 두세요.`;
+estimatedMinutes 는 영상 러닝타임이 아니라 실제 현장 촬영 예상시간입니다.
+대사량, 출연 인원, 동선·액션, 장소 전환, 소품·분장·조명 세팅과 반복 테이크를 함께 고려해 5분 단위의 10~240분 정수로 추정하세요.
+정보가 부족한 짧은 씬도 0으로 두지 말고 30분을 기본값으로 사용하세요.
+위 estimatedMinutes 규칙을 제외한 값을 추측하지 말고, 모르는 값은 빈 문자열, 빈 배열, UNKNOWN 또는 0으로 두세요.`;
 
 /** 프로젝트에 지정된 역할 인원을 프롬프트에 덧붙인다.
  *  기획·촬영은 모든 씬에 반드시 배정되어야 하므로 그 규칙도 함께 알린다. */
@@ -346,6 +349,10 @@ export function normalizeCast(job) {
   };
   for (const item of job.items || []) {
     for (const scene of item.scenes || []) {
+      const minutes = Math.round(Number(scene.estimatedMinutes));
+      scene.estimatedMinutes = Number.isFinite(minutes) && minutes > 0
+        ? Math.min(240, Math.max(10, Math.round(minutes / 5) * 5))
+        : 30;
       for (const key of ['characters','speakingCharacters','backgroundCharacters']) {
         if (source.length && Array.isArray(scene[key])) scene[key] = [...new Set(scene[key].map(canonical))];
       }

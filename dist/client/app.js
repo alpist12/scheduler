@@ -1016,7 +1016,13 @@ function copilotForDate(iso) {
   const alreadyHere = new Set();
   for (const s of dayShoots) if (s.projectId === pid) for (const x of s.ids) alreadyHere.add(x);
   // 이미 촬영으로 확정된 씬은 다시 권하지 않는다
-  const done = new Set(dayShoots.flatMap(s => (Array.isArray(s.sceneIds) ? s.sceneIds : []).map(String)));
+  const sceneNo = v => (String(v || '').match(/S\s*#\s*(\d+)/i) || [])[1] || '';
+  const booked = Object.values(shoots).filter(s => s && s.projectId === pid);
+  const doneIds = new Set(booked.flatMap(s => (Array.isArray(s.sceneIds) ? s.sceneIds : []).map(String)));
+  const doneNos = new Set(booked.map(s => sceneNo(s.title)).filter(Boolean));
+  /* 씬 번호가 같은 씬이 둘이면(S#13 원형광장 / S#13 원형광장 (2)) 하나만 찍어도
+     둘 다 가려진다. sceneIds 가 채워지기 전까지는 제목이 유일한 단서다. */
+  const done = id => doneIds.has(id) || doneNos.has(sceneNo(id));
   const placeToday = dayShoots.filter(s => s.projectId === pid && String(s.location || '').trim());
 
 
@@ -1026,16 +1032,34 @@ function copilotForDate(iso) {
   const who = id => members()[id];
   const freeIn = (member, a, b) => rangesOn(member, iso).some(r => +r.start <= a && +r.end >= b);
 
-  const out = [];
+  /* 대본에 같은 씬이 여러 줄로 나뉘어 들어오는 일이 있다(S#13 원형광장 ×2).
+     따로 추천하면 같은 씬을 두 번 찍으라는 말이 된다. 하나로 합친다. */
+  const merged = [];
+  const seen = new Map();
   for (const [index, scene] of scenes.entries()) {
-    const id = String(scene.sceneId || `S#${index + 1}`);
+    const key = String(scene.sceneId || `S#${index + 1}`);
+    const prior = seen.get(key);
+    if (!prior) { seen.set(key, { key, scene, minutes: sceneMinutes(scene), parts: 1 }); merged.push(seen.get(key)); continue; }
+    prior.minutes += sceneMinutes(scene);
+    prior.parts += 1;
+    // 나뉜 줄마다 나오는 사람이 다를 수 있다. 전부 있어야 한 번에 찍는다.
+    prior.scene = { ...prior.scene,
+      speakingCharacters: [...new Set([...(prior.scene.speakingCharacters || []), ...(scene.speakingCharacters || [])])],
+      characters: [...new Set([...(prior.scene.characters || []), ...(scene.characters || [])])],
+      location: prior.scene.location || scene.location || '' };
+  }
+
+  const out = [];
+  for (const row of merged) {
+    const scene = row.scene;
+    const id = row.key;
     const castIds = [...new Set(sceneRequiredCharacters(scene).map(resolveMemberId).filter(x => base[x]))];
     const need = [...new Set([...castIds, ...crewIds])];
-    const hours = Math.max(.5, sceneMinutes(scene) / 60);
+    const hours = Math.max(.5, row.minutes / 60);
     const location = String(scene.location || '').trim();
     const names = list => list.map(x => base[x]?.name || '').filter(Boolean);
 
-    if (done.has(id)) continue;                       // 이미 찍기로 한 씬
+    if (done(id)) continue;                           // 이미 촬영으로 잡아 둔 씬
     if (!need.length) {
       out.push({ id, level: '불가', location, people: [], castIds: [], start: null, minutes: Math.round(hours * 60),
         reason: '이 씬에 배정된 인원이 없습니다. 배역을 인원과 연결해 주세요.', blockedNames: [] });
@@ -1107,7 +1131,8 @@ function copilotForDate(iso) {
       color: projects[s.projectId]?.color || '#9aa1c2',
       people: [...s.ids].map(x => base[x]?.name || '').filter(Boolean) }))
     .sort((a, b) => a.startH - b.startH);
-  return { date: iso, gapMinutes: Math.round(gap * 60), dayStart, dayEnd, timeline,
+  const bookedCount = scenes.filter(s => done(String(s.sceneId || ''))).length;
+  return { date: iso, gapMinutes: Math.round(gap * 60), dayStart, dayEnd, timeline, bookedCount,
     // 기획·촬영 담당도 필수 인원이다. 화면에 안 보이면 왜 막혔는지 알 수가 없다.
     crew: crewIds.map(x => base[x]?.name || '').filter(Boolean), scenes: out };
 }
@@ -1856,7 +1881,8 @@ async function saveShoot(form) {
   const selectedCast = [...form.querySelectorAll('[data-shoot-cast] .radio-pick[aria-pressed="true"]')]
     .map(b => b.dataset.mid).map(x => base[x] ? { id: x, name: base[x].name } : null).filter(Boolean);
   const projectId = String(d.get('projectId') || '') || null;
-  const cast = withRequiredProjectCrew(projectId, selectedCast);
+  // 스태프는 cast 에 넣지 않는다. shootMemberIds 가 역할에서 따로 더해 준다.
+  const cast = (Array.isArray(selectedCast) ? selectedCast : []).filter(person => person?.id);
   await saveDoc(`shoots/${id}`, { date: String(d.get('date')), title, startH: start, endH: end, location: String(d.get('location') || ''), note: String(d.get('note') || ''), cast, castIds: cast.map(person => person.id), projectId });
   closeModal('appModal'); state.analysisSelected.clear(); toast('촬영 일정을 저장했습니다.');
 }
@@ -2666,7 +2692,12 @@ window.HNUBS_ENGINE = {
     const previous = record.id ? (shoots[record.id] || {}) : {};
     const pick = (key, fallback) => (record[key] === undefined ? (previous[key] ?? fallback) : record[key]);
     const projectId = pick('projectId', null) || null;
-    const cast = withRequiredProjectCrew(projectId, pick('cast', []));
+    /* 스태프를 cast 에 섞지 않는다. 섞으면 촬영 카드마다 기획·촬영 담당이
+       출연진으로 나온다. 일정 충돌 계산은 shootMemberIds 가 프로젝트 역할에서
+       스태프를 따로 더하므로 이대로도 정확하다. */
+    const cast = (Array.isArray(pick('cast', [])) ? pick('cast', []) : [])
+      .filter(person => person?.id)
+      .map(person => ({ id: person.id, name: base[person.id]?.name || person.name || '' }));
     await saveDoc(`shoots/${id}`, {
       ...previous,
       date: record.date, title: record.title, startH: +record.startH, endH: +record.endH,

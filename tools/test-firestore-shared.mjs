@@ -74,10 +74,15 @@ assert.equal(requests.some(request => request.url.hostname.endsWith('firebaseio.
 
 const analyzed = {
   crew: { planning: [{ id: 'p', name: '김기주' }], production: [{ id: 'v', name: '서창민' }] },
-  items: [{ scenes: [{ crew: { planning: ['가짜 기획'], production: ['가짜 촬영'] } }] }],
+  items: [{ scenes: [
+    { estimatedMinutes: 47, crew: { planning: ['가짜 기획'], production: ['가짜 촬영'] } },
+    { estimatedMinutes: 0, crew: {} },
+    { estimatedMinutes: 999, crew: {} },
+  ] }],
 };
 normalizeCast(analyzed);
 assert.deepEqual(analyzed.items[0].scenes[0].crew, analyzed.crew);
+assert.deepEqual(analyzed.items[0].scenes.map(scene => scene.estimatedMinutes), [45, 30, 240]);
 
 for (const [legacy, expected] of [
   ['scheduler/AI분석작업/a', 'analysisJobs/a'],
@@ -91,4 +96,4 @@ for (const [legacy, expected] of [
   assert.equal(requests.at(-1).path, expected);
 }
 
-console.log('Firestore 공용 계층: 경로 6종, 깊은 왕복, 병합 보존, 프로젝트 담당자 고정 통과');
+console.log('Firestore 공용 계층: 경로 6종, 깊은 왕복, 병합 보존, 프로젝트 담당자·씬 예상시간 고정 통과');

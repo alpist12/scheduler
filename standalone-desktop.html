@@ -1741,6 +1741,10 @@ class Component extends DCLogic {
     for (const g of groups) { const opts = (g.candidates || []).filter(Boolean); const c = opts[Math.min(variant, Math.max(0, opts.length - 1))] || opts[0]; if (!c) continue; const key = c.date || String(c.day); if (!byDate.has(key)) byDate.set(key, []); byDate.get(key).push(`${g.sceneIds.join(', ')} · ${c.time}:00-${c.endTime || c.time + 1}:00`); }
     return [...byDate.entries()].map(([date, rows]) => `${date}  ${rows.join(' / ')}`);
   };
+  refreshAiPlan = () => {
+    try { const e = this.engine(), p = e?.getPlanOptions?.(); if (e?.setPlanOptions && p) e.setPlanOptions({ ...p }); } catch (_) {}
+    this.readLive();
+  };
   copyPlanText = async () => { const lines = ['[AI 자동배치]', ...this.planLines()]; try { await navigator.clipboard.writeText(lines.join('\n')); window.alert('자동배치 안을 복사했습니다.'); } catch (_) { window.alert(lines.join('\n')); } };
   exportPlanImage = () => { const lines = ['AI 자동배치', ...this.planLines()]; const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d'); canvas.width = 1400; canvas.height = Math.max(220, 90 + lines.length * 48); ctx.fillStyle = '#f7f8ff'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = '#222c52'; ctx.font = '800 34px sans-serif'; ctx.fillText(lines[0], 56, 68); ctx.font = '600 22px sans-serif'; lines.slice(1).forEach((line, i) => ctx.fillText(line, 56, 125 + i * 48)); const a = document.createElement('a'); a.download = 'hnubs-ai-auto-plan.png'; a.href = canvas.toDataURL('image/png'); a.click(); };
   backAiStage = () => {
@@ -2190,7 +2194,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
     const engine = this.engine(); if (!engine) return;
     const base = this.weekDates()[day];
     for (let i = 0; i < Math.min(52, weeks); i++) { const d = new Date(base); d.setDate(d.getDate() + i * 7); const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; await engine.addPersonalSchedule({ memberName: target.name, date: iso, start, end, status: '불가능', memo: title.trim() }); }
-    this.readLive(); window.alert(`${Math.min(52, weeks)}주 반복 개인 일정을 등록했습니다.`);
+    this.refreshAiPlan(); window.alert(`${Math.min(52, weeks)}주 반복 개인 일정을 등록했습니다.`);
   };
   setPickedPeriod = period => {
     const picked = this.state.planPicked || [];
@@ -3595,7 +3599,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
           const isoStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
           const count = s2.formRepeat ? Math.min(52, Number(s2.formRepeatWeeks) || 8) : 1;
           for (let i = 0; i < count; i++) { const di = new Date(d); di.setDate(di.getDate() + i * 7); const repeatIso = `${di.getFullYear()}-${String(di.getMonth() + 1).padStart(2, '0')}-${String(di.getDate()).padStart(2, '0')}`; await engine.addPersonalSchedule({ memberName: target, date: repeatIso, start, end, status: s2.formType, memo: s2.formTitle.trim() }); }
-          this.readLive();
+          this.refreshAiPlan();
           this.setState({ formTitle: '', cleared: false });
           window.alert(`${target} · ${s2.formRepeat ? count + '주 반복 ' : ''}${s2.formStart}~${s2.formEnd} · ${s2.formType} 등록 완료`);
         } catch (error) { window.alert(error.message); }

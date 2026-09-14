@@ -90,7 +90,7 @@ const aiState = {
   pollTimer: null,
   options: { scenes: true, cast: true, locations: true, schedule: true },
   // 기획자가 거는 조건. 강제 묶기/분리, 뺄 날짜, 우선 고려할 배우.
-  planOptions: { pinned: [], split: [], excludeDates: [], priorityMembers: [], dateFrom: '', dateTo: '' },
+  planOptions: { pinned: [], split: [], excludeDates: [], priorityMembers: [], dateFrom: '', dateTo: '', dayStart: 18, dayEnd: 23 },
 };
 
 // firebase data
@@ -989,6 +989,128 @@ function planDates() {
     out.push({ iso: isoDate(new Date(cursor)), dayIndex: (cursor.getDay() + 6) % 7 });
   }
   return out;
+}
+
+/* ── 촬영 일정 코파일럿 ─────────────────────────────────────
+   사람이 날짜를 고르면 그날 찍을 수 있는 씬을 판정만 해 준다.
+   배치는 하지 않는다 — 일정표에 넣는 건 사람이 한다.
+
+   촬영 사이 준비시간은 고정값을 쓴다. 장소별 이동시간 데이터가
+   없으므로 거리를 추정하지 않는다. 설정에서 조정한다. */
+const shootGapHours = () => Math.max(0, (Number(appSettings.shootGapMinutes) || 30) / 60);
+
+/** 그 날짜에 씬을 찍을 수 있는지 판정한다. 추천 / 가능 / 조건부 / 불가. */
+function copilotForDate(iso) {
+  const job = aiCurrentJob();
+  const scenes = job?.scenes || [];
+  const pid = aiProjectId();
+  if (!scenes.length || !/^\d{4}-\d{2}-\d{2}$/.test(String(iso))) return { date: iso, scenes: [] };
+
+  const crewIds = [...new Set(scenes.flatMap(s => sceneCrewNames(s, pid)).map(resolveMemberId).filter(id => base[id]))];
+
+  // 그날 이미 잡힌 촬영. 모든 프로젝트를 본다 — 남의 프로젝트가 사람을 데려간다.
+  const dayShoots = Object.entries(shoots)
+    .filter(([, s]) => s && s.date === iso)
+    .map(([id, s]) => ({ id, ...s, ids: shootMemberIds(s) }));
+  // 그날 이 프로젝트로 이미 나오는 사람 = 또 부르지 않아도 되는 사람
+  const alreadyHere = new Set();
+  for (const s of dayShoots) if (s.projectId === pid) for (const x of s.ids) alreadyHere.add(x);
+  // 이미 촬영으로 확정된 씬은 다시 권하지 않는다
+  const done = new Set(dayShoots.flatMap(s => (Array.isArray(s.sceneIds) ? s.sceneIds : []).map(String)));
+  const placeToday = dayShoots.filter(s => s.projectId === pid && String(s.location || '').trim());
+  // 다른 프로젝트가 쓰는 장소. 같은 시간에 두 팀이 한 곳을 쓸 수는 없다.
+  const otherPlaces = dayShoots.filter(s => s.projectId !== pid && String(s.location || '').trim());
+
+  const gap = shootGapHours();
+  const plan = aiState.planOptions || {};
+  const dayStart = Number(plan.dayStart) || 18, dayEnd = Number(plan.dayEnd) || 23;
+  const who = id => members()[id];
+  const freeIn = (member, a, b) => rangesOn(member, iso).some(r => +r.start <= a && +r.end >= b);
+
+  const out = [];
+  for (const [index, scene] of scenes.entries()) {
+    const id = String(scene.sceneId || `S#${index + 1}`);
+    const castIds = [...new Set(sceneRequiredCharacters(scene).map(resolveMemberId).filter(x => base[x]))];
+    const need = [...new Set([...castIds, ...crewIds])];
+    const hours = Math.max(.5, sceneMinutes(scene) / 60);
+    const location = String(scene.location || '').trim();
+    const names = list => list.map(x => base[x]?.name || '').filter(Boolean);
+
+    if (done.has(id)) continue;                       // 이미 찍기로 한 씬
+    if (!need.length) {
+      out.push({ id, level: '불가', location, people: [], castIds: [], start: null, minutes: Math.round(hours * 60),
+        reason: '이 씬에 배정된 인원이 없습니다. 배역을 인원과 연결해 주세요.', blockedNames: [] });
+      continue;
+    }
+
+    /* rangesOn 이 이미 촬영·수업을 빼고 준다. 전원이 비는 가장 이른 시각을 찾는다.
+       candidateStarts 는 30분 눈금에 실제 가능 경계를 더해 준다 — 18:35 도 후보가 된다. */
+    const windows = need.map(x => ({ from: 0, to: hours, ranges: rangesOn(who(x), iso) }));
+    /* 장소를 두 팀이 동시에 쓸 수는 없다. 다른 프로젝트가 같은 곳을 쓰는 시간은 후보에서 뺀다. */
+    const placeBusy = (a, b) => !!location && otherPlaces.some(s =>
+      locationAffinity(scene, { location: s.location }) > 0 && a < +s.endH && b > +s.startH);
+    const okAt = time => !placeBusy(time, time + hours) && need.every(x => freeIn(who(x), time, time + hours));
+    const allStarts = candidateStarts({ totalHours: hours, windows, dayStart, dayEnd }).filter(okAt);
+    const free = allStarts[0];
+
+    if (free === undefined || free === null) {
+      // 왜 안 되는지 구분해 준다. '시간이 없다'와 '남이 데려갔다'는 다른 문제다.
+      const taken = need.filter(x => dayShoots.some(s => s.projectId !== pid && s.ids.has(x)));
+      const placeHeld = otherPlaces.find(s => locationAffinity(scene, { location: s.location }) > 0);
+      out.push({ id, level: '불가', location, people: names(castIds), castIds, start: null, minutes: Math.round(hours * 60),
+        blockedNames: names(taken),
+        reason: taken.length
+          ? `${names(taken).join(', ')} · 다른 프로젝트 촬영과 겹칩니다.`
+          : placeHeld
+            ? `${placeHeld.location} · 다른 프로젝트가 이미 쓰는 장소입니다.`
+            : `${hourText(dayStart)}~${hourText(dayEnd)} 안에 출연진 공통 가능 시간이 없습니다.` });
+      continue;
+    }
+
+    // 앞 촬영과 너무 붙어 있으면 '조건부'. 준비시간이 안 나온다.
+    const tight = dayShoots.filter(s => need.some(x => s.ids.has(x))
+      && +s.endH <= free && free - +s.endH < gap);
+    const overlapPeople = names([...new Set(tight.flatMap(s => need.filter(x => s.ids.has(x))))]);
+    const sharesPeople = need.some(x => alreadyHere.has(x));
+    // 정확히 같은 글자가 아니라 겹치는 낱말로 본다. "N5동 복도"와 "N5동 강의실"은 같은 건물이다.
+    const nearPlace = placeToday.find(s => locationAffinity(scene, { location: s.location }) > 0);
+    const samePlace = !!location && !!nearPlace;
+
+    const level = tight.length ? '조건부' : (sharesPeople || samePlace) ? '추천' : '가능';
+    const reasonParts = [];
+    if (tight.length) reasonParts.push(`${overlapPeople.join(', ')} 직전 촬영이 ${hourText(tight[0].endH)}에 끝납니다 · 준비시간 ${Math.round(gap * 60)}분 확보 권장`);
+    if (sharesPeople) reasonParts.push(`${names(need.filter(x => alreadyHere.has(x))).join(', ')} 이 날 이미 촬영합니다`);
+    if (samePlace) reasonParts.push(`${nearPlace.location} 촬영이 이 날 이미 있습니다`);
+    if (!reasonParts.length) reasonParts.push(crewIds.length
+      ? `출연 ${names(castIds).length}명 + 스태프 ${crewIds.length}명 전원 가능`
+      : `출연 ${names(castIds).length}명 전원 가능`);
+
+    const from = tight.length ? Math.max(free, +tight[0].endH + gap) : free;
+    out.push({ id, level, location, people: names(castIds), castIds, minutes: Math.round(hours * 60),
+      start: from,
+      // 고를 수 있게 후보를 몇 개 준다. 권장 시작 이후로만.
+      starts: allStarts.filter(v => v >= from).slice(0, 3),
+      hours,
+      sharesPeople, samePlace, blockedNames: [],
+      reason: reasonParts.join(' · ') });
+  }
+
+  /* 정렬: 추천도 -> 같은 배우가 이미 촬영 -> 같은 장소 -> 이른 시간 -> 씬 번호 */
+  const rank = { '추천': 0, '가능': 1, '조건부': 2, '불가': 3 };
+  const no = v => Number(String(v).match(/\d+/)?.[0] || 999);
+  out.sort((a, b) => rank[a.level] - rank[b.level]
+    || (b.sharesPeople ? 1 : 0) - (a.sharesPeople ? 1 : 0)
+    || (b.samePlace ? 1 : 0) - (a.samePlace ? 1 : 0)
+    || (a.start ?? 99) - (b.start ?? 99)
+    || no(a.id) - no(b.id));
+  const timeline = dayShoots
+    .map(s => ({ title: s.title || '촬영', startH: +s.startH, endH: +s.endH,
+      mine: s.projectId === pid, location: String(s.location || ''),
+      people: [...s.ids].map(x => base[x]?.name || '').filter(Boolean) }))
+    .sort((a, b) => a.startH - b.startH);
+  return { date: iso, gapMinutes: Math.round(gap * 60), dayStart, dayEnd, timeline,
+    // 기획·촬영 담당도 필수 인원이다. 화면에 안 보이면 왜 막혔는지 알 수가 없다.
+    crew: crewIds.map(x => base[x]?.name || '').filter(Boolean), scenes: out };
 }
 
 function aiCandidates(scenes = [], durationHours = 0) {
@@ -2780,6 +2902,10 @@ window.HNUBS_ENGINE = {
       priorityMembers: patch.priorityMembers === undefined ? list(current.priorityMembers) : list(patch.priorityMembers).map(String).filter(id => base[id]),
       // 이번 추천에서 뺄 씬. 계산에서만 빠지고 목록에서는 미배정으로 남는다.
       excludeScenes: patch.excludeScenes === undefined ? list(current.excludeScenes) : list(patch.excludeScenes).map(String).filter(Boolean),
+      /* 하루 중 촬영 가능한 시간대. 방송국 촬영은 대부분 저녁이라 18시를 기본으로 둔다.
+         이게 없으면 다들 비어 있는 오전 9시가 '가능'으로 나와 쓸 수 없는 답이 된다. */
+      dayStart: patch.dayStart === undefined ? (Number(current.dayStart) || 18) : Math.min(22, Math.max(9, Number(patch.dayStart) || 18)),
+      dayEnd: patch.dayEnd === undefined ? (Number(current.dayEnd) || 23) : Math.min(23, Math.max(10, Number(patch.dayEnd) || 23)),
       // 촬영 가능 기간. 비워두면 보고 있는 주만 본다.
       dateFrom: patch.dateFrom === undefined ? (current.dateFrom || '') : String(patch.dateFrom || ''),
       dateTo: patch.dateTo === undefined ? (current.dateTo || '') : String(patch.dateTo || ''),
@@ -2790,6 +2916,8 @@ window.HNUBS_ENGINE = {
     return aiState.planOptions;
   },
   getPlanOptions() { return aiState.planOptions || {}; },
+  // 코파일럿: 날짜 하나를 주면 그날 찍을 수 있는 씬을 판정해 돌려준다.
+  copilotForDate(iso) { return copilotForDate(String(iso || '')); },
 };
 
 /* 화면 UI 는 app.js 의 클릭 핸들러를 거치지 않고 이 브리지를 직접 부른다.

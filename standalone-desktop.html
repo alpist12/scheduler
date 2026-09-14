@@ -198,7 +198,7 @@
       <sc-for list="{{ navItems }}" as="item" hint-placeholder-count="7">
         <button sc-camel-on-click="{{ item.go }}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:13px 14px;border:0;border-radius:14px;cursor:pointer;font-size:14.5px;font-weight:{{ item.weight }};color:{{ item.color }};background:{{ item.bg }};box-shadow:{{ item.shadow }}">
           <span class="{{ item.iconClass }}" style="font-size:21px;width:22px;display:inline-flex;justify-content:center;color:{{ item.iconColor }}">{{ item.icon }}</span>
-          <span style="flex:1">{{ item.label }}</span><span style="font-size:12px;color:#a7adcd">{{ item.suffix }}</span>
+          <span style="flex:1;min-width:0">{{ item.label }}</span><span style="flex:0 0 18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;line-height:1;color:#b3b9d2;border-radius:6px;background:{{ item.suffixBg }};transform:rotate({{ item.suffixTurn }});transition:transform .2s ease,background .2s ease">{{ item.suffix }}</span>
         </button>
       </sc-for>
     </nav>
@@ -2526,16 +2526,16 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
       pageScript: this.props.showScript === false ? '' : nav.script,
 
       navItems: NAV.filter(n => n.key !== 'mobile').flatMap(n => n.key === 'shoot' ? [
-        {...n,suffix:st.screen==='shoot'?'⌃':'⌄',go:()=>this.setState({screen:'shoot'})},
+        {...n,suffix:'▾',suffixTurn:st.screen==='shoot'?'180deg':'0deg',suffixBg:st.screen==='shoot'?'#eef4ff':'transparent',go:()=>this.setState({screen:'shoot'})},
         ...(st.screen==='shoot'?[
           {key:'shoot-list',label:'일정 관리',icon:'subdirectory_arrow_right',go:()=>this.setState({shootView:'list'})},
           {key:'shoot-project',label:'프로젝트 관리',icon:'folder',go:()=>this.setState({shootView:'project'})}]:[])
       ] : n.key === 'ai' ? [
-        {...n,suffix:st.screen==='ai'?'⌃':'⌄',go:()=>this.setState({screen:'ai'})},
+        {...n,suffix:'▾',suffixTurn:st.screen==='ai'?'180deg':'0deg',suffixBg:st.screen==='ai'?'#eef4ff':'transparent',go:()=>this.setState({screen:'ai'})},
         ...(st.screen==='ai'?[{key:'ai-analysis',label:'새 분석 / 결과',icon:'subdirectory_arrow_right',go:()=>this.setState({aiView:'analysis'})},{key:'ai-plan',label:'촬영안',icon:'event_available',go:()=>this.setState({aiView:'plan'})},{key:'ai-history',label:'과거 분석 목록',icon:'history',go:()=>this.setState({aiView:'history'})}]:[])
       ]:[{...n,go:()=>this.setState({screen:n.key})}]).map(n=>{
         const active=n.key==='shoot'?st.screen==='shoot':n.key==='shoot-list'?st.screen==='shoot'&&st.shootView==='list':n.key==='shoot-project'?st.screen==='shoot'&&st.shootView==='project':n.key==='ai'?st.screen==='ai':n.key==='ai-analysis'?st.screen==='ai'&&st.aiView==='analysis':n.key==='ai-plan'?st.screen==='ai'&&st.aiView==='plan':n.key==='ai-history'?st.screen==='ai'&&st.aiView==='history':st.screen===n.key;
-        return {suffix:'',...n,iconClass:active?'ms ms-fill':'ms',iconColor:active?A:'#a1a7c6',weight:active?800:600,color:active?'#2b3560':'#8b93b8',bg:active?'rgba(255,255,255,.95)':'transparent',shadow:active?'0 6px 16px rgba(90,105,180,.12)':'none'};
+        return {suffix:'',suffixTurn:'0deg',suffixBg:'transparent',...n,iconClass:active?'ms ms-fill':'ms',iconColor:active?A:'#a1a7c6',weight:active?800:600,color:active?'#2b3560':'#8b93b8',bg:active?'rgba(255,255,255,.95)':'transparent',shadow:active?'0 6px 16px rgba(90,105,180,.12)':'none'};
       }),
 
       isWeekly: st.screen === 'weekly', isAI: st.screen === 'ai', isShoot: st.screen === 'shoot',

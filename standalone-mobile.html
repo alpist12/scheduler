@@ -1934,22 +1934,40 @@ class Component extends DCLogic {
       aiSupportDisplay: st.aiStage === 'running' ? 'block' : 'none',
       aiBackVisible: st.aiStage !== 'upload',
       aiBackLabel: st.aiStage === 'results' ? '분석 조건으로 돌아가기' : st.aiStage === 'running' ? '옵션으로 돌아가기' : '대본 선택으로 돌아가기',
-      copilotScenes: (() => {
+      // 판정은 엔진이 한다. PC와 같은 답이 나와야 한다.
+      /* 판정은 엔진이 한다. 화면에서 다시 계산하면 PC와 모바일이 서로 다른 답을 낸다.
+         신호등: 초록=찍어도 된다, 노랑=애매하다, 빨강=못 찍는다. */
+      ...(() => {
         const selectedIso = iso(dates[st.shootDay]);
-        const scenes = live?.ai?.scenes || [];
-        const groups = live?.ai?.sceneGroups || [];
-        return scenes.map((scene, index) => {
-          const id = scene.sceneId || `S#${index + 1}`;
-          const group = groups.find(g => (g.sceneIds || []).map(String).includes(String(id)));
-          const candidate = (group?.candidates || []).find(c => (c.date || '') === selectedIso);
-          const people = (scene.requiredPeople || scene.speakingCharacters || []).map(x => x.name || x.character || x).filter(Boolean);
-          const level = candidate ? '가능' : '불가';
-          const reason = candidate ? `${candidate.available?.length || people.length}명 가능 · ${scene.location || group?.location || '장소 미정'}` : '출연진 또는 필수 인원의 공통 가능 시간이 없습니다.';
-          return { id, level, people: people.join(', ') || '출연 미지정', location: scene.location || group?.location || '장소 미정', reason, tone: level === '가능' ? '#eef4ff' : '#fff1f3', fg: level === '가능' ? '#3b82f6' : '#b03650', pick: () => this.setState({ tab:'shoot', shootDate:selectedIso, shootTitle:id, shootProjectId:st.aiProjectId || '' }) };
-        }).sort((a,b) => Number(String(a.id).match(/\d+/)?.[0] || 999) - Number(String(b.id).match(/\d+/)?.[0] || 999));
+        const tone = { '추천': ['#e9f8ef', '#237a4f', '#cdebd9', '#22a565'],
+          '가능': ['#f2f8f4', '#2f7d55', '#dcebe2', '#5cc08a'],
+          '조건부': ['#fff6e6', '#8a6a1f', '#f2e2bf', '#f0b429'],
+          '불가': ['#fff1f3', '#b03650', '#f3d9de', '#e5484d'] };
+        let report = { scenes: [] };
+        try { report = this.engine()?.copilotForDate?.(selectedIso) || report; } catch (e) { /* 엔진이 아직 안 떴다 */ }
+        const list = (report.scenes || []).map(s => {
+          const [bg, fg, line, dot] = tone[s.level] || tone['가능'];
+          return { ...s, tone: bg, fg, line, dot,
+            people: (s.people || []).join(', ') || '출연 미지정',
+            location: s.location || '장소 미정',
+            when: s.start == null ? '가능한 시간 없음' : `${this.hhmm(s.start)} 이후 · ${s.minutes}분`,
+            pick: () => this.setState({ tab: 'shoot', shootDate: selectedIso, shootTitle: s.id,
+              shootProjectId: st.aiProjectId || '' }) };
+        });
+        const count = lv => list.filter(x => x.level === lv).length;
+        return {
+          copilotScenes: list,
+          // 신호등 집계. 초록에는 '추천'도 포함한다 — 어차피 찍어도 되는 씬이다.
+          copilotTally: [
+            { dot: '#22a565', label: `가능 ${count('추천') + count('가능')}` },
+            { dot: '#f0b429', label: `애매 ${count('조건부')}` },
+            { dot: '#e5484d', label: `불가 ${count('불가')}` },
+          ],
+          copilotWindow: report.dayStart == null ? '' : `${this.hhmm(report.dayStart)}~${this.hhmm(report.dayEnd)} · 준비 ${report.gapMinutes}분`,
+        };
       })(),
       copilotScenesEmpty: !(live?.ai?.scenes || []).length,
-      copilotDateChoices: dates.map((d, i) => ({ label: `${this.fmtShort(d)} ${this.dowOf(d)}`, bg: st.shootDay === i ? '#3b82f6' : '#fff', fg: st.shootDay === i ? '#fff' : '#5a6595', line: st.shootDay === i ? '#3b82f6' : '#e1e7f5', pick: () => this.setState({ shootDay: i }) })),
+      copilotDateChoices: dates.map((d, i) => ({ label: `${this.fmtShort(d)} ${this.dowOf(d)}`, dow: this.dowOf(d), md: this.fmtShort(d), bg: st.shootDay === i ? '#3b82f6' : '#fff', fg: st.shootDay === i ? '#fff' : '#5a6595', line: st.shootDay === i ? '#3b82f6' : '#e1e7f5', pick: () => this.setState({ shootDay: i }) })),
       aiViewTabs: ['분석', '촬영안'].map(label => {
         const key = label === '촬영안' ? 'plan' : 'analysis';
         const on = (st.aiView || 'analysis') === key;

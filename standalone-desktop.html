@@ -3477,7 +3477,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
               requiredPeople: (picked.castIds || []).map(id => ({ id })), end: chosen }); },
         };
       })(),
-      copilotScenesEmpty: !(live?.ai?.scenes || []).length,
+      copilotScenesEmpty: !((live?.projects || []).find(p => p.id === st.aiProjectId)?.aiAnalysis?.scenes || []).length,
       copilotDateChoices: dates.map((d, i) => ({ label: `${this.fmtShort(d)} ${this.dowOf(d)}`, dow: this.dowOf(d), md: this.fmtShort(d), bg: st.shootDay === i ? '#3b82f6' : '#fff', fg: st.shootDay === i ? '#fff' : '#5a6595', line: st.shootDay === i ? '#3b82f6' : '#e1e7f5', pick: () => this.setState({ shootDay: i }) })),
       shootDays: dates.map((d, i) => ({
         md: this.fmtShort(d), dow: '(' + this.dowOf(d) + ')', items: filteredShoot(i),

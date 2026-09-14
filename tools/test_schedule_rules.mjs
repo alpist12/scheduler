@@ -41,4 +41,15 @@ assert.strictEqual(continuityScore({ date: '2026-09-17', start: 19, end: 20, req
 // 9시간 떨어진 촬영은 연속이 아니다
 assert.strictEqual(continuityScore({ date: '2026-09-17', start: 19, end: 20, requiredIds: ['a'], shoots: [shoots[1]], memberIdsOfShoot: ids }).score, 0);
 
+/* 촬영 가능 시간대를 넘기면 그 밖은 후보가 되면 안 된다.
+   안 넘겨서 기본값 9~23 이 쓰이는 바람에 저녁 촬영에 아침 9시가 올라온 적이 있다. */
+const evening = candidateStarts({
+  totalHours: 1,
+  windows: [{ from: 0, to: 1, ranges: [{ start: 9, end: 23 }] }],
+  dayStart: 18, dayEnd: 22.5,
+});
+assert.ok(evening.length, '후보가 하나는 나와야 한다');
+assert.ok(evening.every(v => v >= 18 && v + 1 <= 22.5), JSON.stringify(evening));
+assert.ok(!evening.includes(9) && !evening.includes(13));
+
 console.log('schedule rules OK');

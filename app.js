@@ -1146,6 +1146,7 @@ function aiCandidates(scenes = [], durationHours = 0) {
   const plan = aiState.planOptions || {};
   const excluded = new Set((Array.isArray(plan.excludeDates) ? plan.excludeDates : []).map(String));
   const priority = new Set((Array.isArray(plan.priorityMembers) ? plan.priorityMembers : []).map(String));
+  const planDayStart = Number(plan.dayStart) || 18, planDayEnd = Number(plan.dayEnd) || 22.5;
   const ids = new Set(scenes.flatMap(sceneRequiredCharacters).map(resolveMemberId).filter(id => base[id]));
   for (const name of scenes.flatMap(scene => sceneCrewNames(scene, aiProjectId()))) {
     const id = resolveMemberId(name);
@@ -1177,7 +1178,9 @@ function aiCandidates(scenes = [], durationHours = 0) {
       return (mine.length ? mine : [{ from: 0, to: totalHours }])
         .map(span => ({ ...span, ranges: rangesOn(member, iso) }));
     });
-    return candidateStarts({ totalHours, windows }).map(time => {
+    /* 촬영 가능 시간대를 여기서도 지킨다. 안 넘기면 기본값(9~23)이 쓰여
+       저녁에만 되는 촬영에 아침 9시·낮 1시가 후보로 올라온다. */
+    return candidateStarts({ totalHours, windows, dayStart: planDayStart, dayEnd: planDayEnd }).map(time => {
     const yes = all.filter(([id, member]) => {
       const mine = spans.filter(s => s.who.has(id));
       // 출연하지 않는 사람(기획·촬영)은 처음부터 끝까지 있어야 한다

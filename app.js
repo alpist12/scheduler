@@ -1099,9 +1099,12 @@ function copilotForDate(iso) {
     || (b.samePlace ? 1 : 0) - (a.samePlace ? 1 : 0)
     || (a.start ?? 99) - (b.start ?? 99)
     || no(a.id) - no(b.id));
+  /* 어느 기획 촬영인지 색으로 구분한다. 글자만으로는 일정표에서 안 읽힌다. */
   const timeline = dayShoots
     .map(s => ({ title: s.title || '촬영', startH: +s.startH, endH: +s.endH,
       mine: s.projectId === pid, location: String(s.location || ''),
+      project: projects[s.projectId]?.name || '기획 없음',
+      color: projects[s.projectId]?.color || '#9aa1c2',
       people: [...s.ids].map(x => base[x]?.name || '').filter(Boolean) }))
     .sort((a, b) => a.startH - b.startH);
   return { date: iso, gapMinutes: Math.round(gap * 60), dayStart, dayEnd, timeline,

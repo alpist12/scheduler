@@ -19,4 +19,13 @@ for (const ui of [desktop, mobile]) {
   assert.match(ui, /aiLoadingProject/);
 }
 
+
+/* 후보 계산이 같은 질문을 수천 번 되묻던 것들. 하나라도 풀리면 재배치가 다시 10초대로 돌아간다.
+   (실측: 3화 16씬 기준 10,488ms → 18ms) */
+assert.match(source, /const members = \(\) => \{ freshCache\(\); return revCache\.members \|\|= buildMembers\(\); \};/);
+assert.doesNotMatch(source, /const members = \(\) => Object\.fromEntries/);
+assert.match(source, /function shootsByDate\(iso\)/);
+assert.match(source, /const value = computeRangesOn\(m, iso\);/);
+assert.match(source, /shoots: shootsByDate\(iso\), memberIdsOfShoot: shootMemberIds,/);
+
 console.log('engine performance checks passed');

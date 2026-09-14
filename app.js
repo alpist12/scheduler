@@ -257,16 +257,20 @@ function fixedMap(id, m) {
   });
   return out;
 }
-const members = () => Object.fromEntries(Object.entries(base).map(([id, m]) => [id, { ...m, ...memberWeek(id, m), __id: id, fixedSchedule: fixedMap(id, m) }]));
+const buildMembers = () => Object.fromEntries(Object.entries(base).map(([id, m]) => [id, { ...m, ...memberWeek(id, m), __id: id, fixedSchedule: fixedMap(id, m) }]));
+/* 후보 계산은 members() 를 시각마다·인원마다 부른다. 그때마다 전원을 다시 조립하면
+   그 자체가 가장 큰 비용이다. 데이터가 바뀌기 전까지는 같은 객체를 쓴다. */
+const members = () => { freshCache(); return revCache.members ||= buildMembers(); };
 
 /* 촬영안 후보 계산은 같은 질문을 수천 번 되묻는다(날짜 × 시작시각 × 인원 × 씬).
    그때마다 전체 촬영 목록을 훑고 구간 연산을 새로 하면 그 자체가 병목이 된다.
    engineRevision 이 그대로인 동안은 결과가 바뀔 수 없으므로 통째로 재사용한다. */
-const revCache = { rev: -1, byDate: null, ranges: new Map(), castIds: new Map() };
+const revCache = { rev: -1, byDate: null, members: null, ranges: new Map(), castIds: new Map() };
 const freshCache = () => {
   if (revCache.rev === engineRevision) return;
   revCache.rev = engineRevision;
   revCache.byDate = null;
+  revCache.members = null;
   revCache.ranges.clear();
   revCache.castIds.clear();
 };
@@ -1248,8 +1252,7 @@ function aiCandidates(scenes = [], durationHours = 0, busy = []) {
       if (!member) return n;
       const around = [
         ...((member.fixedSchedule || {})[dow] || []).map(f => ({ s: +f.start, e: +f.end })),
-        ...Object.values(shoots)
-          .filter(x => x && x.date === iso && shootMemberIds(x).has(id))
+        ...shootsByDate(iso).filter(x => shootMemberIds(x).has(id))
           .map(x => ({ s: +x.startH, e: +x.endH })),
       ];
       const tight = around.some(x => (time - x.e >= 0 && time - x.e < gap)
@@ -1258,7 +1261,7 @@ function aiCandidates(scenes = [], durationHours = 0, busy = []) {
     }, 0);
     const continuity = continuityScore({
       date: iso, start: time, end: time + totalHours, requiredIds: [...ids],
-      shoots: Object.values(shoots), memberIdsOfShoot: shootMemberIds,
+      shoots: shootsByDate(iso), memberIdsOfShoot: shootMemberIds,
     });
     return {
       iso, day: dayIndex, time, endTime: time + totalHours, all, yes, tightFor,

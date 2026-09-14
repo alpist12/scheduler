@@ -1032,12 +1032,30 @@ function copilotForDate(iso) {
   const who = id => members()[id];
   const freeIn = (member, a, b) => rangesOn(member, iso).some(r => +r.start <= a && +r.end >= b);
 
-  const out = [];
+  /* 대본에 같은 씬이 여러 줄로 나뉘어 들어오는 일이 있다(S#13 원형광장 ×2).
+     따로 추천하면 같은 씬을 두 번 찍으라는 말이 된다. 하나로 합친다. */
+  const merged = [];
+  const seen = new Map();
   for (const [index, scene] of scenes.entries()) {
-    const id = String(scene.sceneId || `S#${index + 1}`);
+    const key = String(scene.sceneId || `S#${index + 1}`);
+    const prior = seen.get(key);
+    if (!prior) { seen.set(key, { key, scene, minutes: sceneMinutes(scene), parts: 1 }); merged.push(seen.get(key)); continue; }
+    prior.minutes += sceneMinutes(scene);
+    prior.parts += 1;
+    // 나뉜 줄마다 나오는 사람이 다를 수 있다. 전부 있어야 한 번에 찍는다.
+    prior.scene = { ...prior.scene,
+      speakingCharacters: [...new Set([...(prior.scene.speakingCharacters || []), ...(scene.speakingCharacters || [])])],
+      characters: [...new Set([...(prior.scene.characters || []), ...(scene.characters || [])])],
+      location: prior.scene.location || scene.location || '' };
+  }
+
+  const out = [];
+  for (const row of merged) {
+    const scene = row.scene;
+    const id = row.key;
     const castIds = [...new Set(sceneRequiredCharacters(scene).map(resolveMemberId).filter(x => base[x]))];
     const need = [...new Set([...castIds, ...crewIds])];
-    const hours = Math.max(.5, sceneMinutes(scene) / 60);
+    const hours = Math.max(.5, row.minutes / 60);
     const location = String(scene.location || '').trim();
     const names = list => list.map(x => base[x]?.name || '').filter(Boolean);
 
@@ -1863,7 +1881,8 @@ async function saveShoot(form) {
   const selectedCast = [...form.querySelectorAll('[data-shoot-cast] .radio-pick[aria-pressed="true"]')]
     .map(b => b.dataset.mid).map(x => base[x] ? { id: x, name: base[x].name } : null).filter(Boolean);
   const projectId = String(d.get('projectId') || '') || null;
-  const cast = withRequiredProjectCrew(projectId, selectedCast);
+  // 스태프는 cast 에 넣지 않는다. shootMemberIds 가 역할에서 따로 더해 준다.
+  const cast = (Array.isArray(selectedCast) ? selectedCast : []).filter(person => person?.id);
   await saveDoc(`shoots/${id}`, { date: String(d.get('date')), title, startH: start, endH: end, location: String(d.get('location') || ''), note: String(d.get('note') || ''), cast, castIds: cast.map(person => person.id), projectId });
   closeModal('appModal'); state.analysisSelected.clear(); toast('촬영 일정을 저장했습니다.');
 }
@@ -2673,7 +2692,12 @@ window.HNUBS_ENGINE = {
     const previous = record.id ? (shoots[record.id] || {}) : {};
     const pick = (key, fallback) => (record[key] === undefined ? (previous[key] ?? fallback) : record[key]);
     const projectId = pick('projectId', null) || null;
-    const cast = withRequiredProjectCrew(projectId, pick('cast', []));
+    /* 스태프를 cast 에 섞지 않는다. 섞으면 촬영 카드마다 기획·촬영 담당이
+       출연진으로 나온다. 일정 충돌 계산은 shootMemberIds 가 프로젝트 역할에서
+       스태프를 따로 더하므로 이대로도 정확하다. */
+    const cast = (Array.isArray(pick('cast', [])) ? pick('cast', []) : [])
+      .filter(person => person?.id)
+      .map(person => ({ id: person.id, name: base[person.id]?.name || person.name || '' }));
     await saveDoc(`shoots/${id}`, {
       ...previous,
       date: record.date, title: record.title, startH: +record.startH, endH: +record.endH,

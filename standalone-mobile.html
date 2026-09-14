@@ -2071,12 +2071,14 @@ class Component extends DCLogic {
         };
       })(),
       // 결과 화면에는 현재 결과와 과거 분석 목록을 함께 보여 준다.
-      aiShowPlan: st.aiStage === 'results' && st.aiView === 'results',
+      /* 화면 전환은 단계(aiStage) 하나로 정한다. aiView 는 'new' 로 시작한 뒤
+         'results' 로 바뀌는 곳이 없어서 촬영안도 코파일럿도 영영 안 떴다. */
+      aiShowPlan: st.aiStage === 'results',
       aiShowMain: true,
       aiView: st.aiView || 'new',
       changeAiView: e => this.setState({ aiView:e.target.value, aiStage:e.target.value === 'new' ? 'upload' : 'results', aiPhase:e.target.value === 'new' ? 'idle' : st.aiPhase }),
-      aiNewOnlyDisplay: st.aiView === 'new' ? 'block' : 'none',
-      aiResultsOnlyDisplay: st.aiView === 'results' ? 'block' : 'none',
+      aiNewOnlyDisplay: st.aiStage === 'results' ? 'none' : 'block',
+      aiResultsOnlyDisplay: st.aiStage === 'results' ? 'block' : 'none',
       aiSetupDisplay: ['upload','options'].includes(st.aiStage) ? 'block' : 'none',
       aiSetupShellDisplay: ['upload','options'].includes(st.aiStage) ? 'block' : 'none',
       // 프로젝트가 없으면 업로드 카드를 감추고 안내를 대신 띄운다

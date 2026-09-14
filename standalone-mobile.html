@@ -588,6 +588,44 @@
             </div>
 
 
+            <!-- 분석 조건. 기간과 시간대를 못 바꾸면 배치 결과를 손볼 방법이 없다. -->
+            <div style="background:#fff;border:1px solid #f0f1fb;border-radius:20px;margin-top:14px;box-shadow:0 10px 26px rgba(90,105,180,.07);overflow:hidden">
+              <button sc-camel-on-click="{{ togglePlanCond }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:15px 16px;border:0;background:{{ planCondHeadBg }};text-align:left;cursor:pointer">
+                <span style="flex:1;min-width:0">
+                  <span style="display:block;font-size:14.5px;font-weight:800;color:#222c52">조건 설정</span>
+                  <span style="display:block;font-size:11px;color:#a7adcd;font-weight:600;margin-top:3px">{{ planRangeText }}</span>
+                </span>
+                <span style="flex:0 0 22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:#8b93b8;transform:rotate({{ planCondTurn }});transition:transform .2s ease">▾</span>
+              </button>
+              <sc-if value="{{ planCondOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:4px 14px 14px;border-top:1px solid #f2f4fb">
+                  <div style="font-size:11.5px;font-weight:800;color:#5a6595;margin-top:12px">촬영 가능 기간</div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-top:7px">
+                    <input type="date" value="{{ planFrom }}" sc-camel-on-change="{{ changePlanFrom }}" style="flex:1;min-width:0;padding:10px;border:1px solid #eceefa;border-radius:10px;background:#fbfcff;font-size:12px;color:#3a4373">
+                    <span style="color:#a1a7c6;font-weight:700">~</span>
+                    <input type="date" value="{{ planTo }}" sc-camel-on-change="{{ changePlanTo }}" style="flex:1;min-width:0;padding:10px;border:1px solid #eceefa;border-radius:10px;background:#fbfcff;font-size:12px;color:#3a4373">
+                  </div>
+                  <div style="display:flex;gap:6px;margin-top:7px">
+                    <sc-for list="{{ planQuickRanges }}" as="q" hint-placeholder-count="3">
+                      <button sc-camel-on-click="{{ q.pick }}" style="flex:1;padding:8px;border:1px solid #e5e8f7;border-radius:9px;background:#fff;color:#5a6595;font-size:11px;font-weight:700;cursor:pointer">{{ q.label }}</button>
+                    </sc-for>
+                  </div>
+
+                  <div style="font-size:11.5px;font-weight:800;color:#5a6595;margin-top:15px">하루 촬영 가능 시간대</div>
+                  <div style="font-size:10.5px;color:#a7adcd;font-weight:600;margin-top:3px">이 시간 밖은 추천하지 않습니다.</div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-top:7px">
+                    <sc-raw-select value="{{ planDayStart }}" sc-camel-on-change="{{ changeDayStart }}" style="flex:1;min-width:0;padding:10px;border:1px solid #eceefa;border-radius:10px;background:#fbfcff;font-size:12px;color:#3a4373">
+                      <sc-for list="{{ planHourOptions }}" as="h"><option value="{{ h.value }}">{{ h.label }}</option></sc-for>
+                    </sc-raw-select>
+                    <span style="color:#a1a7c6;font-weight:700">~</span>
+                    <sc-raw-select value="{{ planDayEnd }}" sc-camel-on-change="{{ changeDayEnd }}" style="flex:1;min-width:0;padding:10px;border:1px solid #eceefa;border-radius:10px;background:#fbfcff;font-size:12px;color:#3a4373">
+                      <sc-for list="{{ planHourOptions }}" as="h"><option value="{{ h.value }}">{{ h.label }}</option></sc-for>
+                    </sc-raw-select>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+
             <!-- AI 자동 배치. 보조 기능이라 접어 두고, 머리말을 눌러 편다. -->
             <div style="background:#fff;border:1px solid #f0f1fb;border-radius:20px;margin-top:16px;box-shadow:0 10px 26px rgba(90,105,180,.07);overflow:hidden">
               <button sc-camel-on-click="{{ toggleAutoPlan }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:16px 18px;border:0;background:{{ autoPlanHeadBg }};text-align:left;cursor:pointer">
@@ -656,6 +694,7 @@
                 </div>
                 <div style="display:flex;align-items:center;gap:3px;flex:0 0 auto">
                   <button sc-camel-on-click="{{ prevWeek }}" style="width:24px;height:24px;border-radius:99px;border:1px solid #e9ecf9;background:#fff;color:#5a6595;font-size:12px;cursor:pointer">‹</button>
+                  <button sc-camel-on-click="{{ thisWeek }}" style="padding:0 8px;height:24px;border-radius:99px;border:1px solid #e9ecf9;background:#fff;color:#66709d;font-size:10.5px;font-weight:700;cursor:pointer">{{ copilotWeekLabel }}</button>
                   <button sc-camel-on-click="{{ nextWeek }}" style="width:24px;height:24px;border-radius:99px;border:1px solid #e9ecf9;background:#fff;color:#5a6595;font-size:12px;cursor:pointer">›</button>
                 </div>
               </div>
@@ -1654,6 +1693,14 @@ class Component extends DCLogic {
     return `${String(h).padStart(2, '0')}:${n - h >= 0.5 ? '30' : '00'}`; };
 
   /** 그 날 개인 일정을 지운다. 엔진은 날짜 단위로만 지운다. */
+  /** 분석 조건을 엔진에 넘긴다. 모바일에는 이걸 부를 곳이 아예 없었다. */
+  setPlan = patch => {
+    try { this.engine()?.setPlanOptions?.(patch); }
+    catch (e) { window.alert('조건을 적용하지 못했습니다: ' + e.message); }
+    this.readLive();
+    this.setState({ planTick: (this.state.planTick || 0) + 1 });
+  };
+
   removePersonalDay = async dayIdx => {
     try {
       const engine = this.engine();
@@ -2210,6 +2257,39 @@ class Component extends DCLogic {
       /* 화면 전환은 단계(aiStage) 하나로 정한다. aiView 는 'new' 로 시작한 뒤
          'results' 로 바뀌는 곳이 없어서 촬영안도 코파일럿도 영영 안 떴다. */
       aiShowPlan: st.aiStage === 'results',
+      copilotWeekLabel: (st.weekOffset || 0) === 0 ? '이번 주' : (st.weekOffset > 0 ? `+${st.weekOffset}주` : `${st.weekOffset}주`),
+      thisWeek: () => { this.engine()?.setWeekOffset?.(0); this.setState({ weekOffset: 0 }); },
+      ...(() => {
+        const plan = (() => { try { return this.engine()?.getPlanOptions?.() || {}; } catch (e) { return {}; } })();
+        const isoOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const shift = n => { const d = new Date(); d.setDate(d.getDate() + n); return isoOf(d); };
+        // 30분 단위로 고른다. 18:30 부터 되는 사람이 드물지 않다.
+        const hours = [];
+        for (let h = 9; h <= 23; h += 0.5) hours.push({ value: String(h), label: this.hhmmOf(h) });
+        return {
+          planCondOpen: !!st.planCondOpen,
+          planCondTurn: st.planCondOpen ? '180deg' : '0deg',
+          planCondHeadBg: st.planCondOpen ? '#f8faff' : '#fff',
+          togglePlanCond: () => this.setState({ planCondOpen: !st.planCondOpen }),
+          planFrom: plan.dateFrom || '',
+          planTo: plan.dateTo || '',
+          changePlanFrom: e => this.setPlan({ dateFrom: e.target.value }),
+          changePlanTo: e => this.setPlan({ dateTo: e.target.value }),
+          planRangeText: (plan.dateFrom && plan.dateTo)
+            ? `${plan.dateFrom} ~ ${plan.dateTo} · ${this.hhmmOf(Number(plan.dayStart) || 18)}~${this.hhmmOf(Number(plan.dayEnd) || 22.5)}`
+            : `보고 있는 주 · ${this.hhmmOf(Number(plan.dayStart) || 18)}~${this.hhmmOf(Number(plan.dayEnd) || 22.5)}`,
+          planQuickRanges: [
+            { label: '이번 주', from: '', to: '' },
+            { label: '2주', from: shift(0), to: shift(13) },
+            { label: '4주', from: shift(0), to: shift(27) },
+          ].map(r => ({ label: r.label, pick: () => this.setPlan({ dateFrom: r.from, dateTo: r.to }) })),
+          planHourOptions: hours,
+          planDayStart: String(Number(plan.dayStart) || 18),
+          planDayEnd: String(Number(plan.dayEnd) || 22.5),
+          changeDayStart: e => this.setPlan({ dayStart: Number(e.target.value) }),
+          changeDayEnd: e => this.setPlan({ dayEnd: Number(e.target.value) }),
+        };
+      })(),
       autoPlanOpen: !!st.autoPlanOpen,
       autoPlanLabel: st.autoPlanOpen ? '▾ AI 자동 배치 숨기기' : '▸ AI 자동 배치 보기',
       autoPlanHint: st.autoPlanOpen ? 'AI가 날짜까지 정해 묶은 안입니다. 참고용입니다.' : '직접 넣는 대신 AI가 묶어 준 안을 봅니다.',

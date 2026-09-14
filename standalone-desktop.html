@@ -2533,7 +2533,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
     const live = st.live;
     const nav = NAV.find(n => n.key === st.screen) || NAV[0];
     const dates = this.weekDates();
-    const aiSceneRows = live?.ai?.sceneCandidates || [];
+    const aiSceneRows = st.aiProjectId ? (live?.ai?.sceneCandidates || []) : [];
     const aiSceneIndex = Math.min(st.aiSceneIndex || 0, Math.max(0, aiSceneRows.length - 1));
     const aiSceneRow = aiSceneRows[aiSceneIndex] || null;
     const aiScene = aiSceneRow?.scene || null;
@@ -2817,7 +2817,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
       aiResultTitle: live?.ai?.job?.status === 'completed' ? '분석이 완료되었어요!' : st.aiPhase === 'running' ? '분석된 씬부터 확인할 수 있어요.' : '일부 결과만 확인되었습니다. 서버 로그를 확인해 주세요.',
       aiPct: st.aiPct + '%',
       ...(() => {
-        const groups = live?.ai?.sceneGroups || [];
+        const groups = st.aiProjectId ? (live?.ai?.sceneGroups || []) : [];
         return {
           hasSceneGroups: groups.length > 0,
 

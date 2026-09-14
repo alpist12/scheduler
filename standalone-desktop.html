@@ -373,7 +373,6 @@
               <sc-raw-select value="{{ aiProjectId }}" sc-camel-on-change="{{ changeAiProject }}" style="flex:0 1 220px;min-width:0;padding:11px 13px;border:1px solid #e5e8f7;border-radius:12px;background:#fbfcff;color:#2b3560;font-size:13px;font-weight:700">
                 <sc-for list="{{ aiProjects }}" as="p"><option value="{{ p.id }}">{{ p.name }}</option></sc-for>
               </sc-raw-select>
-              <button sc-camel-on-click="{{ openPlanConditions }}" style="flex:0 0 auto;padding:10px 16px;border:1px solid #e5e8f7;border-radius:12px;background:#fff;color:#7b83a8;font-size:12.5px;font-weight:800;cursor:pointer">조건 설정</button>
             </div>
             <sc-if value="{{ planDone }}" hint-placeholder-val="{{ false }}">
               <div style="margin-top:16px;padding:14px 16px;border-radius:15px;background:#eaf7ef;display:flex;align-items:center;gap:11px">
@@ -530,6 +529,7 @@
             <sc-for list="{{ planAlternatives }}" as="a" hint-placeholder-count="5"><button sc-camel-on-click="{{ a.go }}" style="padding:6px 11px;border:1px solid {{ a.line }};border-radius:8px;background:{{ a.bg }};color:{{ a.fg }};font-size:11px;font-weight:800;cursor:pointer">{{ a.label }}</button></sc-for>
             <button sc-camel-on-click="{{ exportPlanImage }}" style="margin-left:auto;padding:7px 11px;border:0;border-radius:9px;background:#5b6ee0;color:#fff;font-size:11px;font-weight:800;cursor:pointer">이미지로 저장</button>
             <button sc-camel-on-click="{{ copyPlanText }}" style="padding:7px 11px;border:1px solid #e5e8f7;border-radius:9px;background:#fff;color:#5a6595;font-size:11px;font-weight:800;cursor:pointer">텍스트 복사</button>
+            <button sc-camel-on-click="{{ openPlanConditions }}" style="padding:7px 11px;border:1px solid #e5e8f7;border-radius:9px;background:#fff;color:#5a6595;font-size:11px;font-weight:800;cursor:pointer">조건 설정</button>
           </div>
           <sc-for list="{{ planDays }}" as="p" hint-placeholder-count="2">
             <div style="background:#fff;border:1px solid #f0f1fb;border-radius:24px;padding:22px 24px;box-shadow:0 18px 34px rgba(122,134,205,.14)">

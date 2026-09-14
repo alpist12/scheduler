@@ -259,19 +259,47 @@ function fixedMap(id, m) {
 }
 const members = () => Object.fromEntries(Object.entries(base).map(([id, m]) => [id, { ...m, ...memberWeek(id, m), __id: id, fixedSchedule: fixedMap(id, m) }]));
 
+/* 촬영안 후보 계산은 같은 질문을 수천 번 되묻는다(날짜 × 시작시각 × 인원 × 씬).
+   그때마다 전체 촬영 목록을 훑고 구간 연산을 새로 하면 그 자체가 병목이 된다.
+   engineRevision 이 그대로인 동안은 결과가 바뀔 수 없으므로 통째로 재사용한다. */
+const revCache = { rev: -1, byDate: null, ranges: new Map(), castIds: new Map() };
+const freshCache = () => {
+  if (revCache.rev === engineRevision) return;
+  revCache.rev = engineRevision;
+  revCache.byDate = null;
+  revCache.ranges.clear();
+  revCache.castIds.clear();
+};
+/** 그 날짜의 촬영들. 날짜마다 전체 목록을 필터링하지 않는다. */
+function shootsByDate(iso) {
+  freshCache();
+  if (!revCache.byDate) {
+    revCache.byDate = new Map();
+    for (const shoot of Object.values(shoots)) {
+      if (!shoot?.date) continue;
+      const list = revCache.byDate.get(shoot.date);
+      if (list) list.push(shoot); else revCache.byDate.set(shoot.date, [shoot]);
+    }
+    for (const list of revCache.byDate.values()) list.sort((a, b) => (+a.startH) - (+b.startH));
+  }
+  return revCache.byDate.get(iso) || [];
+}
+
 // 촬영 일정: 그 주 특정 날짜의 촬영들, 그리고 특정 멤버가 출연자로 잡힌 시간 블록
 function shootsOn(day) {
-  const iso = isoDate(dayDate(day));
-  return Object.values(shoots).filter(s => s && s.date === iso).sort((a, b) => (+a.startH) - (+b.startH));
+  return shootsByDate(isoDate(dayDate(day)));
 }
 // 촬영에 묶인 인원 = 프로젝트 기획·촬영/편집(모든 씬 고정) + 그 씬의 출연진(씬별로 다름)
 function shootMemberIds(s) {
+  freshCache();
+  if (s?.id) { const hit = revCache.castIds.get(s.id); if (hit) return hit; }
   const ids = new Set((Array.isArray(s.cast) ? s.cast : []).map(c => c.id));
   const proj = projectOf(s);
   if (proj) {
     const roles = projectRoles(proj);
     for (const p of [...(roles.planning || []), ...(roles.production || [])]) if (p?.id) ids.add(p.id);
   }
+  if (s?.id) revCache.castIds.set(s.id, ids);
   return ids;
 }
 /** 촬영끼리 시간이 겹쳐도 사람이 안 겹치면 같이 찍을 수 있다.
@@ -333,6 +361,16 @@ function personalRanges(item) {
 const isHardBlock = f => f.itemId === 'weekly_meeting' || /라디오방송/.test(f.path || '');
 /** 어떤 날짜든 그 사람의 가능 시간을 구한다. 보고 있는 주에 매이지 않는다. */
 function rangesOn(m, iso) {
+  freshCache();
+  const key = `${m?.__id || m?.name || ''}|${iso}`;
+  const hit = revCache.ranges.get(key);
+  if (hit) return hit;
+  const value = computeRangesOn(m, iso);
+  revCache.ranges.set(key, value);
+  return value;
+}
+/** 실제 계산. 호출부는 결과를 읽기만 한다(변형 금지 — 캐시가 공유된다). */
+function computeRangesOn(m, iso) {
   const date = new Date(`${iso}T12:00:00`);
   if (Number.isNaN(date.getTime())) return [];
   const dayIndex = (date.getDay() + 6) % 7;
@@ -349,8 +387,8 @@ function rangesOn(m, iso) {
   const explicit = personalRanges(p);
   const baseRanges = subtract([{ start: 9, end: 23 }], [...softFixed, ...explicit.unavailable]);
   const merged = mergeRanges([...baseRanges, ...explicit.available]);
-  const shootBlocks = m?.__id ? Object.values(shoots)
-    .filter(s => s && s.date === iso && shootMemberIds(s).has(m.__id))
+  const shootBlocks = m?.__id ? shootsByDate(iso)
+    .filter(s => shootMemberIds(s).has(m.__id))
     .map(s => ({ start: +s.startH, end: +s.endH, label: s.title || '촬영' })) : [];
   const hardBlocks = [...hardFixed, ...shootBlocks];
   return hardBlocks.length ? subtract(merged, hardBlocks) : merged;

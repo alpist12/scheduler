@@ -135,8 +135,12 @@
            점검 API 가 없는 배포(/api/* 404)에서는 아무 확인 없이 전부 들어왔다.
            부원 일정이 URL 만으로 열리는 것보다 못 들어오는 쪽이 낫다. */
         window.hnubsLog?.('error', `점검 상태 확인 실패 · ${error.message}`);
-        showGate({ message: `점검 상태를 확인하지 못했습니다 · ${error.message}` });
-        return;
+        /* 로컬 개발에는 /api 가 없다. 여기까지 막으면 개발이 안 된다.
+           localhost 밖에서는 그대로 막는다. */
+        if (!/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) {
+          showGate({ message: `점검 상태를 확인하지 못했습니다 · ${error.message}` });
+          return;
+        }
       }
       window.hnubsStartApp?.();
     })();

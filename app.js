@@ -1188,12 +1188,29 @@ function aiCandidates(scenes = [], durationHours = 0) {
       return mine.every(s => freeIn(member, iso, time + s.from, time + s.to));
     });
     const yesIds = new Set(yes.map(([id]) => id));
+    /* 앞뒤 일정과 너무 붙은 시각인지 센다. 수업이 끝나자마자 카메라를 드는
+       일정은 종이 위에서만 성립한다. 코파일럿이 쓰는 준비시간과 같은 값을 쓴다. */
+    const gap = shootGapHours();
+    const dow = DAY_KEYS[(new Date(`${iso}T12:00:00`).getDay() + 6) % 7];
+    const tightFor = [...ids].reduce((n, id) => {
+      const member = members()[id];
+      if (!member) return n;
+      const around = [
+        ...((member.fixedSchedule || {})[dow] || []).map(f => ({ s: +f.start, e: +f.end })),
+        ...Object.values(shoots)
+          .filter(x => x && x.date === iso && shootMemberIds(x).has(id))
+          .map(x => ({ s: +x.startH, e: +x.endH })),
+      ];
+      const tight = around.some(x => (time - x.e >= 0 && time - x.e < gap)
+        || (x.s - (time + totalHours) >= 0 && x.s - (time + totalHours) < gap));
+      return n + (tight ? 1 : 0);
+    }, 0);
     const continuity = continuityScore({
       date: iso, start: time, end: time + totalHours, requiredIds: [...ids],
       shoots: Object.values(shoots), memberIdsOfShoot: shootMemberIds,
     });
     return {
-      iso, day: dayIndex, time, endTime: time + totalHours, all, yes,
+      iso, day: dayIndex, time, endTime: time + totalHours, all, yes, tightFor,
       full: yes.length === ids.size, continuityHits: continuity.score, continuity: continuity.label,
       missing: [...state.required].filter(id => !yesIds.has(id)).map(id => members()[id]?.name).filter(Boolean),
     };
@@ -1211,7 +1228,10 @@ function aiCandidates(scenes = [], durationHours = 0) {
     /* 정렬 기준: 우선 인원 → 가능 인원(10% 단위) → 가까운 날짜 → 이른 시간.
        비율을 그대로 쓰면 5/6 과 6/6 처럼 한 명 차이로 2주 뒤가 1순위가 된다.
        10% 단위로 묶어 비슷하면 가까운 날을 고른다. */
+    /* 준비시간이 빠듯한 후보는 뒤로 민다. 가능 인원이 같다면 숨 돌릴 틈이 있는 쪽이 낫다.
+       버리지는 않는다 — 정말 그 시간밖에 없을 수도 있다. */
     .sort((a, b) => Number(b.full) - Number(a.full)
+      || (a.tightFor > 0 ? 1 : 0) - (b.tightFor > 0 ? 1 : 0)
       || b.continuityHits - a.continuityHits
       || b.priorityHits - a.priorityHits
       || Math.round(b.ratio * 10) - Math.round(a.ratio * 10)

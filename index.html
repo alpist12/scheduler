@@ -86,7 +86,7 @@
     const showDesign = () => {
       // 점검 중이고 아직 통과 못 했으면 앱을 만들지 않는다. 덮개만 씌우면 뚫린다.
       if (window.HNUBS_GATE_BLOCKED) return;
-      const next = mobileQuery.matches ? 'standalone-mobile.html?v=214' : 'standalone-desktop.html?v=214';
+      const next = mobileQuery.matches ? 'standalone-mobile.html?v=216' : 'standalone-desktop.html?v=216';
       if (!frame.src.endsWith(next)) frame.src = next;
     };
     window.hnubsStartApp = () => {

@@ -599,11 +599,14 @@
               </button>
               <sc-if value="{{ autoPlanOpen }}" hint-placeholder-val="{{ false }}">
                 <div style="padding:4px 14px 14px;border-top:1px solid #f2f4fb">
-              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px">
-                <span style="font-size:11px;color:#7b83a8;font-weight:800">자동배치 안</span>
-                <sc-for list="{{ planAlternatives }}" as="a" hint-placeholder-count="5"><button sc-camel-on-click="{{ a.go }}" style="padding:5px 9px;border:1px solid {{ a.line }};border-radius:8px;background:{{ a.bg }};color:{{ a.fg }};font-size:10.5px;font-weight:800;cursor:pointer">{{ a.label }}</button></sc-for>
-                <button sc-camel-on-click="{{ exportPlanImage }}" style="padding:6px 9px;border:0;border-radius:8px;background:#5b6ee0;color:#fff;font-size:10.5px;font-weight:800;cursor:pointer">이미지 저장</button>
-                <button sc-camel-on-click="{{ copyPlanText }}" style="padding:6px 9px;border:1px solid #e5e8f7;border-radius:8px;background:#fff;color:#5a6595;font-size:10.5px;font-weight:800;cursor:pointer">복사</button>
+              <!-- 좁은 화면에서 한 줄에 몰아 넣으면 들쭉날쭉 접힌다. 한 열로 세운다. -->
+              <div style="font-size:11px;color:#7b83a8;font-weight:800;margin-top:10px">자동배치 안</div>
+              <div style="display:flex;flex-direction:column;gap:5px;margin-top:7px">
+                <sc-for list="{{ planAlternatives }}" as="a" hint-placeholder-count="5"><button sc-camel-on-click="{{ a.go }}" style="display:block;width:100%;padding:9px 11px;border:1px solid {{ a.line }};border-radius:9px;background:{{ a.bg }};color:{{ a.fg }};font-size:11.5px;font-weight:800;text-align:left;cursor:pointer">{{ a.label }}</button></sc-for>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:8px">
+                <button sc-camel-on-click="{{ exportPlanImage }}" style="flex:1;padding:9px;border:0;border-radius:9px;background:#5b6ee0;color:#fff;font-size:11px;font-weight:800;cursor:pointer">이미지 저장</button>
+                <button sc-camel-on-click="{{ copyPlanText }}" style="flex:1;padding:9px;border:1px solid #e5e8f7;border-radius:9px;background:#fff;color:#5a6595;font-size:11px;font-weight:800;cursor:pointer">복사</button>
               </div>
             <sc-for list="{{ planDays }}" as="p" hint-placeholder-count="2">
               <div style="background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:17px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
@@ -1432,7 +1435,107 @@ class Component extends DCLogic {
     return [...byDate.values()].map(x => `${this.fmtShort(x.when)} (${this.dowOf(x.when)}) ${x.ids.join(', ')} · ${this.hourLabel(x.start)}–${this.hourLabel(x.end)}`);
   };
   copyPlanText = async () => { const lines = ['[AI 자동배치]', ...this.planLines()]; try { await navigator.clipboard.writeText(lines.join('\n')); window.alert('자동배치 안을 복사했습니다.'); } catch (_) { window.alert(lines.join('\n')); } };
-  exportPlanImage = () => { const lines = ['AI 자동배치', ...this.planLines()]; const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d'); canvas.width = 1000; canvas.height = Math.max(220, 80 + lines.length * 42); ctx.fillStyle = '#f7f8ff'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = '#222c52'; ctx.font = '800 28px sans-serif'; ctx.fillText(lines[0], 40, 55); ctx.font = '600 17px sans-serif'; lines.slice(1).forEach((line, i) => ctx.fillText(line, 40, 100 + i * 42)); const a = document.createElement('a'); a.download = 'hnubs-ai-auto-plan.png'; a.href = canvas.toDataURL('image/png'); a.click(); };
+  /** 자동 배치안을 카드 그림으로 내보낸다.
+      글자만 나열하면 어느 날 무엇을 찍는지 한눈에 안 들어온다. */
+  exportPlanImage = () => {
+    const groups = this.engine()?.snapshot?.()?.ai?.sceneGroups || [];
+    const variant = Math.max(0, Number(this.state.planVariant) || 0);
+    const project = (this.state.live?.projects || []).find(x => x.id === this.state.aiProjectId);
+    const accent = project?.color || '#5b6ee0';
+
+    // 날짜별로 묶는다. 같은 날 여러 묶음이면 한 카드에 모은다.
+    const byDate = new Map();
+    for (const g of groups) {
+      const opts = (g.candidates || []).filter(Boolean);
+      if (!opts.length) continue;
+      const c = opts[Math.min(variant, opts.length - 1)];
+      const when = c.date ? new Date(`${c.date}T12:00:00`) : null;
+      if (!when || Number.isNaN(when.getTime())) continue;
+      const key = c.date;
+      if (!byDate.has(key)) byDate.set(key, { when, rows: [] });
+      byDate.get(key).rows.push({
+        time: `${this.hhmmOf ? this.hhmmOf(c.time) : c.time + ':00'}–${this.hhmmOf ? this.hhmmOf(c.endTime || c.time + 1) : (c.endTime || c.time + 1) + ':00'}`,
+        scenes: (g.sceneIds || []).join(', '),
+        who: `${(c.available || []).length}/${c.total || (c.available || []).length}명`,
+      });
+    }
+    const days = [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(x => x[1]);
+    if (!days.length) { window.alert('내보낼 자동 배치안이 없습니다.'); return; }
+
+    const S = 2;                                   // 두 배로 그려야 글자가 안 뭉갠다
+    const W = 900, PAD = 36, CARD_GAP = 14;
+    const headH = 118, rowH = 34, cardPadY = 18, footH = 52;
+    const cardH = d => cardPadY * 2 + 30 + d.rows.length * rowH;
+    const H = headH + days.reduce((n, d) => n + cardH(d) + CARD_GAP, 0) + footH;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W * S; canvas.height = H * S;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(S, S);
+    ctx.textBaseline = 'alphabetic';
+    const round = (x, y, w, h, r) => { ctx.beginPath(); ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); };
+    const chip = (text, x, y, bg, fg, size) => {
+      ctx.font = `800 ${size}px "Pretendard", "Apple SD Gothic Neo", sans-serif`;
+      const w = ctx.measureText(text).width + 18;
+      ctx.fillStyle = bg; round(x, y - size, w, size + 14, 7); ctx.fill();
+      ctx.fillStyle = fg; ctx.fillText(text, x + 9, y + 2);
+      return w + 6;
+    };
+
+    ctx.fillStyle = '#f6f7fd'; ctx.fillRect(0, 0, W, H);
+
+    // 머리말
+    ctx.fillStyle = accent; round(PAD, 26, W - PAD * 2, 66, 16); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = '800 26px "Pretendard", "Apple SD Gothic Neo", sans-serif';
+    ctx.fillText(`${project?.name || '촬영'} 자동 배치안`, PAD + 22, 60);
+    ctx.font = '600 14px "Pretendard", "Apple SD Gothic Neo", sans-serif';
+    ctx.globalAlpha = .9;
+    ctx.fillText(`${variant + 1}안 · ${days.length}일 · 씬 ${days.reduce((n, d) => n + d.rows.length, 0)}묶음`, PAD + 22, 82);
+    ctx.globalAlpha = 1;
+
+    // 날짜 카드
+    const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+    let y = headH;
+    for (const d of days) {
+      const h = cardH(d);
+      ctx.fillStyle = '#fff'; round(PAD, y, W - PAD * 2, h, 14); ctx.fill();
+      ctx.fillStyle = accent; round(PAD, y, 4, h, 2); ctx.fill();
+
+      ctx.fillStyle = '#222c52';
+      ctx.font = '800 17px "Pretendard", "Apple SD Gothic Neo", sans-serif';
+      ctx.fillText(`${d.when.getMonth() + 1}월 ${d.when.getDate()}일 (${DOW[d.when.getDay()]})`, PAD + 22, y + cardPadY + 14);
+
+      let ry = y + cardPadY + 46;
+      for (const r of d.rows) {
+        let x = PAD + 22;
+        x += chip(r.time, x, ry, '#eef1fb', '#4a5691', 12);
+        ctx.fillStyle = '#3a4373';
+        ctx.font = '700 14px "Pretendard", "Apple SD Gothic Neo", sans-serif';
+        ctx.fillText(r.scenes, x + 2, ry + 2);
+        ctx.fillStyle = '#9aa1c2';
+        ctx.font = '600 12px "Pretendard", "Apple SD Gothic Neo", sans-serif';
+        const w = ctx.measureText(r.who).width;
+        ctx.fillText(r.who, W - PAD - 22 - w, ry + 2);
+        ry += rowH;
+      }
+      y += h + CARD_GAP;
+    }
+
+    ctx.fillStyle = '#a7adcd';
+    ctx.font = '700 12px "Pretendard", "Apple SD Gothic Neo", sans-serif';
+    ctx.fillText('HNUBS 방송국 스케줄러', PAD, H - 22);
+    const today = new Date();
+    const stamp = `${today.getFullYear()}. ${today.getMonth() + 1}. ${today.getDate()} 기준`;
+    ctx.fillText(stamp, W - PAD - ctx.measureText(stamp).width, H - 22);
+
+    const a = document.createElement('a');
+    a.download = `hnubs-${project?.name || 'plan'}-${variant + 1}안.png`;
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  };
   backAiStage = () => {
     const stage = this.state.aiStage;
     this.setState({ aiStage: stage === 'results' || stage === 'running' ? 'options' : 'upload' });

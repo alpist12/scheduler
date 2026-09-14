@@ -1754,7 +1754,107 @@ class Component extends DCLogic {
     this.readLive();
   };
   copyPlanText = async () => { const lines = ['[AI 자동배치]', ...this.planLines()]; try { await navigator.clipboard.writeText(lines.join('\n')); window.alert('자동배치 안을 복사했습니다.'); } catch (_) { window.alert(lines.join('\n')); } };
-  exportPlanImage = () => { const lines = ['AI 자동배치', ...this.planLines()]; const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d'); canvas.width = 1400; canvas.height = Math.max(220, 90 + lines.length * 48); ctx.fillStyle = '#f7f8ff'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = '#222c52'; ctx.font = '800 34px sans-serif'; ctx.fillText(lines[0], 56, 68); ctx.font = '600 22px sans-serif'; lines.slice(1).forEach((line, i) => ctx.fillText(line, 56, 125 + i * 48)); const a = document.createElement('a'); a.download = 'hnubs-ai-auto-plan.png'; a.href = canvas.toDataURL('image/png'); a.click(); };
+  /** 자동 배치안을 카드 그림으로 내보낸다.
+      글자만 나열하면 어느 날 무엇을 찍는지 한눈에 안 들어온다. */
+  exportPlanImage = () => {
+    const groups = this.engine()?.snapshot?.()?.ai?.sceneGroups || [];
+    const variant = Math.max(0, Number(this.state.planVariant) || 0);
+    const project = (this.state.live?.projects || []).find(x => x.id === this.state.aiProjectId);
+    const accent = project?.color || '#5b6ee0';
+
+    // 날짜별로 묶는다. 같은 날 여러 묶음이면 한 카드에 모은다.
+    const byDate = new Map();
+    for (const g of groups) {
+      const opts = (g.candidates || []).filter(Boolean);
+      if (!opts.length) continue;
+      const c = opts[Math.min(variant, opts.length - 1)];
+      const when = c.date ? new Date(`${c.date}T12:00:00`) : null;
+      if (!when || Number.isNaN(when.getTime())) continue;
+      const key = c.date;
+      if (!byDate.has(key)) byDate.set(key, { when, rows: [] });
+      byDate.get(key).rows.push({
+        time: `${this.hhmm ? this.hhmm(c.time) : c.time + ':00'}–${this.hhmm ? this.hhmm(c.endTime || c.time + 1) : (c.endTime || c.time + 1) + ':00'}`,
+        scenes: (g.sceneIds || []).join(', '),
+        who: `${(c.available || []).length}/${c.total || (c.available || []).length}명`,
+      });
+    }
+    const days = [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(x => x[1]);
+    if (!days.length) { window.alert('내보낼 자동 배치안이 없습니다.'); return; }
+
+    const S = 2;                                   // 두 배로 그려야 글자가 안 뭉갠다
+    const W = 900, PAD = 36, CARD_GAP = 14;
+    const headH = 118, rowH = 34, cardPadY = 18, footH = 52;
+    const cardH = d => cardPadY * 2 + 30 + d.rows.length * rowH;
+    const H = headH + days.reduce((n, d) => n + cardH(d) + CARD_GAP, 0) + footH;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W * S; canvas.height = H * S;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(S, S);
+    ctx.textBaseline = 'alphabetic';
+    const round = (x, y, w, h, r) => { ctx.beginPath(); ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); };
+    const chip = (text, x, y, bg, fg, size) => {
+      ctx.font = `800 ${size}px "Pretendard", "Apple SD Gothic Neo", sans-serif`;
+      const w = ctx.measureText(text).width + 18;
+      ctx.fillStyle = bg; round(x, y - size, w, size + 14, 7); ctx.fill();
+      ctx.fillStyle = fg; ctx.fillText(text, x + 9, y + 2);
+      return w + 6;
+    };
+
+    ctx.fillStyle = '#f6f7fd'; ctx.fillRect(0, 0, W, H);
+
+    // 머리말
+    ctx.fillStyle = accent; round(PAD, 26, W - PAD * 2, 66, 16); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = '800 26px "Pretendard", "Apple SD Gothic Neo", sans-serif';
+    ctx.fillText(`${project?.name || '촬영'} 자동 배치안`, PAD + 22, 60);
+    ctx.font = '600 14px "Pretendard", "Apple SD Gothic Neo", sans-serif';
+    ctx.globalAlpha = .9;
+    ctx.fillText(`${variant + 1}안 · ${days.length}일 · 씬 ${days.reduce((n, d) => n + d.rows.length, 0)}묶음`, PAD + 22, 82);
+    ctx.globalAlpha = 1;
+
+    // 날짜 카드
+    const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+    let y = headH;
+    for (const d of days) {
+      const h = cardH(d);
+      ctx.fillStyle = '#fff'; round(PAD, y, W - PAD * 2, h, 14); ctx.fill();
+      ctx.fillStyle = accent; round(PAD, y, 4, h, 2); ctx.fill();
+
+      ctx.fillStyle = '#222c52';
+      ctx.font = '800 17px "Pretendard", "Apple SD Gothic Neo", sans-serif';
+      ctx.fillText(`${d.when.getMonth() + 1}월 ${d.when.getDate()}일 (${DOW[d.when.getDay()]})`, PAD + 22, y + cardPadY + 14);
+
+      let ry = y + cardPadY + 46;
+      for (const r of d.rows) {
+        let x = PAD + 22;
+        x += chip(r.time, x, ry, '#eef1fb', '#4a5691', 12);
+        ctx.fillStyle = '#3a4373';
+        ctx.font = '700 14px "Pretendard", "Apple SD Gothic Neo", sans-serif';
+        ctx.fillText(r.scenes, x + 2, ry + 2);
+        ctx.fillStyle = '#9aa1c2';
+        ctx.font = '600 12px "Pretendard", "Apple SD Gothic Neo", sans-serif';
+        const w = ctx.measureText(r.who).width;
+        ctx.fillText(r.who, W - PAD - 22 - w, ry + 2);
+        ry += rowH;
+      }
+      y += h + CARD_GAP;
+    }
+
+    ctx.fillStyle = '#a7adcd';
+    ctx.font = '700 12px "Pretendard", "Apple SD Gothic Neo", sans-serif';
+    ctx.fillText('HNUBS 방송국 스케줄러', PAD, H - 22);
+    const today = new Date();
+    const stamp = `${today.getFullYear()}. ${today.getMonth() + 1}. ${today.getDate()} 기준`;
+    ctx.fillText(stamp, W - PAD - ctx.measureText(stamp).width, H - 22);
+
+    const a = document.createElement('a');
+    a.download = `hnubs-${project?.name || 'plan'}-${variant + 1}안.png`;
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  };
   backAiStage = () => {
     const stage = this.state.aiStage;
     this.setState({ aiStage: stage === 'results' || stage === 'running' ? 'options' : 'upload' });

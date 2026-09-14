@@ -122,10 +122,17 @@ assert.ok(runTool('edit_shoot_cast', { id: '없는id' }, context).error);
   assert.strictEqual(apart[0].startH, 18);
   assert.strictEqual(apart[1].startH, 18, '사람이 안 겹치면 같은 시간이어야 한다');
 
-  // 끝 시각을 안 주면 2시간으로 채운다
+  // 끝 시각 없이 '이후'만 주면 씬당 30분으로 채운다
   const open = runTool('create_shoots', { items: [{ title: 'C', date: '2026-09-15', startH: 18.5 }] }, context).__action.items[0];
-  assert.strictEqual(open.endH, 20.5);
-  assert.ok(/2시간/.test(open.note));
+  assert.strictEqual(open.endH, 19);
+  assert.ok(/30분/.test(open.note));
+
+  const afterScenes = runTool('create_shoots', { items: [
+    { title: 'S#1', date: '2026-09-15', startH: 18, castNames: ['이서연'] },
+    { title: 'S#2', date: '2026-09-15', startH: 18, castNames: ['이서연'] },
+    { title: 'S#3', date: '2026-09-15', startH: 18, castNames: ['이서연'] },
+  ] }, context).__action.items;
+  assert.deepStrictEqual(afterScenes.map(x => [x.startH, x.endH]), [[18, 18.5], [18.5, 19], [19, 19.5]]);
 }
 
 console.log('air tools OK');

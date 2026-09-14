@@ -37,7 +37,7 @@
 </head>
 <body>
 <iframe id="design-frame" title="HNUBS 방송국 스케줄러"></iframe>
-<iframe id="engine-frame" data-src="index.integrated.html?engine=1&v=58" title="HNUBS 데이터 엔진" aria-hidden="true" tabindex="-1" style="position:fixed;width:1px;height:1px;left:-9999px;top:-9999px;border:0;opacity:0;pointer-events:none"></iframe>
+<iframe id="engine-frame" data-src="index.integrated.html?engine=1&v=60" title="HNUBS 데이터 엔진" aria-hidden="true" tabindex="-1" style="position:fixed;width:1px;height:1px;left:-9999px;top:-9999px;border:0;opacity:0;pointer-events:none"></iframe>
 <aside class="ai-pal" aria-label="Air(에어) AI 도우미">
   <div id="aiPalBubble" class="ai-pal-bubble" role="status">무엇을 도와드릴까요?</div>
   <section id="aiPalChat" class="ai-pal-chat" aria-label="AI 대화창">
@@ -82,7 +82,7 @@
     const showDesign = () => {
       // 점검 중이고 아직 통과 못 했으면 앱을 만들지 않는다. 덮개만 씌우면 뚫린다.
       if (window.HNUBS_GATE_BLOCKED) return;
-      const next = mobileQuery.matches ? 'standalone-mobile.html?v=192' : 'standalone-desktop.html?v=195';
+      const next = mobileQuery.matches ? 'standalone-mobile.html?v=192' : 'standalone-desktop.html?v=200';
       if (!frame.src.endsWith(next)) frame.src = next;
     };
     window.hnubsStartApp = () => {
@@ -368,6 +368,15 @@
           analysis: snap.ai?.job ? { status:snap.ai.job.status, progress:snap.ai.job.progress, scenes:snap.ai.job.scenes } : null,
         };
         const data = await fetchAirReply({ message, context, history:chatHistory.slice(-10) });
+        /* Netlify의 이전 응답이 종료 누락을 2시간으로 채워도, 새 호스트에서는
+           사용자가 정한 규칙대로 씬당 30분으로 바로잡는다. */
+        if (data.action?.type === 'shoot_schedules') {
+          for (const item of data.action.items || []) {
+            if (!/종료 시각을 안 알려 주셔서 2시간으로 잡았습니다/.test(item.note || '')) continue;
+            item.endH = Math.min(24, Number(item.startH) + 0.5);
+            item.note = String(item.note).replace('종료 시각을 안 알려 주셔서 2시간으로 잡았습니다', '종료 시각을 안 알려 주셔서 씬당 30분으로 잡았습니다');
+          }
+        }
         clearInterval(elapsedTimer);
         wait.classList.remove('wait'); wait.removeAttribute('aria-label'); wait.textContent = data.reply || '답변을 받지 못했어요.';
         const took = document.createElement('span');

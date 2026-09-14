@@ -136,7 +136,7 @@ const makeAction = value => ({ __action: value });
 
 function createShoots({ items = [] }, _context) {
   if (!Array.isArray(items) || !items.length) return { error: '등록할 촬영이 없습니다.' };
-  /* 사람은 '18시 40분 이후' 처럼 말한다. 끝 시각을 안 주면 2시간으로 잡고,
+  /* 사람은 '18시 40분 이후' 처럼 말한다. 끝 시각을 안 주면 씬당 30분으로 잡고,
      30분 단위가 아니면 맞춰 준 뒤 원문을 메모에 남긴다. 그래야 등록이 막히지 않는다. */
   const fixed = items.map(item => {
     const out = { ...item };
@@ -149,8 +149,9 @@ function createShoots({ items = [] }, _context) {
       }
     }
     if (!Number.isFinite(Number(out.endH)) || Number(out.endH) <= Number(out.startH)) {
-      out.endH = Math.min(24, Number(out.startH) + 2);
-      out.note = [out.note, '종료 시각을 안 알려 주셔서 2시간으로 잡았습니다'].filter(Boolean).join(' · ');
+      out.endH = Math.min(24, Number(out.startH) + 0.5);
+      out._defaultDuration = true;
+      out.note = [out.note, '종료 시각을 안 알려 주셔서 씬당 30분으로 잡았습니다'].filter(Boolean).join(' · ');
     }
     return out;
   });
@@ -183,6 +184,14 @@ function createShoots({ items = [] }, _context) {
     for (const id of new Set(bucket)) {
       const chain = group.filter((_, i) => bucket[i] === id);
       if (chain.length < 2) continue;               // 혼자면 원래 구간 그대로
+      if (chain.every(item => item._defaultDuration)) {
+        chain.forEach((item, i) => {
+          item.startH = start + i * 0.5;
+          item.endH = Math.min(24, item.startH + 0.5);
+          item.note = [item.note, `같은 출연자가 있어 ${chain.length}씬을 30분씩 이어서 배치했습니다`].filter(Boolean).join(' · ');
+        });
+        continue;
+      }
       const each = Math.max(0.5, Math.floor((span / chain.length) * 2) / 2);
       chain.forEach((item, i) => {
         const from = start + each * i;
@@ -193,6 +202,7 @@ function createShoots({ items = [] }, _context) {
       });
     }
   }
+  fixed.forEach(item => delete item._defaultDuration);
   return makeAction({ type: 'shoot_schedules', items: fixed });
 }
 function createPersonal({ items = [] }, _context) {
@@ -415,12 +425,12 @@ export const TOOLS = [
             type: 'object',
             properties: {
               title: str('촬영 제목. 예: 5화 3씬'), date: str('YYYY-MM-DD'),
-              startH: { type: 'integer', description: '시작 시각(0-24)' },
-              endH: { type: 'integer', description: '종료 시각(0-24)' },
+              startH: { type: 'number', description: '시작 시각(0-24). 18시 30분은 18.5' },
+              endH: { type: 'number', description: '종료 시각(0-24). 사용자가 종료 시각을 말하지 않으면 생략' },
               location: str('장소'), projectName: str('기획 이름'),
               castNames: arr('출연 인원 이름', { type: 'string' }),
             },
-            required: ['title', 'date', 'startH', 'endH'],
+            required: ['title', 'date', 'startH'],
           }),
         },
         required: ['items'],

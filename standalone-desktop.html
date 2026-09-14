@@ -304,22 +304,6 @@
           </div>
 
           <div style="display:flex;flex-direction:column;gap:16px">
-            <div style="background:#fff;border:1px solid #dce7ff;border-radius:20px;padding:20px;box-shadow:0 10px 26px rgba(90,105,180,.07)">
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-                <div><div style="font-size:16px;font-weight:800;color:#222c52">촬영 가능 씬</div><div style="font-size:12px;color:#8b93b8;margin-top:4px;font-weight:600">날짜를 고르면 AI가 검토합니다 · {{ copilotDateLabel }}</div></div>
-                <span style="padding:5px 9px;border-radius:8px;background:#eef4ff;color:#3b82f6;font-size:11px;font-weight:800">사람이 확정</span>
-              </div>
-              <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
-                <sc-for list="{{ copilotScenes }}" as="s" hint-placeholder-count="5">
-                  <button sc-camel-on-click="{{ s.pick }}" style="display:block;width:100%;padding:11px 12px;border:1px solid {{ s.tone }};border-radius:14px;background:{{ s.tone }};text-align:left;cursor:pointer">
-                    <div style="display:flex;align-items:center;gap:8px"><strong style="font-size:13px;color:#222c52">{{ s.id }}</strong><span style="padding:3px 7px;border-radius:7px;background:#fff;color:{{ s.fg }};font-size:10.5px;font-weight:800">{{ s.level }}</span></div>
-                    <div style="font-size:11.5px;color:#596486;margin-top:5px;line-height:1.45">{{ s.people }} · {{ s.location }}</div>
-                    <div style="font-size:11px;color:{{ s.fg }};margin-top:4px;font-weight:700">{{ s.reason }}</div>
-                  </button>
-                </sc-for>
-                <sc-if value="{{ copilotScenesEmpty }}" hint-placeholder-val="{{ true }}"><div style="padding:18px 4px;text-align:center;font-size:12px;color:#a1a7c6">분석된 씬이 없습니다. AI 분석에서 대본을 먼저 분석하세요.</div></sc-if>
-              </div>
-            </div>
             <div style="background:#fff;border:1px solid #eceefa;border-radius:20px;padding:20px;box-shadow:0 10px 26px rgba(90,105,180,.07)">
               <div style="display:flex;align-items:baseline;justify-content:space-between">
                 <div style="font-size:16px;font-weight:800;color:#222c52">이번 주 요약</div>
@@ -390,12 +374,6 @@
               <button sc-camel-on-click="{{ reanalyzeLeftovers }}" style="flex:0 0 auto;padding:10px 16px;border:1px solid #dbe4fb;border-radius:12px;background:#fff;color:#3b82f6;font-size:12.5px;font-weight:800;cursor:pointer">제외 되돌리기</button>
               <button sc-camel-on-click="{{ reoptimizeAll }}" style="flex:0 0 auto;padding:10px 16px;border:1px solid #e5e8f7;border-radius:12px;background:#fff;color:#7b83a8;font-size:12.5px;font-weight:800;cursor:pointer">전체 다시 최적화</button>
             </div>
-            <div style="margin-top:18px;padding:18px;border:1px solid #dce7ff;border-radius:18px;background:#fbfdff">
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:15px;font-weight:800;color:#222c52">촬영 일정 코파일럿</div><div style="font-size:11.5px;color:#8b93b8;margin-top:4px">날짜를 고르면 이날 촬영하기 좋은 씬을 AI가 분류합니다. 배치는 직접 확정하세요.</div></div><span style="padding:5px 9px;border-radius:8px;background:#eef4ff;color:#3b82f6;font-size:10.5px;font-weight:800">사람이 확정</span></div>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px"><sc-for list="{{ copilotDateChoices }}" as="d" hint-placeholder-count="7"><button sc-camel-on-click="{{ d.pick }}" style="padding:7px 10px;border:1px solid {{ d.line }};border-radius:9px;background:{{ d.bg }};color:{{ d.fg }};font-size:11.5px;font-weight:800;cursor:pointer">{{ d.label }}</button></sc-for></div>
-              <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px"><sc-for list="{{ copilotScenes }}" as="s" hint-placeholder-count="6"><button sc-camel-on-click="{{ s.pick }}" style="display:block;width:100%;padding:11px;border:1px solid {{ s.tone }};border-radius:13px;background:{{ s.tone }};text-align:left;cursor:pointer"><div style="display:flex;align-items:center;gap:7px"><strong style="font-size:12.5px;color:#222c52">{{ s.id }}</strong><span style="padding:3px 6px;border-radius:6px;background:#fff;color:{{ s.fg }};font-size:10px;font-weight:800">{{ s.level }}</span></div><div style="font-size:11px;color:#596486;margin-top:5px;line-height:1.4">{{ s.people }}<br>{{ s.location }}</div><div style="font-size:10.5px;color:{{ s.fg }};margin-top:4px;font-weight:700">{{ s.reason }}</div></button></sc-for></div>
-              <sc-if value="{{ copilotScenesEmpty }}" hint-placeholder-val="{{ true }}"><div style="padding:14px 4px;text-align:center;font-size:12px;color:#a1a7c6">분석된 씬이 없습니다. 먼저 대본을 분석하세요.</div></sc-if>
-            </div>
             <sc-if value="{{ planDone }}" hint-placeholder-val="{{ false }}">
               <div style="margin-top:16px;padding:14px 16px;border-radius:15px;background:#eaf7ef;display:flex;align-items:center;gap:11px">
                 <span style="font-size:19px">✅</span>
@@ -413,6 +391,120 @@
             </div>
           </div>
 
+          <!-- 촬영 코파일럿: 날짜 → 씬 → 추천 시간 → 사람이 확정. -->
+          <div style="background:#fff;border:1px solid #dce7ff;border-radius:22px;padding:22px;margin-top:16px;box-shadow:0 14px 30px rgba(90,105,180,.09)">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <div style="min-width:0">
+                <div style="font-size:17px;font-weight:800;color:#222c52">촬영 가능 씬</div>
+                <div style="font-size:11.5px;color:#8b93b8;margin-top:4px;font-weight:600">{{ copilotDateLabel }} · {{ copilotWindow }}</div>
+                <div style="font-size:11.5px;color:#7b83a8;margin-top:3px;font-weight:700">{{ copilotCrew }}</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:4px;flex:0 0 auto">
+                <button sc-camel-on-click="{{ prevWeek }}" title="지난 주" style="width:27px;height:27px;border-radius:99px;border:1px solid #e9ecf9;background:#fbfcff;color:#5a6595;cursor:pointer;font-size:13px">‹</button>
+                <button sc-camel-on-click="{{ thisWeek }}" style="padding:0 9px;height:27px;border-radius:99px;border:1px solid #e9ecf9;background:#fbfcff;color:#66709d;font-size:11px;font-weight:700;cursor:pointer">{{ copilotWeekLabel }}</button>
+                <button sc-camel-on-click="{{ nextWeek }}" title="다음 주" style="width:27px;height:27px;border-radius:99px;border:1px solid #e9ecf9;background:#fbfcff;color:#5a6595;cursor:pointer;font-size:13px">›</button>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:4px;margin-top:13px">
+              <sc-for list="{{ copilotDateChoices }}" as="d" hint-placeholder-count="7">
+                <button sc-camel-on-click="{{ d.pick }}" style="flex:1;min-width:0;padding:8px 2px;border:1px solid {{ d.line }};border-radius:10px;background:{{ d.bg }};color:{{ d.fg }};font-weight:800;cursor:pointer;transition:all .15s ease">
+                  <span style="display:block;font-size:12px">{{ d.dow }}</span>
+                  <span style="display:block;font-size:10px;opacity:.8;margin-top:2px">{{ d.md }}</span>
+                </button>
+              </sc-for>
+            </div>
+
+            <div style="display:flex;gap:13px;margin-top:13px;padding:9px 12px;border-radius:10px;background:#fafbff">
+              <sc-for list="{{ copilotTally }}" as="c" hint-placeholder-count="3">
+                <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:#66709d">
+                  <span style="width:9px;height:9px;border-radius:99px;background:{{ c.dot }}"></span>{{ c.label }}
+                </span>
+              </sc-for>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-top:13px">
+              <div style="display:flex;flex-direction:column;gap:7px;max-height:430px;overflow:auto">
+                <sc-for list="{{ copilotScenes }}" as="s" hint-placeholder-count="5">
+                  <button sc-camel-on-click="{{ s.pick }}" title="{{ s.reason }}" style="display:block;width:100%;padding:11px 12px;border:{{ s.ring }};border-left:4px solid {{ s.dot }};border-radius:11px;background:{{ s.tone }};text-align:left;cursor:pointer;transition:transform .14s ease,box-shadow .14s ease" style-hover="transform:translateY(-1px);box-shadow:0 8px 18px rgba(90,105,180,.13)">
+                    <div style="display:flex;align-items:center;gap:7px">
+                      <span style="width:9px;height:9px;flex:0 0 9px;border-radius:99px;background:{{ s.dot }}"></span>
+                      <strong style="flex:1;min-width:0;font-size:12.5px;color:#222c52;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.id }}</strong>
+                      <span style="padding:2px 7px;border-radius:6px;background:#fff;color:{{ s.fg }};font-size:10px;font-weight:800">{{ s.level }}</span>
+                    </div>
+                    <div style="font-size:11px;color:#596486;margin-top:6px;line-height:1.45">{{ s.people }}<br>{{ s.location }}</div>
+                    <div style="font-size:10.5px;color:{{ s.fg }};margin-top:5px;font-weight:700">{{ s.when }}</div>
+                  </button>
+                </sc-for>
+                <sc-if value="{{ copilotScenesEmpty }}" hint-placeholder-val="{{ true }}"><div style="padding:22px 4px;text-align:center;font-size:12px;color:#a1a7c6">분석된 씬이 없습니다.<br>대본을 먼저 분석하세요.</div></sc-if>
+              </div>
+
+              <div style="border:1px solid #eef0fa;border-radius:16px;background:#fcfdff;display:flex;flex-direction:column;overflow:hidden">
+                <sc-if value="{{ copilotIdle }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:30px 18px;text-align:center">
+                    <span class="ms" style="font-size:30px;color:#cfd6ec">ads_click</span>
+                    <div style="font-size:12.5px;color:#8b93b8;font-weight:700;margin-top:10px">왼쪽에서 씬을 고르세요</div>
+                    <div style="font-size:11px;color:#b3b9d2;font-weight:600;margin-top:4px;line-height:1.5">추천 시작 시간과<br>그날 일정표를 보여 드립니다.</div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ copilotPicked }}" hint-placeholder-val="{{ true }}">
+                  <div style="padding:15px 16px;border-bottom:1px solid #eef0fa;background:{{ copilotPickTint }}">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span style="width:10px;height:10px;flex:0 0 10px;border-radius:99px;background:{{ copilotPickDot }}"></span>
+                      <strong style="flex:1;min-width:0;font-size:14.5px;font-weight:800;color:#222c52;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ copilotPickTitle }}</strong>
+                      <span style="padding:3px 9px;border-radius:7px;background:#fff;color:{{ copilotPickDot }};font-size:10.5px;font-weight:800">{{ copilotPickLevel }}</span>
+                    </div>
+                    <div style="font-size:11.5px;color:#66709d;margin-top:6px;font-weight:600;line-height:1.5">{{ copilotPickSub }}</div>
+                    <div style="font-size:11px;color:{{ copilotPickDot }};margin-top:5px;font-weight:700;line-height:1.5">{{ copilotPickWhy }}</div>
+                  </div>
+                  <div style="padding:14px 16px 0">
+                    <div style="font-size:11.5px;font-weight:800;color:#5a6595">추천 시작 시간</div>
+                    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:9px">
+                      <sc-for list="{{ copilotSlots }}" as="v" hint-placeholder-count="3">
+                        <button sc-camel-on-click="{{ v.pick }}" style="flex:1;min-width:74px;padding:9px 6px;border:1.5px solid {{ v.line }};border-radius:11px;background:{{ v.bg }};cursor:pointer;transition:all .14s ease">
+                          <span style="display:block;font-size:13.5px;font-weight:800;color:{{ v.fg }}">{{ v.label }}</span>
+                          <span style="display:block;font-size:9.5px;font-weight:700;color:{{ v.subFg }};margin-top:2px">{{ v.note }}</span>
+                        </button>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <div style="padding:14px 16px 0">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between">
+                    <div style="font-size:11.5px;font-weight:800;color:#5a6595">{{ copilotDayLabel }} 일정표</div>
+                    <div style="font-size:10.5px;color:#a7adcd;font-weight:700">{{ copilotDayCount }}</div>
+                  </div>
+                  <!-- 시간 비례 타임라인. 30분마다 빈 줄을 쌓으면 촬영 없는 날은 화면이 텅 빈다. -->
+                  <div style="position:relative;margin-top:9px;height:{{ copilotTrackH }};border-left:1px solid #eef0fa;margin-left:40px">
+                    <sc-for list="{{ copilotHourMarks }}" as="m" hint-placeholder-count="6">
+                      <div style="position:absolute;left:-40px;right:0;top:{{ m.top }};height:1px;background:#f2f4fb">
+                        <span style="position:absolute;left:0;top:-7px;font-size:10px;color:#a7adcd;font-weight:700">{{ m.label }}</span>
+                      </div>
+                    </sc-for>
+                    <sc-for list="{{ copilotBlocks }}" as="b" hint-placeholder-count="3">
+                      <div title="{{ b.hint }}" style="position:absolute;left:5px;right:3px;top:{{ b.top }};height:{{ b.height }};border-radius:7px;background:{{ b.bg }};border-left:3px solid {{ b.bar }};padding:3px 8px;overflow:hidden">
+                        <div style="font-size:10.5px;font-weight:800;color:{{ b.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ b.label }}</div>
+                        <div style="font-size:9.5px;font-weight:600;color:{{ b.subFg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ b.sub }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+
+                <div style="padding:14px 16px 16px;margin-top:auto">
+                  <button sc-camel-on-click="{{ copilotAdd }}" style="width:100%;padding:13px;border:0;border-radius:13px;background:{{ copilotAddBg }};color:#fff;font-size:13.5px;font-weight:800;cursor:{{ copilotAddCursor }};box-shadow:{{ copilotAddShadow }}">{{ copilotAddLabel }}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 자동 배치는 보조 기능이다. 기본은 코파일럿으로 사람이 직접 넣는다. -->
+          <div style="display:flex;align-items:center;gap:10px;margin-top:18px">
+            <button sc-camel-on-click="{{ toggleAutoPlan }}" style="padding:10px 15px;border:1px solid #e5e8f7;border-radius:12px;background:#fff;color:#5a6595;font-size:12.5px;font-weight:700;cursor:pointer">{{ autoPlanLabel }}</button>
+            <span style="font-size:11.5px;color:#a7adcd;font-weight:600">{{ autoPlanHint }}</span>
+          </div>
+
+          <sc-if value="{{ autoPlanOpen }}" hint-placeholder-val="{{ false }}">
           <sc-for list="{{ planDays }}" as="p" hint-placeholder-count="2">
             <div style="background:#fff;border:1px solid #f0f1fb;border-radius:24px;padding:22px 24px;box-shadow:0 18px 34px rgba(122,134,205,.14)">
               <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -460,6 +552,8 @@
               </div>
             </div>
           </sc-for>
+
+          </sc-if>
 
           <sc-if value="{{ hasLeftovers }}" hint-placeholder-val="{{ false }}">
             <div style="background:#fff;border:1px solid #f3e3e6;border-radius:24px;padding:22px 24px;box-shadow:0 18px 34px rgba(122,134,205,.14)">
@@ -726,11 +820,6 @@
                 </div>
               </sc-if>
 
-              <div style="display:none;margin-top:18px;padding:18px;border:1px solid #dce7ff;border-radius:18px;background:#fbfdff">
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:15px;font-weight:800;color:#222c52">촬영 일정 코파일럿</div><div style="font-size:11.5px;color:#8b93b8;margin-top:4px">날짜를 선택하면 이날 찍기 좋은 씬을 먼저 보여줍니다.</div></div><span style="padding:5px 9px;border-radius:8px;background:#eef4ff;color:#3b82f6;font-size:10.5px;font-weight:800">사람이 확정</span></div>
-                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px"><sc-for list="{{ copilotDateChoices }}" as="d" hint-placeholder-count="7"><button sc-camel-on-click="{{ d.pick }}" style="padding:7px 10px;border:1px solid {{ d.line }};border-radius:9px;background:{{ d.bg }};color:{{ d.fg }};font-size:11.5px;font-weight:800;cursor:pointer">{{ d.label }}</button></sc-for></div>
-                <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px"><sc-for list="{{ copilotScenes }}" as="s" hint-placeholder-count="6"><button sc-camel-on-click="{{ s.pick }}" style="display:block;width:100%;padding:11px;border:1px solid {{ s.tone }};border-radius:13px;background:{{ s.tone }};text-align:left;cursor:pointer"><div style="display:flex;align-items:center;gap:7px"><strong style="font-size:12.5px;color:#222c52">{{ s.id }}</strong><span style="padding:3px 6px;border-radius:6px;background:#fff;color:{{ s.fg }};font-size:10px;font-weight:800">{{ s.level }}</span></div><div style="font-size:11px;color:#596486;margin-top:5px;line-height:1.4">{{ s.people }}<br>{{ s.location }}</div><div style="font-size:10.5px;color:{{ s.fg }};margin-top:4px;font-weight:700">{{ s.reason }}</div></button></sc-for></div>
-              </div>
               <div style="display:flex;gap:10px;margin-top:18px">
                 <button sc-camel-on-click="{{ copyAiResults }}" style="flex:1;padding:13px;border:1px solid #e5e8f7;background:#fff;border-radius:15px;font-size:13.5px;font-weight:700;color:#5a6595;cursor:pointer">결과 복사</button>
                 <button sc-camel-on-click="{{ openAiSchedule }}" style="flex:1;padding:13px;border:1px solid #e5e8f7;background:#fff;border-radius:15px;font-size:13.5px;font-weight:700;color:#5a6595;cursor:pointer">선택 일정에 추가</button>
@@ -2532,9 +2621,9 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
           {key:'shoot-project',label:'프로젝트 관리',icon:'folder',go:()=>this.setState({shootView:'project'})}]:[])
       ] : n.key === 'ai' ? [
         {...n,suffix:'▾',suffixTurn:st.screen==='ai'?'180deg':'0deg',suffixBg:st.screen==='ai'?'#eef4ff':'transparent',go:()=>this.setState({screen:'ai'})},
-        ...(st.screen==='ai'?[{key:'ai-analysis',label:'새 분석 / 결과',icon:'subdirectory_arrow_right',go:()=>this.setState({aiView:'analysis'})},{key:'ai-plan',label:'촬영안',icon:'event_available',go:()=>this.setState({aiView:'plan'})},{key:'ai-history',label:'과거 분석 목록',icon:'history',go:()=>this.setState({aiView:'history'})}]:[])
+        ...(st.screen==='ai'?[{key:'ai-analysis',label:'새 분석 / 결과',icon:'subdirectory_arrow_right',go:()=>this.setState({aiView:'analysis'})},{key:'ai-history',label:'과거 분석 목록',icon:'history',go:()=>this.setState({aiView:'history'})}]:[])
       ]:[{...n,go:()=>this.setState({screen:n.key})}]).map(n=>{
-        const active=n.key==='shoot'?st.screen==='shoot':n.key==='shoot-list'?st.screen==='shoot'&&st.shootView==='list':n.key==='shoot-project'?st.screen==='shoot'&&st.shootView==='project':n.key==='ai'?st.screen==='ai':n.key==='ai-analysis'?st.screen==='ai'&&st.aiView==='analysis':n.key==='ai-plan'?st.screen==='ai'&&st.aiView==='plan':n.key==='ai-history'?st.screen==='ai'&&st.aiView==='history':st.screen===n.key;
+        const active=n.key==='shoot'?st.screen==='shoot':n.key==='shoot-list'?st.screen==='shoot'&&st.shootView==='list':n.key==='shoot-project'?st.screen==='shoot'&&st.shootView==='project':n.key==='ai'?st.screen==='ai':n.key==='ai-analysis'?st.screen==='ai'&&st.aiView==='analysis':n.key==='ai-history'?st.screen==='ai'&&st.aiView==='history':st.screen===n.key;
         return {suffix:'',suffixTurn:'0deg',suffixBg:'transparent',...n,iconClass:active?'ms ms-fill':'ms',iconColor:active?A:'#a1a7c6',weight:active?800:600,color:active?'#2b3560':'#8b93b8',bg:active?'rgba(255,255,255,.95)':'transparent',shadow:active?'0 6px 16px rgba(90,105,180,.12)':'none'};
       }),
 
@@ -2542,8 +2631,8 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
       isPersonal: st.screen === 'personal', isMembers: st.screen === 'members',
       shootShowProject: st.shootView === 'project', shootMainDisplay: st.shootView === 'project' ? 'none' : 'grid',
       isSettings: st.screen === 'settings', aiShowHistory: st.aiView === 'history',
-      aiShowPlan: st.aiView === 'plan',
-      aiMainDisplay: (st.aiView === 'history' || st.aiView === 'plan') ? 'none' : 'grid',
+      aiShowPlan: st.aiStage === 'results' && st.aiView !== 'history',
+      aiMainDisplay: (st.aiView === 'history' || st.aiStage === 'results') ? 'none' : 'grid',
       aiSetupDisplay: ['upload','options'].includes(st.aiStage) ? 'block' : 'none',
       aiUploadDisplay: st.aiStage === 'upload' ? 'block' : 'none',
       aiOptionsDisplay: st.aiStage === 'options' ? 'block' : 'none',
@@ -2559,6 +2648,12 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
       showWeekNav: ['weekly', 'shoot', 'personal', 'members'].indexOf(st.screen) >= 0,
       weekLabel: dates[0].getFullYear() + '. ' + this.fmt(dates[0]) + ' (' + dowOf(dates[0]) + ')  -  ' + dates[6].getFullYear() + '. ' + this.fmt(dates[6]) + ' (' + dowOf(dates[6]) + ')',
       weekRange: this.fmt(dates[0]) + '. - ' + this.fmt(dates[6]) + '.',
+      autoPlanOpen: !!st.autoPlanOpen,
+      autoPlanLabel: st.autoPlanOpen ? '\u25be AI 자동 배치 숨기기' : '\u25b8 AI 자동 배치 보기',
+      autoPlanHint: st.autoPlanOpen ? 'AI가 날짜까지 정해 묶은 안입니다. 참고용입니다.' : '직접 넣는 대신 AI가 묶어 준 안을 봅니다.',
+      toggleAutoPlan: () => this.setState({ autoPlanOpen: !st.autoPlanOpen }),
+      copilotWeekLabel: (st.weekOffset || 0) === 0 ? '이번 주' : (st.weekOffset > 0 ? `+${st.weekOffset}주` : `${st.weekOffset}주`),
+      thisWeek: () => { this.engine()?.setWeekOffset?.(0); this.setState({ weekOffset: 0 }); },
       prevWeek: () => this.setState(s => { const value=s.weekOffset-1; this.engine()?.setWeekOffset?.(value); return {weekOffset:value}; }),
       nextWeek: () => this.setState(s => { const value=s.weekOffset+1; this.engine()?.setWeekOffset?.(value); return {weekOffset:value}; }),
       thisWeek: () => { this.engine()?.setWeekOffset?.(0); this.setState({weekOffset:0}); },
@@ -3166,29 +3261,91 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
       })(),
       shootListEmpty: !(() => { for (let i = 0; i < 7; i++) if (filteredShoot(i).length) return true; return false; })(),
       copilotDateLabel: `${this.fmt(dates[st.shootDay])} (${this.dowOf(dates[st.shootDay])})`,
-      copilotScenes: (() => {
+      /* 판정은 엔진(copilotForDate)이 한다. 신호등: 초록=가능, 노랑=애매, 빨강=불가. */
+      ...(() => {
         const selectedIso = iso(dates[st.shootDay]);
-        const scenes = live?.ai?.scenes || [];
-        const groups = live?.ai?.sceneGroups || [];
-        const rows = scenes.map((scene, index) => {
-          const id = scene.sceneId || `S#${index + 1}`;
-          const group = groups.find(g => (g.sceneIds || []).map(String).includes(String(id)));
-          const candidate = (group?.candidates || []).find(c => (c.date || (dates[c.day] && iso(dates[c.day]))) === selectedIso);
-          const total = candidate?.total || (scene.requiredPeople || scene.speakingCharacters || []).length || 0;
-          const available = candidate?.available?.length || 0;
-          const level = !candidate ? '불가' : available >= total ? (filteredShoot(st.shootDay).length ? '추천' : '가능') : '조건부';
-          const levelRank = { 추천: 0, 가능: 1, 조건부: 2, 불가: 3 }[level];
-          const start = candidate?.time ?? 18;
-          const location = scene.location || group?.location || '장소 미정';
-          const people = (scene.requiredPeople || scene.speakingCharacters || []).map(x => x.name || x.character || x).filter(Boolean);
-          const reason = !candidate ? '출연진 또는 필수 인원의 공통 가능 시간이 없습니다.' : level === '조건부' ? `${available}/${total}명 가능 · 가능한 시간대가 일부입니다.` : `${available}/${total}명 가능 · ${location}`;
-          return { id, date: selectedIso, level, levelRank, location, people, requiredPeople: scene.requiredPeople || [], minutes: Number(scene.estimatedMinutes) || 30, start, end: candidate?.endTime || start + Math.max(.5, (Number(scene.estimatedMinutes) || 30) / 60), reason,
-            tone: level === '추천' ? '#e9f8ef' : level === '가능' ? '#eef4ff' : level === '조건부' ? '#fff6e6' : '#fff1f3', fg: level === '추천' ? '#237a4f' : level === '가능' ? '#3b82f6' : level === '조건부' ? '#8a6a1f' : '#b03650', pick: () => this.openCopilotScene({ id, date: selectedIso, level, location, requiredPeople: scene.requiredPeople || [], minutes: Number(scene.estimatedMinutes) || 30, start, end: candidate?.endTime || start + .5, reason }) };
+        const tone = { '추천': ['#e9f8ef', '#237a4f', '#cdebd9', '#22a565'],
+          '가능': ['#f2f8f4', '#2f7d55', '#dcebe2', '#5cc08a'],
+          '조건부': ['#fff6e6', '#8a6a1f', '#f2e2bf', '#f0b429'],
+          '불가': ['#fff1f3', '#b03650', '#f3d9de', '#e5484d'] };
+        let report = { scenes: [] };
+        try { report = this.engine()?.copilotForDate?.(selectedIso) || report; } catch (e) { /* 엔진이 아직 안 떴다 */ }
+        const picked = (report.scenes || []).find(x => x.id === st.copilotSceneId) || null;
+        const list = (report.scenes || []).map(s => {
+          const [bg, fg, line, dot] = tone[s.level] || tone['가능'];
+          const on = s.id === st.copilotSceneId;
+          return { ...s, tone: bg, fg, line, dot,
+            ring: on ? `2px solid ${dot}` : `1px solid ${line}`,
+            people: (s.people || []).join(', ') || '출연 미지정',
+            location: s.location || '장소 미정',
+            when: s.start == null ? '가능한 시간 없음' : `${this.hhmm(s.start)} 이후 · ${s.minutes}분`,
+            pick: () => this.setState({ copilotSceneId: on ? '' : s.id, copilotStart: null }) };
         });
-        return rows.sort((a, b) => a.levelRank - b.levelRank || Number(String(a.id).match(/\d+/)?.[0] || 999) - Number(String(b.id).match(/\d+/)?.[0] || 999));
+        const count = lv => list.filter(x => x.level === lv).length;
+        const slots = picked?.starts || [];
+        const chosen = st.copilotStart != null ? st.copilotStart : slots[0];
+
+        /* 일정표는 시간 비례 블록으로 그린다. 30분마다 빈 줄을 쌓으면
+           촬영 없는 날은 화면이 텅 비어 보인다. */
+        const from = report.dayStart ?? 18, to = report.dayEnd ?? 23, PX = 46;
+        const yOf = h => `${Math.round((h - from) * PX)}px`;
+        const marks = [];
+        for (let h = from; h <= to; h += 1) marks.push({ label: this.hhmm(h), top: yOf(h) });
+        const blocks = (report.timeline || []).map(x => ({
+          top: yOf(Math.max(from, x.startH)),
+          height: `${Math.max(20, Math.round((Math.min(to, x.endH) - Math.max(from, x.startH)) * PX) - 3)}px`,
+          bg: x.mine ? '#eef4ff' : '#f5f6fb', bar: x.mine ? '#7c8cf8' : '#c9cee3',
+          fg: x.mine ? '#3b5bdb' : '#8b93b8', subFg: x.mine ? '#8b9adf' : '#a7adcd',
+          label: x.title, sub: `${this.hhmm(x.startH)}–${this.hhmm(x.endH)}${x.mine ? '' : ' · 다른 기획'}`,
+          hint: `${x.title} · ${(x.people || []).join(', ')}` }));
+        if (picked && chosen != null) blocks.push({
+          top: yOf(chosen),
+          height: `${Math.max(20, Math.round((picked.hours || .5) * PX) - 3)}px`,
+          bg: '#e9f8ef', bar: '#22a565', fg: '#237a4f', subFg: '#5aa47c',
+          label: `${picked.id} \u2190 여기`,
+          sub: `${this.hhmm(chosen)}–${this.hhmm(chosen + (picked.hours || .5))} · ${picked.minutes}분`,
+          hint: picked.reason || '' });
+        const canAdd = !!picked && chosen != null;
+
+        return {
+          copilotScenes: list,
+          copilotTally: [
+            { dot: '#22a565', label: `가능 ${count('추천') + count('가능')}` },
+            { dot: '#f0b429', label: `애매 ${count('조건부')}` },
+            { dot: '#e5484d', label: `불가 ${count('불가')}` } ],
+          copilotWindow: report.dayStart == null ? '' : `${this.hhmm(report.dayStart)}~${this.hhmm(report.dayEnd)} · 준비 ${report.gapMinutes}분`,
+          copilotCrew: (report.crew || []).length ? `필수 스태프 ${report.crew.join(', ')} 포함해서 계산합니다` : '',
+          copilotPicked: !!picked,
+          copilotIdle: !picked,
+          copilotPickTitle: picked ? `${picked.id} · ${picked.location || '장소 미정'}` : '',
+          copilotPickSub: picked ? `${(picked.people || []).join(', ') || '출연 미지정'} · ${picked.minutes}분` : '',
+          copilotPickWhy: picked?.reason || '',
+          copilotPickLevel: picked?.level || '',
+          copilotPickDot: picked ? (tone[picked.level] || tone['가능'])[3] : '#5cc08a',
+          copilotPickTint: picked ? (tone[picked.level] || tone['가능'])[0] : '#fff',
+          copilotNoSlot: !!picked && !slots.length,
+          copilotSlots: slots.map((v, i) => ({ label: this.hhmm(v),
+            note: i === 0 ? '가장 빠름' : `+${Math.round((v - slots[0]) * 60)}분`,
+            bg: v === chosen ? '#3b82f6' : '#fff', fg: v === chosen ? '#fff' : '#3a4373',
+            subFg: v === chosen ? '#d7e6ff' : '#a7adcd',
+            line: v === chosen ? '#3b82f6' : '#e1e7f5',
+            pick: () => this.setState({ copilotStart: v }) })),
+          copilotDayLabel: this.fmtShort(dates[st.shootDay]),
+          copilotDayCount: `기존 촬영 ${(report.timeline || []).length}건`,
+          copilotTrackH: `${Math.round((to - from) * PX)}px`,
+          copilotHourMarks: marks,
+          copilotBlocks: blocks,
+          copilotAddLabel: canAdd ? `${picked.id} \u00b7 ${this.hhmm(chosen)} 일정 추가하기` : '씬과 시간을 고르세요',
+          copilotAddBg: canAdd ? 'linear-gradient(135deg,#4f8ef7,#3b82f6)' : '#dfe3f2',
+          copilotAddCursor: canAdd ? 'pointer' : 'not-allowed',
+          copilotAddShadow: canAdd ? '0 10px 20px rgba(59,130,246,.28)' : 'none',
+          copilotAdd: () => { if (!canAdd) return;
+            this.openCopilotScene({ ...picked, date: selectedIso, start: chosen,
+              requiredPeople: (picked.castIds || []).map(id => ({ id })), end: chosen }); },
+        };
       })(),
       copilotScenesEmpty: !(live?.ai?.scenes || []).length,
-      copilotDateChoices: dates.map((d, i) => ({ label: `${this.fmtShort(d)} ${this.dowOf(d)}`, bg: st.shootDay === i ? '#3b82f6' : '#fff', fg: st.shootDay === i ? '#fff' : '#5a6595', line: st.shootDay === i ? '#3b82f6' : '#e1e7f5', pick: () => this.setState({ shootDay: i }) })),
+      copilotDateChoices: dates.map((d, i) => ({ label: `${this.fmtShort(d)} ${this.dowOf(d)}`, dow: this.dowOf(d), md: this.fmtShort(d), bg: st.shootDay === i ? '#3b82f6' : '#fff', fg: st.shootDay === i ? '#fff' : '#5a6595', line: st.shootDay === i ? '#3b82f6' : '#e1e7f5', pick: () => this.setState({ shootDay: i }) })),
       shootDays: dates.map((d, i) => ({
         md: this.fmtShort(d), dow: '(' + this.dowOf(d) + ')', items: filteredShoot(i),
         bg: st.shootDay === i ? '#eef4ff' : '#fff',

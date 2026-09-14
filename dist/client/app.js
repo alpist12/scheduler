@@ -257,21 +257,53 @@ function fixedMap(id, m) {
   });
   return out;
 }
-const members = () => Object.fromEntries(Object.entries(base).map(([id, m]) => [id, { ...m, ...memberWeek(id, m), __id: id, fixedSchedule: fixedMap(id, m) }]));
+const buildMembers = () => Object.fromEntries(Object.entries(base).map(([id, m]) => [id, { ...m, ...memberWeek(id, m), __id: id, fixedSchedule: fixedMap(id, m) }]));
+/* 후보 계산은 members() 를 시각마다·인원마다 부른다. 그때마다 전원을 다시 조립하면
+   그 자체가 가장 큰 비용이다. 데이터가 바뀌기 전까지는 같은 객체를 쓴다. */
+const members = () => { freshCache(); return revCache.members ||= buildMembers(); };
+
+/* 촬영안 후보 계산은 같은 질문을 수천 번 되묻는다(날짜 × 시작시각 × 인원 × 씬).
+   그때마다 전체 촬영 목록을 훑고 구간 연산을 새로 하면 그 자체가 병목이 된다.
+   engineRevision 이 그대로인 동안은 결과가 바뀔 수 없으므로 통째로 재사용한다. */
+const revCache = { rev: -1, byDate: null, members: null, ranges: new Map(), castIds: new Map() };
+const freshCache = () => {
+  if (revCache.rev === engineRevision) return;
+  revCache.rev = engineRevision;
+  revCache.byDate = null;
+  revCache.members = null;
+  revCache.ranges.clear();
+  revCache.castIds.clear();
+};
+/** 그 날짜의 촬영들. 날짜마다 전체 목록을 필터링하지 않는다. */
+function shootsByDate(iso) {
+  freshCache();
+  if (!revCache.byDate) {
+    revCache.byDate = new Map();
+    for (const shoot of Object.values(shoots)) {
+      if (!shoot?.date) continue;
+      const list = revCache.byDate.get(shoot.date);
+      if (list) list.push(shoot); else revCache.byDate.set(shoot.date, [shoot]);
+    }
+    for (const list of revCache.byDate.values()) list.sort((a, b) => (+a.startH) - (+b.startH));
+  }
+  return revCache.byDate.get(iso) || [];
+}
 
 // 촬영 일정: 그 주 특정 날짜의 촬영들, 그리고 특정 멤버가 출연자로 잡힌 시간 블록
 function shootsOn(day) {
-  const iso = isoDate(dayDate(day));
-  return Object.values(shoots).filter(s => s && s.date === iso).sort((a, b) => (+a.startH) - (+b.startH));
+  return shootsByDate(isoDate(dayDate(day)));
 }
 // 촬영에 묶인 인원 = 프로젝트 기획·촬영/편집(모든 씬 고정) + 그 씬의 출연진(씬별로 다름)
 function shootMemberIds(s) {
+  freshCache();
+  if (s?.id) { const hit = revCache.castIds.get(s.id); if (hit) return hit; }
   const ids = new Set((Array.isArray(s.cast) ? s.cast : []).map(c => c.id));
   const proj = projectOf(s);
   if (proj) {
     const roles = projectRoles(proj);
     for (const p of [...(roles.planning || []), ...(roles.production || [])]) if (p?.id) ids.add(p.id);
   }
+  if (s?.id) revCache.castIds.set(s.id, ids);
   return ids;
 }
 /** 촬영끼리 시간이 겹쳐도 사람이 안 겹치면 같이 찍을 수 있다.
@@ -333,6 +365,16 @@ function personalRanges(item) {
 const isHardBlock = f => f.itemId === 'weekly_meeting' || /라디오방송/.test(f.path || '');
 /** 어떤 날짜든 그 사람의 가능 시간을 구한다. 보고 있는 주에 매이지 않는다. */
 function rangesOn(m, iso) {
+  freshCache();
+  const key = `${m?.__id || m?.name || ''}|${iso}`;
+  const hit = revCache.ranges.get(key);
+  if (hit) return hit;
+  const value = computeRangesOn(m, iso);
+  revCache.ranges.set(key, value);
+  return value;
+}
+/** 실제 계산. 호출부는 결과를 읽기만 한다(변형 금지 — 캐시가 공유된다). */
+function computeRangesOn(m, iso) {
   const date = new Date(`${iso}T12:00:00`);
   if (Number.isNaN(date.getTime())) return [];
   const dayIndex = (date.getDay() + 6) % 7;
@@ -349,8 +391,8 @@ function rangesOn(m, iso) {
   const explicit = personalRanges(p);
   const baseRanges = subtract([{ start: 9, end: 23 }], [...softFixed, ...explicit.unavailable]);
   const merged = mergeRanges([...baseRanges, ...explicit.available]);
-  const shootBlocks = m?.__id ? Object.values(shoots)
-    .filter(s => s && s.date === iso && shootMemberIds(s).has(m.__id))
+  const shootBlocks = m?.__id ? shootsByDate(iso)
+    .filter(s => shootMemberIds(s).has(m.__id))
     .map(s => ({ start: +s.startH, end: +s.endH, label: s.title || '촬영' })) : [];
   const hardBlocks = [...hardFixed, ...shootBlocks];
   return hardBlocks.length ? subtract(merged, hardBlocks) : merged;
@@ -1149,7 +1191,10 @@ function copilotForDate(iso) {
     crew: crewIds.map(x => base[x]?.name || '').filter(Boolean), scenes: out };
 }
 
-function aiCandidates(scenes = [], durationHours = 0) {
+/* busy: 이 계산보다 먼저 확정된 배정들. [{ date, start, end, ids:Set }]
+   묶음을 하나씩 따로 계산하면 서로를 모른다. 그래서 같은 사람이 같은 시간에
+   네 묶음에 동시에 '전원 가능'으로 올라왔다. 앞서 잡힌 자리는 빼고 본다. */
+function aiCandidates(scenes = [], durationHours = 0, busy = []) {
   const plan = aiState.planOptions || {};
   const excluded = new Set((Array.isArray(plan.excludeDates) ? plan.excludeDates : []).map(String));
   const priority = new Set((Array.isArray(plan.priorityMembers) ? plan.priorityMembers : []).map(String));
@@ -1177,7 +1222,10 @@ function aiCandidates(scenes = [], durationHours = 0) {
   }
   // 기획·촬영 담당은 어느 씬에도 안 적혀 있으니 전 구간을 지킨다.
   const totalHours = Math.max(Number(durationHours) || 0, cursor / 60, .5);
-  const freeIn = (member, iso, a, b) => rangesOn(member, iso).some(r => +r.start <= a && +r.end >= b);
+  const heldFor = (member, iso, a, b) => busy.some(x => x.date === iso
+    && x.ids.has(member?.__id) && a < x.end && b > x.start);
+  const freeIn = (member, iso, a, b) => !heldFor(member, iso, a, b)
+    && rangesOn(member, iso).some(r => +r.start <= a && +r.end >= b);
 
   const items = days.flatMap(({ iso, dayIndex }) => {
     const windows = all.flatMap(([id, member]) => {
@@ -1204,8 +1252,7 @@ function aiCandidates(scenes = [], durationHours = 0) {
       if (!member) return n;
       const around = [
         ...((member.fixedSchedule || {})[dow] || []).map(f => ({ s: +f.start, e: +f.end })),
-        ...Object.values(shoots)
-          .filter(x => x && x.date === iso && shootMemberIds(x).has(id))
+        ...shootsByDate(iso).filter(x => shootMemberIds(x).has(id))
           .map(x => ({ s: +x.startH, e: +x.endH })),
       ];
       const tight = around.some(x => (time - x.e >= 0 && time - x.e < gap)
@@ -1214,7 +1261,7 @@ function aiCandidates(scenes = [], durationHours = 0) {
     }, 0);
     const continuity = continuityScore({
       date: iso, start: time, end: time + totalHours, requiredIds: [...ids],
-      shoots: Object.values(shoots), memberIdsOfShoot: shootMemberIds,
+      shoots: shootsByDate(iso), memberIdsOfShoot: shootMemberIds,
     });
     return {
       iso, day: dayIndex, time, endTime: time + totalHours, all, yes, tightFor,
@@ -1357,6 +1404,9 @@ function buildSceneSchedule(scenes = [], options = {}) {
   const configured = raw === undefined || raw === null || raw === '' ? 4 : Number(raw);
   const maxScenes = Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 0;
 
+  /* 이미 자리를 잡은 묶음들. 다음 묶음은 이 자리를 피해서 후보를 찾는다.
+     이게 없으면 묶음마다 '전원 가능'이라면서 같은 시간에 겹쳐 쌓인다. */
+  const placed = [];
   // 덜어낸 씬이 다시 잡히도록 '아직 안 쓴 씬'을 매번 새로 찾는다.
   let guard = rows.length * 4;
   while (guard-- > 0) {
@@ -1407,7 +1457,7 @@ function buildSceneSchedule(scenes = [], options = {}) {
        강제로 묶으라고 한 씬은 덜어내지 않는다. */
     let ordered = orderSceneGroup(selected);
     const calculate = list => {
-      const result = aiCandidates(list.map(row => row.scene), list.reduce((s, r) => s + r.minutes, 0) / 60);
+      const result = aiCandidates(list.map(row => row.scene), list.reduce((s, r) => s + r.minutes, 0) / 60, placed);
       const periods = new Set(list.map(periodFor).filter(Boolean));
       if (periods.size !== 1) return result;
       const period = [...periods][0];
@@ -1522,6 +1572,10 @@ function buildSceneSchedule(scenes = [], options = {}) {
       if (!locationAffinity(ordered[i].scene, ordered[i + 1].scene)) continue;
       placeLinks.push(`${sceneIdAt(ordered[i].index)}과 ${sceneIdAt(ordered[i + 1].index)}은(는) 같은 장소 동선입니다`);
     }
+    /* 이 묶음이 실제로 쓸 자리(1순위)를 다음 묶음 계산에 넘긴다. */
+    const best = result.items[0];
+    if (best) placed.push({ date: best.iso, start: best.time, end: best.endTime,
+      ids: new Set(best.yes.map(([id]) => id)) });
     groups.push({
       key: ordered.map(row => row.index).join('-'), sceneIndexes: ordered.map(row => row.index),
       reason,

@@ -1490,20 +1490,34 @@ class Component extends DCLogic {
     } catch(error) { window.alert(error.message); }
   };
   editAiConditions = () => this.setState({ aiStage: 'options' });
-  planLines = () => {
-    const groups = this.engine()?.snapshot?.().ai?.sceneGroups || [];
-    const variant = Math.max(0, Number(this.state.planVariant) || 0);
+  /* 화면 카드가 곧 배치안이다. 복사·이미지·전부등록이 각자 후보를 다시 고르면
+     눈에 보이는 것과 다른 결과가 나오고, 이월 일차는 통째로 빠진다. */
+  planDaysByDate = () => {
     const byDate = new Map();
-    groups.forEach(g => {
-      const opts = (g.candidates || []).filter(c => c.full || c.available?.length >= c.total);
-      const c = opts[Math.min(variant, Math.max(0, opts.length - 1))] || g.candidates?.[0];
-      if (!c) return;
-      const key = c.date || String(c.day); const when = c.date ? new Date(`${c.date}T12:00:00`) : new Date();
-      if (!byDate.has(key)) byDate.set(key, { when, ids: [], start: c.time, end: c.endTime || c.time + 1 });
-      const row = byDate.get(key); row.ids.push(...g.sceneIds); row.start = Math.min(row.start, c.time); row.end = Math.max(row.end, c.endTime || c.time + 1);
-    });
-    return [...byDate.values()].map(x => `${this.fmtShort(x.when)} (${this.dowOf(x.when)}) ${x.ids.join(', ')} · ${this.hourLabel(x.start)}–${this.hourLabel(x.end)}`);
+    for (const card of (this.lastPlanDays || [])) {
+      if (!card.job || !card.dayKey) continue;
+      const c = card.job.slot;
+      if (!byDate.has(card.dayKey)) byDate.set(card.dayKey, { when: new Date(`${card.dayKey}T12:00:00`),
+        nth: String(card.nth || '').replace(/\s*\(이월\)\s*/, ''), rows: [] });
+      const ids = card.job.group.sceneIds || [];
+      // 그 날 찍을 씬이 하나도 안 남은 카드(전부 이월·제외)는 표에 빈 줄로 남기지 않는다.
+      if (!ids.length) continue;
+      byDate.get(card.dayKey).rows.push({
+        nth: card.nth,
+        time: `${this.hourLabel(c.time)}–${this.hourLabel(c.endTime || c.time + 1)}`,
+        scenes: ids.join(', '),
+        sceneCount: ids.length,
+        cast: (c.available || []).map(p => p.name).filter(Boolean),
+        who: card.who,
+        /* 왜 이 씬들을 같이 찍는지. 경고(⚠)는 빼고 첫 근거 한 줄만 쓴다. */
+        reason: (card.reasonLines || []).find(line => !/^\u26a0/.test(line) && !/^이 날짜에/.test(line)) || '',
+      });
+    }
+    return [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, value]) => ({ date, ...value }));
   };
+  planLines = () => this.planDaysByDate()
+    .map(day => `${day.date}  ${day.rows.map(r => `${r.scenes} · ${r.time}`).join(' / ')}`);
   copyPlanText = async () => { const lines = ['[AI 자동배치]', ...this.planLines()]; try { await navigator.clipboard.writeText(lines.join('\n')); window.alert('자동배치 안을 복사했습니다.'); } catch (_) { window.alert(lines.join('\n')); } };
   /** 자동 배치안을 카드 그림으로 내보낸다.
       글자만 나열하면 어느 날 무엇을 찍는지 한눈에 안 들어온다. */
@@ -1513,28 +1527,12 @@ class Component extends DCLogic {
     const project = (this.state.live?.projects || []).find(x => x.id === this.state.aiProjectId);
     const accent = project?.color || '#5b6ee0';
 
-    // 날짜별로 묶는다. 같은 날 여러 묶음이면 한 카드에 모은다.
-    const byDate = new Map();
-    for (const g of groups) {
-      const opts = (g.candidates || []).filter(Boolean);
-      if (!opts.length) continue;
-      const c = opts[Math.min(variant, opts.length - 1)];
-      const when = c.date ? new Date(`${c.date}T12:00:00`) : null;
-      if (!when || Number.isNaN(when.getTime())) continue;
-      const key = c.date;
-      if (!byDate.has(key)) byDate.set(key, { when, rows: [] });
-      byDate.get(key).rows.push({
-        time: `${this.hhmmOf ? this.hhmmOf(c.time) : c.time + ':00'}–${this.hhmmOf ? this.hhmmOf(c.endTime || c.time + 1) : (c.endTime || c.time + 1) + ':00'}`,
-        scenes: (g.sceneIds || []).join(', '),
-        who: `${(c.available || []).length}/${c.total || (c.available || []).length}명`,
-      });
-    }
-    const days = [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(x => x[1]);
+    const days = this.planDaysByDate();
     if (!days.length) { window.alert('내보낼 자동 배치안이 없습니다.'); return; }
 
     const S = 2;                                   // 두 배로 그려야 글자가 안 뭉갠다
     const W = 900, PAD = 36, CARD_GAP = 14;
-    const headH = 118, rowH = 34, cardPadY = 18, footH = 52;
+    const headH = 144, rowH = 50, cardPadY = 18, footH = 52;
     const cardH = d => cardPadY * 2 + 30 + d.rows.length * rowH;
     const H = headH + days.reduce((n, d) => n + cardH(d) + CARD_GAP, 0) + footH;
 
@@ -1557,13 +1555,23 @@ class Component extends DCLogic {
     ctx.fillStyle = '#f6f7fd'; ctx.fillRect(0, 0, W, H);
 
     // 머리말
-    ctx.fillStyle = accent; round(PAD, 26, W - PAD * 2, 66, 16); ctx.fill();
+    ctx.fillStyle = accent; round(PAD, 26, W - PAD * 2, 92, 16); ctx.fill();
     ctx.fillStyle = '#fff';
     ctx.font = '800 26px "Pretendard", "Apple SD Gothic Neo", sans-serif';
-    ctx.fillText(`${project?.name || '촬영'} 자동 배치안`, PAD + 22, 60);
+    ctx.fillText(`${project?.name || '촬영'} 자동 배치안`, PAD + 22, 58);
+    /* 누가 찍는지(기획·촬영)와 전체 규모를 표에서 바로 읽을 수 있어야 한다. */
+    const nameList = list => (Array.isArray(list) ? list : []).map(p => p?.name || '').filter(Boolean);
+    const staff = [
+      nameList(project?.roles?.planning).length ? `기획 ${nameList(project.roles.planning).join(', ')}` : '',
+      nameList(project?.roles?.production).length ? `촬영/편집 ${nameList(project.roles.production).join(', ')}` : '',
+    ].filter(Boolean).join('   ·   ');
+    const totalScenes = days.reduce((n, d) => n + d.rows.reduce((m, r) => m + (r.sceneCount || 0), 0), 0);
+    const castAll = new Set(days.flatMap(d => d.rows.flatMap(r => r.cast || [])));
     ctx.font = '600 14px "Pretendard", "Apple SD Gothic Neo", sans-serif';
-    ctx.globalAlpha = .9;
-    ctx.fillText(`${variant + 1}안 · ${days.length}일 · 씬 ${days.reduce((n, d) => n + d.rows.length, 0)}묶음`, PAD + 22, 82);
+    ctx.globalAlpha = .95;
+    if (staff) ctx.fillText(staff, PAD + 22, 80);
+    ctx.globalAlpha = .82;
+    ctx.fillText(`${variant + 1}안 · ${days.length}일 · 총 ${totalScenes}씬 · 출연 ${castAll.size}명`, PAD + 22, 102);
     ctx.globalAlpha = 1;
 
     // 날짜 카드
@@ -1576,7 +1584,7 @@ class Component extends DCLogic {
 
       ctx.fillStyle = '#222c52';
       ctx.font = '800 17px "Pretendard", "Apple SD Gothic Neo", sans-serif';
-      ctx.fillText(`${d.when.getMonth() + 1}월 ${d.when.getDate()}일 (${DOW[d.when.getDay()]})`, PAD + 22, y + cardPadY + 14);
+      ctx.fillText(`${d.nth ? d.nth + ' · ' : ''}${d.when.getMonth() + 1}월 ${d.when.getDate()}일 (${DOW[d.when.getDay()]})`, PAD + 22, y + cardPadY + 14);
 
       let ry = y + cardPadY + 46;
       for (const r of d.rows) {
@@ -1585,6 +1593,12 @@ class Component extends DCLogic {
         ctx.fillStyle = '#3a4373';
         ctx.font = '700 14px "Pretendard", "Apple SD Gothic Neo", sans-serif';
         ctx.fillText(r.scenes, x + 2, ry + 2);
+        if (r.reason) {
+          ctx.fillStyle = '#9aa1c2';
+          ctx.font = '500 12px "Pretendard", "Apple SD Gothic Neo", sans-serif';
+          const line = r.reason.length > 78 ? r.reason.slice(0, 77) + '…' : r.reason;
+          ctx.fillText(line, PAD + 22, ry + 20);
+        }
         ctx.fillStyle = '#9aa1c2';
         ctx.font = '600 12px "Pretendard", "Apple SD Gothic Neo", sans-serif';
         const w = ctx.measureText(r.who).width;
@@ -2315,6 +2329,8 @@ class Component extends DCLogic {
             }
             return out;
         });
+        // 복사·이미지 내보내기가 화면과 같은 카드를 쓰도록 남겨 둔다.
+        this.lastPlanDays = planDaysAll;
         return {
           // 촬영안 헤더 한 줄 요약. 템플릿이 부르는데 정의가 없어 빈칸으로 나오고 있었다.
           planSummary: (() => {
@@ -2335,7 +2351,7 @@ class Component extends DCLogic {
           })(),
           planCalculating: !!st.planCalculating,
           planDays: (!st.autoPlanOpen || st.planCondOpen || st.planCalculating || st.aiLoadingProject) ? [] : planDaysAll,
-          planAlternatives: Array.from({ length: 5 }, (_, i) => { const gs = this.engine()?.snapshot?.()?.ai?.sceneGroups || []; const ds = [...new Set(gs.map(g => { const c = (g.candidates || [])[Math.min(i, Math.max(0, (g.candidates || []).length - 1))] || g.candidates?.[0]; return c ? this.dowOf(c.date ? new Date(`${c.date}T12:00:00`) : dates[c.day]) : ''; }).filter(Boolean))]; return { label: `${i + 1}안 ${ds.join(' ') || '계산 중'}`, bg: (st.planVariant || 0) === i ? '#5b6ee0' : '#fff', fg: (st.planVariant || 0) === i ? '#fff' : '#5a6595', line: (st.planVariant || 0) === i ? '#5b6ee0' : '#e5e8f7', go: () => this.setState({ planVariant: i }) }; }),
+          planAlternatives: Array.from({ length: 5 }, (_, i) => { const gs = this.engine()?.snapshot?.()?.ai?.sceneGroups || []; /* 요일을 묶음 순서대로 늘어놓으면 '수 목 화' 처럼 날짜와 어긋난 라벨이 나온다. 날짜로 세운 뒤 요일로 바꾼다. */ const ds = [...new Map(gs.map(g => { const c = (g.candidates || [])[Math.min(i, Math.max(0, (g.candidates || []).length - 1))] || g.candidates?.[0]; if (!c) return null; const when = c.date ? new Date(`${c.date}T12:00:00`) : dates[c.day]; return when ? [c.date || when.toISOString().slice(0, 10), when] : null; }).filter(Boolean))].sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0).map(([, when]) => this.dowOf(when)); return { label: `${i + 1}안 ${ds.join(' ') || '계산 중'}`, bg: (st.planVariant || 0) === i ? '#5b6ee0' : '#fff', fg: (st.planVariant || 0) === i ? '#fff' : '#5a6595', line: (st.planVariant || 0) === i ? '#5b6ee0' : '#e5e8f7', go: () => this.setState({ planVariant: i }) }; }),
           exportPlanImage: this.exportPlanImage,
           copyPlanText: this.copyPlanText,
           planProjectName: (live?.projects || []).find(x => x.id === st.aiProjectId)?.name || '선택한 프로젝트',

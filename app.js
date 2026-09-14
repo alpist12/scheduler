@@ -1187,7 +1187,10 @@ function copilotForDate(iso) {
     crew: crewIds.map(x => base[x]?.name || '').filter(Boolean), scenes: out };
 }
 
-function aiCandidates(scenes = [], durationHours = 0) {
+/* busy: 이 계산보다 먼저 확정된 배정들. [{ date, start, end, ids:Set }]
+   묶음을 하나씩 따로 계산하면 서로를 모른다. 그래서 같은 사람이 같은 시간에
+   네 묶음에 동시에 '전원 가능'으로 올라왔다. 앞서 잡힌 자리는 빼고 본다. */
+function aiCandidates(scenes = [], durationHours = 0, busy = []) {
   const plan = aiState.planOptions || {};
   const excluded = new Set((Array.isArray(plan.excludeDates) ? plan.excludeDates : []).map(String));
   const priority = new Set((Array.isArray(plan.priorityMembers) ? plan.priorityMembers : []).map(String));
@@ -1215,7 +1218,10 @@ function aiCandidates(scenes = [], durationHours = 0) {
   }
   // 기획·촬영 담당은 어느 씬에도 안 적혀 있으니 전 구간을 지킨다.
   const totalHours = Math.max(Number(durationHours) || 0, cursor / 60, .5);
-  const freeIn = (member, iso, a, b) => rangesOn(member, iso).some(r => +r.start <= a && +r.end >= b);
+  const heldFor = (member, iso, a, b) => busy.some(x => x.date === iso
+    && x.ids.has(member?.__id) && a < x.end && b > x.start);
+  const freeIn = (member, iso, a, b) => !heldFor(member, iso, a, b)
+    && rangesOn(member, iso).some(r => +r.start <= a && +r.end >= b);
 
   const items = days.flatMap(({ iso, dayIndex }) => {
     const windows = all.flatMap(([id, member]) => {
@@ -1395,6 +1401,9 @@ function buildSceneSchedule(scenes = [], options = {}) {
   const configured = raw === undefined || raw === null || raw === '' ? 4 : Number(raw);
   const maxScenes = Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 0;
 
+  /* 이미 자리를 잡은 묶음들. 다음 묶음은 이 자리를 피해서 후보를 찾는다.
+     이게 없으면 묶음마다 '전원 가능'이라면서 같은 시간에 겹쳐 쌓인다. */
+  const placed = [];
   // 덜어낸 씬이 다시 잡히도록 '아직 안 쓴 씬'을 매번 새로 찾는다.
   let guard = rows.length * 4;
   while (guard-- > 0) {
@@ -1445,7 +1454,7 @@ function buildSceneSchedule(scenes = [], options = {}) {
        강제로 묶으라고 한 씬은 덜어내지 않는다. */
     let ordered = orderSceneGroup(selected);
     const calculate = list => {
-      const result = aiCandidates(list.map(row => row.scene), list.reduce((s, r) => s + r.minutes, 0) / 60);
+      const result = aiCandidates(list.map(row => row.scene), list.reduce((s, r) => s + r.minutes, 0) / 60, placed);
       const periods = new Set(list.map(periodFor).filter(Boolean));
       if (periods.size !== 1) return result;
       const period = [...periods][0];
@@ -1560,6 +1569,10 @@ function buildSceneSchedule(scenes = [], options = {}) {
       if (!locationAffinity(ordered[i].scene, ordered[i + 1].scene)) continue;
       placeLinks.push(`${sceneIdAt(ordered[i].index)}과 ${sceneIdAt(ordered[i + 1].index)}은(는) 같은 장소 동선입니다`);
     }
+    /* 이 묶음이 실제로 쓸 자리(1순위)를 다음 묶음 계산에 넘긴다. */
+    const best = result.items[0];
+    if (best) placed.push({ date: best.iso, start: best.time, end: best.endTime,
+      ids: new Set(best.yes.map(([id]) => id)) });
     groups.push({
       key: ordered.map(row => row.index).join('-'), sceneIndexes: ordered.map(row => row.index),
       reason,

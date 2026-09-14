@@ -102,3 +102,29 @@ console.log('plan cards OK');
   assert(/showGate\(/.test(gate), '점검 상태 확인 실패 시 그냥 열어 준다 (fail-open)');
 }
 console.log('backend guards OK');
+
+// ── 묶음끼리 충돌: 엔진이 이미 잡아 둔 자리를 알아야 한다.
+//    예전에는 묶음마다 따로 계산해서 같은 사람이 같은 시간 네 묶음에 '전원 가능'으로 올라왔다.
+{
+  const src = fs.readFileSync('app.js', 'utf8');
+  assert(/function aiCandidates\(scenes = \[\], durationHours = 0, busy = \[\]\)/.test(src),
+    'aiCandidates 가 이미 잡힌 자리를 안 받는다');
+  assert(/const heldFor = \(member, iso, a, b\) => busy\.some/.test(src), '잡힌 자리를 빼는 검사가 없다');
+  assert(/!heldFor\(member, iso, a, b\)\s*\n?\s*&& rangesOn/.test(src), 'freeIn 이 잡힌 자리를 무시한다');
+  assert(/aiCandidates\(list\.map\(row => row\.scene\),.*, placed\)/.test(src),
+    '묶음 계산이 placed 를 안 넘긴다');
+  assert(/if \(best\) placed\.push\(\{ date: best\.iso, start: best\.time, end: best\.endTime,/.test(src),
+    '확정한 묶음의 자리를 기록하지 않는다');
+
+  // heldFor 자체를 떼어 와 겹침 판정이 맞는지 본다
+  const m = src.match(/const heldFor = \(member, iso, a, b\) => busy\.some\([\s\S]*?\);/);
+  const heldFor = new Function('busy', `const f = ${m[0].replace('const heldFor = ', '')}\nreturn f;`)
+    ([{ date: '2026-09-18', start: 15, end: 17, ids: new Set(['kim']) }]);
+  const 김 = { __id: 'kim' }, 박 = { __id: 'park' };
+  assert.equal(heldFor(김, '2026-09-18', 15, 16), true, '겹치는데 안 잡는다');
+  assert.equal(heldFor(김, '2026-09-18', 16.5, 18), true, '끝자락 겹침을 놓친다');
+  assert.equal(heldFor(김, '2026-09-18', 17, 18), false, '맞닿은 시간은 겹침이 아니다');
+  assert.equal(heldFor(김, '2026-09-19', 15, 16), false, '다른 날까지 막는다');
+  assert.equal(heldFor(박, '2026-09-18', 15, 16), false, '다른 사람까지 막는다');
+}
+console.log('engine busy-awareness OK');

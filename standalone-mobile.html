@@ -503,11 +503,11 @@
                 </div>
                 <sc-for list="{{ personalDays }}" as="col" hint-placeholder-count="5">
                   <div style="position:relative;border-left:1px solid #f3f4fb;background:{{ col.bg }}">
-                    <sc-for list="{{ hourLabels }}" as="h" hint-placeholder-count="15">
-                      <div style="height:38px;border-bottom:1px solid #f6f7fc"></div>
+                    <sc-for list="{{ col.slots }}" as="sl" hint-placeholder-count="15">
+                      <div sc-camel-on-click="{{ sl.add }}" style="height:38px;border-bottom:1px solid #f6f7fc;cursor:pointer"></div>
                     </sc-for>
                     <sc-for list="{{ col.events }}" as="e" hint-placeholder-count="3">
-                      <div style="position:absolute;left:3px;right:3px;top:{{ e.top }};height:{{ e.height }};border-radius:8px;padding:5px 6px;overflow:hidden;background:{{ e.bg }};border-left:3px solid {{ e.line }}">
+                      <div data-personal-card="1" sc-camel-on-click="{{ e.remove }}" title="눌러서 삭제" style="cursor:pointer;position:absolute;left:3px;right:3px;top:{{ e.top }};height:{{ e.height }};border-radius:8px;padding:5px 6px;overflow:hidden;background:{{ e.bg }};border-left:3px solid {{ e.line }}">
                         <div style="font-size:10px;font-weight:800;color:{{ e.fg }};line-height:1.25;white-space:{{ e.wrap }};overflow:hidden;text-overflow:ellipsis">{{ e.title }}</div>
                         <div style="font-size:9px;color:{{ e.fg }};opacity:.75;margin-top:2px;font-weight:600">{{ e.time }}</div>
                       </div>
@@ -1653,6 +1653,22 @@ class Component extends DCLogic {
   hhmmOf = v => { const n = Number(v) || 0, h = Math.floor(n);
     return `${String(h).padStart(2, '0')}:${n - h >= 0.5 ? '30' : '00'}`; };
 
+  /** 그 날 개인 일정을 지운다. 엔진은 날짜 단위로만 지운다. */
+  removePersonalDay = async dayIdx => {
+    try {
+      const engine = this.engine();
+      if (!engine) throw new Error('데이터 연결을 준비 중입니다.');
+      const live = this.state.live;
+      const target = (live?.members || []).find(m => m.name === this.state.person) || (live?.members || [])[0];
+      if (!target) throw new Error('인원을 선택하세요.');
+      const d = this.weekDates()[dayIdx];
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (!window.confirm(`${target.name} · ${d.getMonth() + 1}.${d.getDate()} 의 개인 가능/불가능 시간을 지울까요?`)) return;
+      await engine.deletePersonalScheduleDay({ memberName: target.name, date: iso });
+      this.readLive();
+    } catch (error) { window.alert(error.message); }
+  };
+
   editShoot = (shoot) => {
     // 반올림/버림하면 18:30 촬영을 열었다 저장할 때 18:00 이 된다.
     const pad = n => { const v = Number(n) || 0, h = Math.floor(v);
@@ -2563,7 +2579,18 @@ class Component extends DCLogic {
       })(),
       hourLabels,
       weekdays: dates.slice(0, 5).map((d, i) => ({ md: this.fmtShort(d), dowParen: '(' + this.dowOf(d) + ')', color: i === 2 ? A : '#2b3560' })),
-      personalDays: dates.slice(0, 5).map((d, i) => ({ bg: i === 2 ? '#f7f9ff' : '#fff', events: mkEvents(personalEvents[i] || []) })),
+      /* 개인 일정도 눌러서 고칠 수 있어야 한다. 빈 칸은 추가, 블록은 삭제.
+         PC 는 되는데 모바일은 보기만 됐다. */
+      personalDays: dates.slice(0, 5).map((d, i) => ({
+        bg: i === 2 ? '#f7f9ff' : '#fff',
+        slots: (Array.isArray(hourLabels) ? hourLabels : []).map((_, hi) => ({
+          add: () => this.setState({ sheetOpen: true, tab: 'personal', mfEditId: '',
+            mfKind: '이번 주 일정', mfDay: i,
+            mfStart: this.hhmmOf(9 + hi), mfEnd: this.hhmmOf(10 + hi), mfStatus: '불가능' }),
+        })),
+        // 엔진이 날짜 단위로만 지운다. 블록을 누르면 그 날 개인 일정을 지운다.
+        events: mkEvents(personalEvents[i] || []).map(e => ({ ...e, remove: () => this.removePersonalDay(i) })),
+      })),
       personalFlat: flat,
       catLegend: [ {c:'#8b5cf6',t:'수업'}, {c:'#34c47c',t:'학습'}, {c:'#fbbf24',t:'촬영·방송국'},
         {c:'#f87171',t:'개인 불가능'}, {c:'#c3c8dd',t:'기타'} ],

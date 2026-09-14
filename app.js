@@ -90,7 +90,7 @@ const aiState = {
   pollTimer: null,
   options: { scenes: true, cast: true, locations: true, schedule: true },
   // 기획자가 거는 조건. 강제 묶기/분리, 뺄 날짜, 우선 고려할 배우.
-  planOptions: { pinned: [], split: [], excludeDates: [], excludeScenes: [], priorityMembers: [], scenePeriods: {}, dateFrom: '', dateTo: '', dayStart: 18, dayEnd: 23 },
+  planOptions: { pinned: [], split: [], excludeDates: [], excludeScenes: [], priorityMembers: [], scenePeriods: {}, dateFrom: '', dateTo: '', dayStart: 18, dayEnd: 22.5 },
 };
 
 // firebase data
@@ -1072,7 +1072,9 @@ function copilotForDate(iso) {
     /* 막는 기준은 인원 하나뿐이다. 기획·촬영 담당이 다른 프로젝트에서 출연으로
        들어가 있어도 rangesOn 이 그 촬영을 이미 빼 주므로 이것으로 충분하다. */
     const okAt = time => need.every(x => freeIn(who(x), time, time + hours));
-    const allStarts = candidateStarts({ totalHours: hours, windows, dayStart, dayEnd }).filter(okAt);
+    const outdoor = /광장|외관|정문|분수|놀이터|야외|공원|길가/.test(location);
+    // 야외는 어두워지는 시간 이후 촬영 의미가 떨어지므로 20시 전에 끝나는 후보만 허용한다.
+    const allStarts = candidateStarts({ totalHours: hours, windows, dayStart, dayEnd }).filter(okAt).filter(time => !outdoor || time + hours <= 20);
     const free = allStarts[0];
 
     if (free === undefined || free === null) {
@@ -2949,7 +2951,7 @@ window.HNUBS_ENGINE = {
       /* 하루 중 촬영 가능한 시간대. 방송국 촬영은 대부분 저녁이라 18시를 기본으로 둔다.
          이게 없으면 다들 비어 있는 오전 9시가 '가능'으로 나와 쓸 수 없는 답이 된다. */
       dayStart: patch.dayStart === undefined ? (Number(current.dayStart) || 18) : Math.min(22, Math.max(9, Number(patch.dayStart) || 18)),
-      dayEnd: patch.dayEnd === undefined ? (Number(current.dayEnd) || 23) : Math.min(23, Math.max(10, Number(patch.dayEnd) || 23)),
+      dayEnd: patch.dayEnd === undefined ? (Number(current.dayEnd) || 22.5) : Math.min(22.5, Math.max(10, Number(patch.dayEnd) || 22.5)),
       // 촬영 가능 기간. 비워두면 보고 있는 주만 본다.
       dateFrom: patch.dateFrom === undefined ? (current.dateFrom || '') : String(patch.dateFrom || ''),
       dateTo: patch.dateTo === undefined ? (current.dateTo || '') : String(patch.dateTo || ''),

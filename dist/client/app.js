@@ -1321,8 +1321,11 @@ function buildSceneSchedule(scenes = [], options = {}) {
   // 보조 제한. 시간이 남아도 씬 수가 너무 많으면 나눈다.
   // 스케줄러 기준: 보통 1~2씬, 조건이 좋으면 3~4씬.
   // 기존 설정이 비어 있어도 하루에 전 씬을 몰아 넣지 않도록 4씬 상한을 기본 적용한다.
-  const configuredMaxScenes = Number(appSettings.shootMaxScenes) || 4;
-  const maxScenes = Math.min(4, Math.max(1, configuredMaxScenes));
+  /* 설정값을 그대로 따른다. 0 은 '제한 없음'이라고 화면에 적어 두었으므로
+     1씬으로 깎으면 안 된다. 설정이 비어 있을 때만 4씬을 기본으로 쓴다. */
+  const raw = appSettings.shootMaxScenes;
+  const configured = raw === undefined || raw === null || raw === '' ? 4 : Number(raw);
+  const maxScenes = Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 0;
 
   // 덜어낸 씬이 다시 잡히도록 '아직 안 쓴 씬'을 매번 새로 찾는다.
   let guard = rows.length * 4;
@@ -2951,6 +2954,11 @@ window.HNUBS_ENGINE = {
       priorityMembers: patch.priorityMembers === undefined ? list(current.priorityMembers) : list(patch.priorityMembers).map(String).filter(id => base[id]),
       // 이번 추천에서 뺄 씬. 계산에서만 빠지고 목록에서는 미배정으로 남는다.
       excludeScenes: patch.excludeScenes === undefined ? list(current.excludeScenes) : list(patch.excludeScenes).map(String).filter(Boolean),
+      // 씬별 촬영 시기. 목록에서 빠지면 setPlan 한 번에 통째로 날아간다.
+      scenePeriods: patch.scenePeriods === undefined
+        ? { ...(current.scenePeriods || {}) }
+        : Object.fromEntries(Object.entries(patch.scenePeriods || {})
+            .filter(([key, value]) => key && value).map(([key, value]) => [String(key), String(value)])),
       /* 하루 중 촬영 가능한 시간대. 방송국 촬영은 대부분 저녁이라 18시를 기본으로 둔다.
          이게 없으면 다들 비어 있는 오전 9시가 '가능'으로 나와 쓸 수 없는 답이 된다. */
       dayStart: patch.dayStart === undefined ? (Number(current.dayStart) || 18) : Math.min(22, Math.max(9, Number(patch.dayStart) || 18)),

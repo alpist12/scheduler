@@ -2,6 +2,10 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<meta name="theme-color" content="#f6f7fd">
+<style>:root{color-scheme:light only}html,body{background:#f6f7fd;color:#2b3560}@media (prefers-color-scheme:dark){:root{color-scheme:light only}}img,svg{forced-color-adjust:none}</style>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>HNUBS 방송국 스케줄러</title>
 <link rel="icon" href="assets/hnubs-favicon-black.png">
@@ -37,7 +41,7 @@
 </head>
 <body>
 <iframe id="design-frame" title="HNUBS 방송국 스케줄러"></iframe>
-<iframe id="engine-frame" data-src="index.integrated.html?engine=1&v=58" title="HNUBS 데이터 엔진" aria-hidden="true" tabindex="-1" style="position:fixed;width:1px;height:1px;left:-9999px;top:-9999px;border:0;opacity:0;pointer-events:none"></iframe>
+<iframe id="engine-frame" data-src="index.integrated.html?engine=1&v=61" title="HNUBS 데이터 엔진" aria-hidden="true" tabindex="-1" style="position:fixed;width:1px;height:1px;left:-9999px;top:-9999px;border:0;opacity:0;pointer-events:none"></iframe>
 <aside class="ai-pal" aria-label="Air(에어) AI 도우미">
   <div id="aiPalBubble" class="ai-pal-bubble" role="status">무엇을 도와드릴까요?</div>
   <section id="aiPalChat" class="ai-pal-chat" aria-label="AI 대화창">
@@ -82,7 +86,7 @@
     const showDesign = () => {
       // 점검 중이고 아직 통과 못 했으면 앱을 만들지 않는다. 덮개만 씌우면 뚫린다.
       if (window.HNUBS_GATE_BLOCKED) return;
-      const next = mobileQuery.matches ? 'standalone-mobile.html?v=192' : 'standalone-desktop.html?v=195';
+      const next = mobileQuery.matches ? 'standalone-mobile.html?v=210' : 'standalone-desktop.html?v=210';
       if (!frame.src.endsWith(next)) frame.src = next;
     };
     window.hnubsStartApp = () => {

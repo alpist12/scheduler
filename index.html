@@ -2,6 +2,10 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<meta name="theme-color" content="#f6f7fd">
+<style>:root{color-scheme:light only}html,body{background:#f6f7fd;color:#2b3560}@media (prefers-color-scheme:dark){:root{color-scheme:light only}}img,svg{forced-color-adjust:none}</style>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>HNUBS 방송국 스케줄러</title>
 <link rel="icon" href="assets/hnubs-favicon-black.png">
@@ -82,7 +86,7 @@
     const showDesign = () => {
       // 점검 중이고 아직 통과 못 했으면 앱을 만들지 않는다. 덮개만 씌우면 뚫린다.
       if (window.HNUBS_GATE_BLOCKED) return;
-      const next = mobileQuery.matches ? 'standalone-mobile.html?v=209' : 'standalone-desktop.html?v=209';
+      const next = mobileQuery.matches ? 'standalone-mobile.html?v=210' : 'standalone-desktop.html?v=210';
       if (!frame.src.endsWith(next)) frame.src = next;
     };
     window.hnubsStartApp = () => {

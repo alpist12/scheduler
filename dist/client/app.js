@@ -1018,8 +1018,7 @@ function copilotForDate(iso) {
   // 이미 촬영으로 확정된 씬은 다시 권하지 않는다
   const done = new Set(dayShoots.flatMap(s => (Array.isArray(s.sceneIds) ? s.sceneIds : []).map(String)));
   const placeToday = dayShoots.filter(s => s.projectId === pid && String(s.location || '').trim());
-  // 다른 프로젝트가 쓰는 장소. 같은 시간에 두 팀이 한 곳을 쓸 수는 없다.
-  const otherPlaces = dayShoots.filter(s => s.projectId !== pid && String(s.location || '').trim());
+
 
   const gap = shootGapHours();
   const plan = aiState.planOptions || {};
@@ -1046,24 +1045,21 @@ function copilotForDate(iso) {
     /* rangesOn 이 이미 촬영·수업을 빼고 준다. 전원이 비는 가장 이른 시각을 찾는다.
        candidateStarts 는 30분 눈금에 실제 가능 경계를 더해 준다 — 18:35 도 후보가 된다. */
     const windows = need.map(x => ({ from: 0, to: hours, ranges: rangesOn(who(x), iso) }));
-    /* 장소를 두 팀이 동시에 쓸 수는 없다. 다른 프로젝트가 같은 곳을 쓰는 시간은 후보에서 뺀다. */
-    const placeBusy = (a, b) => !!location && otherPlaces.some(s =>
-      locationAffinity(scene, { location: s.location }) > 0 && a < +s.endH && b > +s.startH);
-    const okAt = time => !placeBusy(time, time + hours) && need.every(x => freeIn(who(x), time, time + hours));
+    /* 막는 기준은 인원 하나뿐이다. 기획·촬영 담당이 다른 프로젝트에서 출연으로
+       들어가 있어도 rangesOn 이 그 촬영을 이미 빼 주므로 이것으로 충분하다. */
+    const okAt = time => need.every(x => freeIn(who(x), time, time + hours));
     const allStarts = candidateStarts({ totalHours: hours, windows, dayStart, dayEnd }).filter(okAt);
     const free = allStarts[0];
 
     if (free === undefined || free === null) {
       // 왜 안 되는지 구분해 준다. '시간이 없다'와 '남이 데려갔다'는 다른 문제다.
       const taken = need.filter(x => dayShoots.some(s => s.projectId !== pid && s.ids.has(x)));
-      const placeHeld = otherPlaces.find(s => locationAffinity(scene, { location: s.location }) > 0);
+
       out.push({ id, level: '불가', location, people: names(castIds), castIds, start: null, minutes: Math.round(hours * 60),
         blockedNames: names(taken),
         reason: taken.length
-          ? `${names(taken).join(', ')} · 다른 프로젝트 촬영과 겹칩니다.`
-          : placeHeld
-            ? `${placeHeld.location} · 다른 프로젝트가 이미 쓰는 장소입니다.`
-            : `${hourText(dayStart)}~${hourText(dayEnd)} 안에 출연진 공통 가능 시간이 없습니다.` });
+          ? `${names(taken).join(', ')} · 다른 프로젝트 촬영에 이미 잡혀 있습니다.`
+          : `${hourText(dayStart)}~${hourText(dayEnd)} 안에 출연진·스태프 공통 가능 시간이 없습니다.` });
       continue;
     }
 
@@ -1085,11 +1081,11 @@ function copilotForDate(iso) {
       ? `출연 ${names(castIds).length}명 + 스태프 ${crewIds.length}명 전원 가능`
       : `출연 ${names(castIds).length}명 전원 가능`);
 
-    const from = tight.length ? Math.max(free, +tight[0].endH + gap) : free;
+    const from0 = tight.length ? Math.max(free, +tight[0].endH + gap) : free;
     out.push({ id, level, location, people: names(castIds), castIds, minutes: Math.round(hours * 60),
-      start: from,
+      start: from0,
       // 고를 수 있게 후보를 몇 개 준다. 권장 시작 이후로만.
-      starts: allStarts.filter(v => v >= from).slice(0, 3),
+      starts: allStarts.filter(v => v >= from0).slice(0, 3),
       hours,
       sharesPeople, samePlace, blockedNames: [],
       reason: reasonParts.join(' · ') });
@@ -1103,9 +1099,12 @@ function copilotForDate(iso) {
     || (b.samePlace ? 1 : 0) - (a.samePlace ? 1 : 0)
     || (a.start ?? 99) - (b.start ?? 99)
     || no(a.id) - no(b.id));
+  /* 어느 기획 촬영인지 색으로 구분한다. 글자만으로는 일정표에서 안 읽힌다. */
   const timeline = dayShoots
     .map(s => ({ title: s.title || '촬영', startH: +s.startH, endH: +s.endH,
       mine: s.projectId === pid, location: String(s.location || ''),
+      project: projects[s.projectId]?.name || '기획 없음',
+      color: projects[s.projectId]?.color || '#9aa1c2',
       people: [...s.ids].map(x => base[x]?.name || '').filter(Boolean) }))
     .sort((a, b) => a.startH - b.startH);
   return { date: iso, gapMinutes: Math.round(gap * 60), dayStart, dayEnd, timeline,

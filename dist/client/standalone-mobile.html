@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
+<meta name="color-scheme" content="light">
+<style>:root{color-scheme:light only}@media (prefers-color-scheme:dark){:root{color-scheme:light only}}</style>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="assets/standalone/c0c568d7-3a3d-4322-a962-0337b5a03c8f.js?v=106"></script>
 </head>
@@ -583,10 +585,99 @@
             </div>
 
             <div style="margin-top:14px;padding:15px;border:1px solid #dce7ff;border-radius:16px;background:#fbfdff">
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div><div style="font-size:14px;font-weight:800;color:#222c52">촬영 일정 코파일럿</div><div style="font-size:11px;color:#8b93b8;margin-top:3px">날짜를 고르면 촬영하기 좋은 씬을 보여줍니다.</div></div><span style="padding:4px 7px;border-radius:7px;background:#eef4ff;color:#3b82f6;font-size:9.5px;font-weight:800">사람이 확정</span></div>
-              <div style="display:flex;gap:5px;overflow:auto;margin-top:10px"><sc-for list="{{ copilotDateChoices }}" as="d" hint-placeholder-count="7"><button sc-camel-on-click="{{ d.pick }}" style="flex:0 0 auto;padding:6px 8px;border:1px solid {{ d.line }};border-radius:8px;background:{{ d.bg }};color:{{ d.fg }};font-size:10.5px;font-weight:800;cursor:pointer">{{ d.label }}</button></sc-for></div>
-              <div style="display:flex;flex-direction:column;gap:7px;margin-top:10px"><sc-for list="{{ copilotScenes }}" as="s" hint-placeholder-count="5"><button sc-camel-on-click="{{ s.pick }}" style="display:block;width:100%;padding:10px;border:1px solid {{ s.tone }};border-radius:11px;background:{{ s.tone }};text-align:left;cursor:pointer"><div style="display:flex;align-items:center;gap:6px"><strong style="font-size:11.5px;color:#222c52">{{ s.id }}</strong><span style="padding:2px 5px;border-radius:5px;background:#fff;color:{{ s.fg }};font-size:9px;font-weight:800">{{ s.level }}</span></div><div style="font-size:10.5px;color:#596486;margin-top:4px">{{ s.people }} · {{ s.location }}</div><div style="font-size:10px;color:{{ s.fg }};margin-top:3px;font-weight:700">{{ s.reason }}</div></button></sc-for></div>
-              <sc-if value="{{ copilotScenesEmpty }}" hint-placeholder-val="{{ true }}"><div style="padding:12px 2px;text-align:center;font-size:11px;color:#a1a7c6">분석된 씬이 없습니다.</div></sc-if>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                <div style="min-width:0">
+                  <div style="font-size:14px;font-weight:800;color:#222c52">촬영 가능 씬</div>
+                  <div style="font-size:10.5px;color:#8b93b8;margin-top:3px;font-weight:600">{{ copilotDateLabel }} · {{ copilotWindow }}</div>
+                  <div style="font-size:10.5px;color:#7b83a8;margin-top:2px;font-weight:700">{{ copilotCrew }}</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:3px;flex:0 0 auto">
+                  <button sc-camel-on-click="{{ prevWeek }}" style="width:24px;height:24px;border-radius:99px;border:1px solid #e9ecf9;background:#fff;color:#5a6595;font-size:12px;cursor:pointer">‹</button>
+                  <button sc-camel-on-click="{{ nextWeek }}" style="width:24px;height:24px;border-radius:99px;border:1px solid #e9ecf9;background:#fff;color:#5a6595;font-size:12px;cursor:pointer">›</button>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:5px;overflow:auto;margin-top:10px">
+                <sc-for list="{{ copilotDateChoices }}" as="d" hint-placeholder-count="7">
+                  <button sc-camel-on-click="{{ d.pick }}" style="flex:0 0 auto;padding:6px 10px;border:1px solid {{ d.line }};border-radius:9px;background:{{ d.bg }};color:{{ d.fg }};font-weight:800;cursor:pointer">
+                    <span style="display:block;font-size:11px">{{ d.dow }}</span>
+                    <span style="display:block;font-size:9.5px;opacity:.8;margin-top:1px">{{ d.md }}</span>
+                  </button>
+                </sc-for>
+              </div>
+
+              <div style="display:flex;gap:11px;margin-top:10px;padding:7px 10px;border-radius:9px;background:#f7f9ff">
+                <sc-for list="{{ copilotTally }}" as="c" hint-placeholder-count="3">
+                  <span style="display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;color:#66709d">
+                    <span style="width:8px;height:8px;border-radius:99px;background:{{ c.dot }}"></span>{{ c.label }}
+                  </span>
+                </sc-for>
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px;max-height:300px;overflow:auto">
+                <sc-for list="{{ copilotScenes }}" as="s" hint-placeholder-count="5">
+                  <button sc-camel-on-click="{{ s.pick }}" style="display:block;width:100%;padding:10px 11px;border:{{ s.ring }};border-left:4px solid {{ s.dot }};border-radius:10px;background:{{ s.tone }};text-align:left;cursor:pointer">
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <span style="width:8px;height:8px;flex:0 0 8px;border-radius:99px;background:{{ s.dot }}"></span>
+                      <strong style="flex:1;min-width:0;font-size:12px;color:#222c52;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.id }}</strong>
+                      <span style="padding:2px 6px;border-radius:6px;background:#fff;color:{{ s.fg }};font-size:9.5px;font-weight:800">{{ s.level }}</span>
+                    </div>
+                    <div style="font-size:10.5px;color:#596486;margin-top:5px;line-height:1.4">{{ s.people }}<br>{{ s.location }}</div>
+                    <div style="font-size:10px;color:{{ s.fg }};margin-top:4px;font-weight:700">{{ s.when }}</div>
+                  </button>
+                </sc-for>
+                <sc-if value="{{ copilotScenesEmpty }}" hint-placeholder-val="{{ true }}">
+                  <div style="padding:24px 12px;text-align:center;border:1px dashed #e1e7f5;border-radius:12px;background:#fcfdff">
+                    <div style="font-size:12px;color:#5a6595;font-weight:800">{{ copilotEmptyTitle }}</div>
+                    <div style="font-size:10.5px;color:#a1a7c6;font-weight:600;margin-top:4px;line-height:1.5">{{ copilotEmptyHint }}</div>
+                  </div>
+                </sc-if>
+              </div>
+
+              <sc-if value="{{ copilotPicked }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:12px;padding:11px 12px;border-radius:12px;background:{{ copilotPickTint }}">
+                  <div style="display:flex;align-items:center;gap:7px">
+                    <span style="width:9px;height:9px;flex:0 0 9px;border-radius:99px;background:{{ copilotPickDot }}"></span>
+                    <strong style="flex:1;min-width:0;font-size:13px;color:#222c52;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ copilotPickTitle }}</strong>
+                    <span style="padding:2px 7px;border-radius:6px;background:#fff;color:{{ copilotPickDot }};font-size:9.5px;font-weight:800">{{ copilotPickLevel }}</span>
+                  </div>
+                  <div style="font-size:10.5px;color:#66709d;margin-top:5px;font-weight:600;line-height:1.45">{{ copilotPickSub }}</div>
+                  <div style="font-size:10px;color:{{ copilotPickDot }};margin-top:4px;font-weight:700;line-height:1.45">{{ copilotPickWhy }}</div>
+                </div>
+
+                <div style="font-size:10.5px;font-weight:800;color:#5a6595;margin-top:11px">추천 시작 시간</div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px">
+                  <sc-for list="{{ copilotSlots }}" as="v" hint-placeholder-count="3">
+                    <button sc-camel-on-click="{{ v.pick }}" style="flex:1;min-width:68px;padding:8px 5px;border:1.5px solid {{ v.line }};border-radius:10px;background:{{ v.bg }};cursor:pointer">
+                      <span style="display:block;font-size:12.5px;font-weight:800;color:{{ v.fg }}">{{ v.label }}</span>
+                      <span style="display:block;font-size:9px;font-weight:700;color:{{ v.subFg }};margin-top:1px">{{ v.note }}</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <div style="font-size:10.5px;font-weight:800;color:#5a6595;margin-top:12px">{{ copilotDayLabel }} 일정표</div>
+              <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px">
+                <sc-for list="{{ copilotLegend }}" as="g" hint-placeholder-count="2">
+                  <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:99px;background:{{ g.bg }};font-size:9.5px;font-weight:800;color:{{ g.fg }}">
+                    <span style="width:6px;height:6px;border-radius:99px;background:{{ g.color }}"></span>{{ g.name }}
+                  </span>
+                </sc-for>
+              </div>
+              <div style="position:relative;margin-top:8px;height:{{ copilotTrackH }};border-left:1px solid #eef0fa;margin-left:36px">
+                <sc-for list="{{ copilotHourMarks }}" as="m" hint-placeholder-count="6">
+                  <div style="position:absolute;left:-36px;right:0;top:{{ m.top }};height:1px;background:#f2f4fb">
+                    <span style="position:absolute;left:0;top:-6px;font-size:9px;color:#a7adcd;font-weight:700">{{ m.label }}</span>
+                  </div>
+                </sc-for>
+                <sc-for list="{{ copilotBlocks }}" as="b" hint-placeholder-count="3">
+                  <div style="position:absolute;left:{{ b.left }};width:{{ b.width }};top:{{ b.top }};height:{{ b.height }};border-radius:6px;background:{{ b.bg }};border-left:3px solid {{ b.bar }};padding:2px 6px;overflow:hidden">
+                    <div style="font-size:9.5px;font-weight:800;color:{{ b.fg }};line-height:{{ b.lh }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ b.label }}</div>
+                  </div>
+                </sc-for>
+              </div>
+
+              <button sc-camel-on-click="{{ copilotAdd }}" style="width:100%;margin-top:12px;padding:12px;border:0;border-radius:12px;background:{{ copilotAddBg }};color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ copilotAddLabel }}</button>
             </div>
 
             <sc-for list="{{ planDays }}" as="p" hint-placeholder-count="2">
@@ -670,6 +761,12 @@
             <button sc-camel-on-click="{{ resetAnalysis }}" style="flex:0 0 auto;padding:10px 11px;border:1px solid #f1d8de;border-radius:11px;background:#fff7f8;color:#d94d67;font-weight:700;font-size:12px;cursor:pointer">초기화</button>
           </div>
 
+          <sc-if value="{{ aiNoProject }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:28px 14px;text-align:center;border:1px dashed #e1e7f5;border-radius:14px;background:#fcfdff">
+              <div style="font-size:13px;color:#2b3560;font-weight:800">분석할 씬이 없습니다</div>
+              <div style="font-size:11px;color:#a1a7c6;font-weight:600;margin-top:5px;line-height:1.55">프로젝트를 먼저 선택하세요.</div>
+            </div>
+          </sc-if>
           <div style="display:{{ aiUploadDisplay }};border:1px solid #eef0fa;border-radius:20px;padding:26px 18px;text-align:center;background:linear-gradient(180deg,#fdfdff,#f7f9ff);margin-top:14px">
             <div style="width:88px;height:88px;margin:0 auto;background:url(&quot;assets/standalone/f8b81a54-c444-48e1-94ff-d88685a73cad.png&quot;) no-repeat;background-size:203px auto;background-position:3% 50%"></div>
             <div style="margin-top:14px;font-size:16px;font-weight:800;color:#1f2a52">대본 파일을 업로드하세요</div>
@@ -1925,17 +2022,19 @@ class Component extends DCLogic {
           reanalyzeLeftovers: () => this.setState({ droppedScenes: {} }),
         };
       })(),
-      aiShowPlan: st.aiView === 'plan',
+      // 촬영안은 따로 있는 화면이 아니라 4단계의 마지막 '결과'다.
+      aiShowPlan: st.aiStage === 'results' && st.aiView !== 'history',
       aiShowMain: st.aiView !== 'plan',
       aiSetupDisplay: ['upload','options'].includes(st.aiStage) ? 'block' : 'none',
       aiSetupShellDisplay: ['upload','options'].includes(st.aiStage) ? 'block' : 'none',
-      aiUploadDisplay: st.aiStage === 'upload' ? 'block' : 'none',
+      // 프로젝트가 없으면 업로드 카드를 감추고 안내를 대신 띄운다
+      aiNoProject: st.aiStage === 'upload' && !st.aiProjectId,
+      aiUploadDisplay: (st.aiStage === 'upload' && st.aiProjectId) ? 'block' : 'none',
       aiOptionsDisplay: st.aiStage === 'options' ? 'block' : 'none',
       aiSupportDisplay: st.aiStage === 'running' ? 'block' : 'none',
       aiBackVisible: st.aiStage !== 'upload',
       aiBackLabel: st.aiStage === 'results' ? '분석 조건으로 돌아가기' : st.aiStage === 'running' ? '옵션으로 돌아가기' : '대본 선택으로 돌아가기',
-      // 판정은 엔진이 한다. PC와 같은 답이 나와야 한다.
-      /* 판정은 엔진이 한다. 화면에서 다시 계산하면 PC와 모바일이 서로 다른 답을 낸다.
+      /* 판정은 엔진(copilotForDate)이 한다. PC와 같은 답이 나와야 한다.
          신호등: 초록=찍어도 된다, 노랑=애매하다, 빨강=못 찍는다. */
       ...(() => {
         const selectedIso = iso(dates[st.shootDay]);
@@ -1945,27 +2044,99 @@ class Component extends DCLogic {
           '불가': ['#fff1f3', '#b03650', '#f3d9de', '#e5484d'] };
         let report = { scenes: [] };
         try { report = this.engine()?.copilotForDate?.(selectedIso) || report; } catch (e) { /* 엔진이 아직 안 떴다 */ }
+        const picked = (report.scenes || []).find(x => x.id === st.copilotSceneId) || null;
         const list = (report.scenes || []).map(s => {
           const [bg, fg, line, dot] = tone[s.level] || tone['가능'];
+          const on = s.id === st.copilotSceneId;
           return { ...s, tone: bg, fg, line, dot,
+            ring: on ? `2px solid ${dot}` : `1px solid ${line}`,
             people: (s.people || []).join(', ') || '출연 미지정',
             location: s.location || '장소 미정',
-            when: s.start == null ? '가능한 시간 없음' : `${this.hhmm(s.start)} 이후 · ${s.minutes}분`,
-            pick: () => this.setState({ tab: 'shoot', shootDate: selectedIso, shootTitle: s.id,
-              shootProjectId: st.aiProjectId || '' }) };
+            when: s.start == null ? '가능한 시간 없음' : `${this.hhmmOf(s.start)} 이후 · ${s.minutes}분`,
+            pick: () => this.setState({ copilotSceneId: on ? '' : s.id, copilotStart: null }) };
         });
         const count = lv => list.filter(x => x.level === lv).length;
+        const slots = picked?.starts || [];
+        const chosen = st.copilotStart != null ? st.copilotStart : slots[0];
+
+        /* 좁은 화면이라 시간 눈금은 한 칸을 작게 잡는다. 겹치는 촬영은 레인으로 나눈다. */
+        const from = report.dayStart ?? 18, to = report.dayEnd ?? 23, PX = 44;
+        const yOf = h => `${Math.round((h - from) * PX)}px`;
+        const marks = [];
+        for (let h = from; h <= to; h += 1) marks.push({ label: this.hhmmOf(h), top: yOf(h) });
+        const raw = (report.timeline || []).map(x => {
+          const c = x.color || '#9aa1c2';
+          return { s: Math.max(from, x.startH), e: Math.min(to, x.endH),
+            bg: c + (x.mine ? '26' : '14'), bar: c, fg: x.mine ? c : '#8b93b8',
+            title: `${x.project} ${x.title}` };
+        });
+        if (picked && chosen != null) raw.push({ s: chosen, e: chosen + (picked.hours || .5),
+          bg: '#e9f8ef', bar: '#22a565', fg: '#237a4f', title: `${picked.id} ← 여기` });
+        raw.sort((a, b) => a.s - b.s || a.e - b.e);
+        const lanes = [];
+        for (const b of raw) {
+          let i = lanes.findIndex(end => end <= b.s);
+          if (i < 0) { i = lanes.length; lanes.push(0); }
+          lanes[i] = b.e; b.lane = i;
+        }
+        const cols = Math.max(1, lanes.length);
+        const blocks = raw.map(b => {
+          const h = Math.max(20, Math.round((b.e - b.s) * PX) - 3);
+          return { top: yOf(b.s), height: `${h}px`,
+            left: `calc(${(b.lane / cols) * 100}% + 4px)`, width: `calc(${100 / cols}% - 7px)`,
+            bg: b.bg, bar: b.bar, fg: b.fg,
+            label: `${b.title} · ${this.hhmmOf(b.s)}`, lh: `${h - 4}px` };
+        });
+        const canAdd = !!picked && chosen != null;
+
         return {
           copilotScenes: list,
           // 신호등 집계. 초록에는 '추천'도 포함한다 — 어차피 찍어도 되는 씬이다.
           copilotTally: [
             { dot: '#22a565', label: `가능 ${count('추천') + count('가능')}` },
             { dot: '#f0b429', label: `애매 ${count('조건부')}` },
-            { dot: '#e5484d', label: `불가 ${count('불가')}` },
-          ],
-          copilotWindow: report.dayStart == null ? '' : `${this.hhmm(report.dayStart)}~${this.hhmm(report.dayEnd)} · 준비 ${report.gapMinutes}분`,
+            { dot: '#e5484d', label: `불가 ${count('불가')}` } ],
+          copilotWindow: report.dayStart == null ? '' : `${this.hhmmOf(report.dayStart)}~${this.hhmmOf(report.dayEnd)} · 준비 ${report.gapMinutes}분`,
+          copilotCrew: (report.crew || []).length ? `스태프 ${report.crew.join(', ')} 포함` : '',
+          copilotPicked: !!picked,
+          copilotIdle: !picked,
+          copilotPickTitle: picked ? `${picked.id} · ${picked.location || '장소 미정'}` : '',
+          copilotPickSub: picked ? `${(picked.people || []).join(', ') || '출연 미지정'} · ${picked.minutes}분` : '',
+          copilotPickWhy: picked?.reason || '',
+          copilotPickLevel: picked?.level || '',
+          copilotPickDot: picked ? (tone[picked.level] || tone['가능'])[3] : '#5cc08a',
+          copilotPickTint: picked ? (tone[picked.level] || tone['가능'])[0] : '#fff',
+          copilotSlots: slots.map((v, i) => ({ label: this.hhmmOf(v),
+            note: i === 0 ? '가장 빠름' : `+${Math.round((v - slots[0]) * 60)}분`,
+            bg: v === chosen ? '#3b82f6' : '#fff', fg: v === chosen ? '#fff' : '#3a4373',
+            subFg: v === chosen ? '#d7e6ff' : '#a7adcd',
+            line: v === chosen ? '#3b82f6' : '#e1e7f5',
+            pick: () => this.setState({ copilotStart: v }) })),
+          /* 왜 비었는지 구분해 준다. '분석된 씬이 없습니다' 하나로 뭉뚱그리면
+             프로젝트를 안 고른 것인지 분석을 안 한 것인지 알 수가 없다. */
+          copilotEmptyTitle: !st.aiProjectId ? '프로젝트를 선택하세요'
+            : !(live?.projects || []).find(x => x.id === st.aiProjectId)?.aiAnalysis ? '아직 분석하지 않은 프로젝트입니다'
+            : '분석된 씬이 없습니다',
+          copilotEmptyHint: !st.aiProjectId ? '위에서 프로젝트를 고르면 그날 찍을 수 있는 씬을 보여 드립니다.'
+            : !(live?.projects || []).find(x => x.id === st.aiProjectId)?.aiAnalysis ? '대본을 올려 분석을 먼저 끝내 주세요.'
+            : '대본에서 씬을 찾지 못했습니다. 다시 분석해 보세요.',
+          copilotDayLabel: this.fmtShort(dates[st.shootDay]),
+          copilotLegend: [...new Map((report.timeline || [])
+            .map(x => [x.project, { name: x.project, color: x.color || '#9aa1c2',
+              bg: (x.color || '#9aa1c2') + '1f', fg: x.color || '#6c7699' }])).values()],
+          copilotTrackH: `${Math.round((to - from) * PX)}px`,
+          copilotHourMarks: marks,
+          copilotBlocks: blocks,
+          copilotAddLabel: canAdd ? `${picked.id} · ${this.hhmmOf(chosen)} 추가` : '씬과 시간을 고르세요',
+          copilotAddBg: canAdd ? 'linear-gradient(135deg,#4f8ef7,#3b82f6)' : '#dfe3f2',
+          copilotAdd: () => { if (!canAdd) return;
+            this.setState({ tab: 'shoot', sheetOpen: true, mfEditId: '',
+              shootDate: selectedIso, mfTitle: picked.id, mfPlace: picked.location || '',
+              mfStart: this.hhmmOf(chosen), mfEnd: this.hhmmOf(chosen + (picked.hours || .5)),
+              mfCast: (picked.castIds || []).slice(), shootProjectId: st.aiProjectId || '' }); },
         };
       })(),
+      copilotDateLabel: `${this.fmtShort(dates[st.shootDay])} (${this.dowOf(dates[st.shootDay])})`,
       copilotScenesEmpty: !(live?.ai?.scenes || []).length,
       copilotDateChoices: dates.map((d, i) => ({ label: `${this.fmtShort(d)} ${this.dowOf(d)}`, dow: this.dowOf(d), md: this.fmtShort(d), bg: st.shootDay === i ? '#3b82f6' : '#fff', fg: st.shootDay === i ? '#fff' : '#5a6595', line: st.shootDay === i ? '#3b82f6' : '#e1e7f5', pick: () => this.setState({ shootDay: i }) })),
       aiViewTabs: ['분석', '촬영안'].map(label => {

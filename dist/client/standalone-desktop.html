@@ -1242,6 +1242,13 @@
               <sc-raw-select value="{{ formDay }}" sc-camel-on-change="{{ changeFormDay }}" style="width:100%;margin-top:10px;padding:12px 14px;border:1px solid #eceefa;border-radius:13px;background:#fbfcff;font-size:13.5px;font-weight:700;color:#3a4373">
                 <sc-for list="{{ formDays }}" as="d" hint-placeholder-count="7"><option value="{{ d.i }}">{{ d.label }}</option></sc-for>
               </sc-raw-select>
+              <div style="display:flex;align-items:center;gap:9px;margin-top:10px;padding:10px 12px;background:#f7f8ff;border-radius:11px">
+                <input type="checkbox" checked="{{ formRepeat }}" sc-camel-on-change="{{ changeRepeat }}">
+                <span style="font-size:12.5px;font-weight:800;color:#5a6595">매주 반복</span>
+                <sc-raw-select value="{{ formRepeatWeeks }}" sc-camel-on-change="{{ changeRepeatWeeks }}" style="margin-left:auto;padding:6px 8px;border:1px solid #e5e8f7;border-radius:8px;background:#fff;font-size:12px;color:#3a4373">
+                  <option value="4">4주</option><option value="8">8주</option><option value="12">12주</option><option value="24">24주</option>
+                </sc-raw-select>
+              </div>
               <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
                 <sc-raw-select value="{{ formStart }}" sc-camel-on-change="{{ changeStart }}" style="flex:1;padding:12px;border:1px solid #eceefa;border-radius:13px;background:#fbfcff;font-size:13.5px;font-weight:700;color:#3a4373">
                   <sc-for list="{{ timeOptions }}" as="t" hint-placeholder-count="8"><option value="{{ t }}">{{ t }}</option></sc-for>
@@ -1659,7 +1666,7 @@ class Component extends DCLogic {
     aiPhase: 'idle', aiStage: 'upload', aiPct: 0, aiStartedAt: 0, aiTick: 0, aiFile: null, aiOpts: null, aiExtra: [true, true, false], aiSceneIndex: 0, aiCandidateIndex: 0, aiView: 'new', planVariant: 0, groupKey: '', groupSlotKey: '',
     aiPrompt: '이번 주에 촬영 가능한 시간 알려줘',
     weekView: '주', shootFilter: '전체', shootLayout: '주간 보드', settingsTab: '일반 설정', dept: '전체', query: '',
-    formType: '가능', formTitle: '', formStart: '09:00', formEnd: '10:00', formDay: 0,
+    formType: '가능', formTitle: '', formStart: '09:00', formEnd: '10:00', formDay: 0, formRepeat: false, formRepeatWeeks: 8,
     notif: [true, true, true, false, true], saveResults: true,
     modalOpen: false, mobileTab: '홈', extra: [], cleared: false, live: null, aiProjectId: '',
     shootTitle: '', shootPlace: '', shootPeople: '', shootStart: '14:00', shootEnd: '16:00', shootNote: '',
@@ -3558,11 +3565,15 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
       /* 촬영은 30분짜리가 있다. 주간 일정표 칸 단위(설정의 시간 단위)와 따로 둔다. */
       shootTimeOptions: this.halfHourList(9, 22),
       shootEndTimeOptions: this.halfHourList(9, 23),
-      resetForm: () => this.setState({ formTitle: '', formType: '가능', formStart: '09:00', formEnd: '10:00', formDay: 0 }),
+      resetForm: () => this.setState({ formTitle: '', formType: '가능', formStart: '09:00', formEnd: '10:00', formDay: 0, formRepeat: false, formRepeatWeeks: 8 }),
       openRepeat: this.addRepeatPersonal,
       formDays: dates.map((d, i) => ({ i, label: `${d.getMonth() + 1}. ${d.getDate()} (${this.dowOf(d)})` })),
       formDay: st.formDay,
       changeFormDay: e => this.setState({ formDay: Number(e.target.value) }),
+      formRepeat: !!st.formRepeat,
+      formRepeatWeeks: st.formRepeatWeeks || 8,
+      changeRepeat: e => this.setState({ formRepeat: !!e.target.checked }),
+      changeRepeatWeeks: e => this.setState({ formRepeatWeeks: Number(e.target.value) }),
       addEvent: async () => {
         const s2 = this.state;
         if (s2.formType === '수업' || s2.formType === '기타') {
@@ -3580,10 +3591,11 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
           if (!(end > start)) throw new Error('종료 시간이 시작 시간보다 늦어야 합니다.');
           const d = this.weekDates()[s2.formDay];
           const isoStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-          await engine.addPersonalSchedule({ memberName: target, date: isoStr, start, end, status: s2.formType, memo: s2.formTitle.trim() });
+          const count = s2.formRepeat ? Math.min(52, Number(s2.formRepeatWeeks) || 8) : 1;
+          for (let i = 0; i < count; i++) { const di = new Date(d); di.setDate(di.getDate() + i * 7); const repeatIso = `${di.getFullYear()}-${String(di.getMonth() + 1).padStart(2, '0')}-${String(di.getDate()).padStart(2, '0')}`; await engine.addPersonalSchedule({ memberName: target, date: repeatIso, start, end, status: s2.formType, memo: s2.formTitle.trim() }); }
           this.readLive();
           this.setState({ formTitle: '', cleared: false });
-          window.alert(`${target} · ${d.getMonth() + 1}.${d.getDate()} ${s2.formStart}~${s2.formEnd} · ${s2.formType} 등록 완료`);
+          window.alert(`${target} · ${s2.formRepeat ? count + '주 반복 ' : ''}${s2.formStart}~${s2.formEnd} · ${s2.formType} 등록 완료`);
         } catch (error) { window.alert(error.message); }
       },
       clearWeek: () => this.setState({ cleared: true, extra: [] }),

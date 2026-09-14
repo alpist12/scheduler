@@ -1499,11 +1499,18 @@ class Component extends DCLogic {
       const c = card.job.slot;
       if (!byDate.has(card.dayKey)) byDate.set(card.dayKey, { when: new Date(`${card.dayKey}T12:00:00`),
         nth: String(card.nth || '').replace(/\s*\(이월\)\s*/, ''), rows: [] });
+      const ids = card.job.group.sceneIds || [];
+      // 그 날 찍을 씬이 하나도 안 남은 카드(전부 이월·제외)는 표에 빈 줄로 남기지 않는다.
+      if (!ids.length) continue;
       byDate.get(card.dayKey).rows.push({
         nth: card.nth,
         time: `${this.hourLabel(c.time)}–${this.hourLabel(c.endTime || c.time + 1)}`,
-        scenes: (card.job.group.sceneIds || []).join(', '),
+        scenes: ids.join(', '),
+        sceneCount: ids.length,
+        cast: (c.available || []).map(p => p.name).filter(Boolean),
         who: card.who,
+        /* 왜 이 씬들을 같이 찍는지. 경고(⚠)는 빼고 첫 근거 한 줄만 쓴다. */
+        reason: (card.reasonLines || []).find(line => !/^\u26a0/.test(line) && !/^이 날짜에/.test(line)) || '',
       });
     }
     return [...byDate.entries()].sort((a, b) => a[0].localeCompare(b[0]))
@@ -1525,7 +1532,7 @@ class Component extends DCLogic {
 
     const S = 2;                                   // 두 배로 그려야 글자가 안 뭉갠다
     const W = 900, PAD = 36, CARD_GAP = 14;
-    const headH = 118, rowH = 34, cardPadY = 18, footH = 52;
+    const headH = 144, rowH = 50, cardPadY = 18, footH = 52;
     const cardH = d => cardPadY * 2 + 30 + d.rows.length * rowH;
     const H = headH + days.reduce((n, d) => n + cardH(d) + CARD_GAP, 0) + footH;
 
@@ -1548,13 +1555,23 @@ class Component extends DCLogic {
     ctx.fillStyle = '#f6f7fd'; ctx.fillRect(0, 0, W, H);
 
     // 머리말
-    ctx.fillStyle = accent; round(PAD, 26, W - PAD * 2, 66, 16); ctx.fill();
+    ctx.fillStyle = accent; round(PAD, 26, W - PAD * 2, 92, 16); ctx.fill();
     ctx.fillStyle = '#fff';
     ctx.font = '800 26px "Pretendard", "Apple SD Gothic Neo", sans-serif';
-    ctx.fillText(`${project?.name || '촬영'} 자동 배치안`, PAD + 22, 60);
+    ctx.fillText(`${project?.name || '촬영'} 자동 배치안`, PAD + 22, 58);
+    /* 누가 찍는지(기획·촬영)와 전체 규모를 표에서 바로 읽을 수 있어야 한다. */
+    const nameList = list => (Array.isArray(list) ? list : []).map(p => p?.name || '').filter(Boolean);
+    const staff = [
+      nameList(project?.roles?.planning).length ? `기획 ${nameList(project.roles.planning).join(', ')}` : '',
+      nameList(project?.roles?.production).length ? `촬영/편집 ${nameList(project.roles.production).join(', ')}` : '',
+    ].filter(Boolean).join('   ·   ');
+    const totalScenes = days.reduce((n, d) => n + d.rows.reduce((m, r) => m + (r.sceneCount || 0), 0), 0);
+    const castAll = new Set(days.flatMap(d => d.rows.flatMap(r => r.cast || [])));
     ctx.font = '600 14px "Pretendard", "Apple SD Gothic Neo", sans-serif';
-    ctx.globalAlpha = .9;
-    ctx.fillText(`${variant + 1}안 · ${days.length}일 · 씬 ${days.reduce((n, d) => n + d.rows.length, 0)}묶음`, PAD + 22, 82);
+    ctx.globalAlpha = .95;
+    if (staff) ctx.fillText(staff, PAD + 22, 80);
+    ctx.globalAlpha = .82;
+    ctx.fillText(`${variant + 1}안 · ${days.length}일 · 총 ${totalScenes}씬 · 출연 ${castAll.size}명`, PAD + 22, 102);
     ctx.globalAlpha = 1;
 
     // 날짜 카드
@@ -1576,6 +1593,12 @@ class Component extends DCLogic {
         ctx.fillStyle = '#3a4373';
         ctx.font = '700 14px "Pretendard", "Apple SD Gothic Neo", sans-serif';
         ctx.fillText(r.scenes, x + 2, ry + 2);
+        if (r.reason) {
+          ctx.fillStyle = '#9aa1c2';
+          ctx.font = '500 12px "Pretendard", "Apple SD Gothic Neo", sans-serif';
+          const line = r.reason.length > 78 ? r.reason.slice(0, 77) + '…' : r.reason;
+          ctx.fillText(line, PAD + 22, ry + 20);
+        }
         ctx.fillStyle = '#9aa1c2';
         ctx.font = '600 12px "Pretendard", "Apple SD Gothic Neo", sans-serif';
         const w = ctx.measureText(r.who).width;

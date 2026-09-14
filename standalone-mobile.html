@@ -689,6 +689,13 @@
               <button sc-camel-on-click="{{ copilotAdd }}" style="width:100%;margin-top:12px;padding:12px;border:0;border-radius:12px;background:{{ copilotAddBg }};color:#fff;font-size:12.5px;font-weight:800;cursor:pointer">{{ copilotAddLabel }}</button>
             </div>
 
+            <!-- 자동 배치는 보조 기능이다. 기본은 코파일럿으로 사람이 직접 넣는다. -->
+            <div style="display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap">
+              <button sc-camel-on-click="{{ toggleAutoPlan }}" style="padding:9px 13px;border:1px solid #e5e8f7;border-radius:11px;background:#fff;color:#5a6595;font-size:12px;font-weight:700;cursor:pointer">{{ autoPlanLabel }}</button>
+              <span style="flex:1;min-width:0;font-size:10.5px;color:#a7adcd;font-weight:600">{{ autoPlanHint }}</span>
+            </div>
+
+            <sc-if value="{{ autoPlanOpen }}" hint-placeholder-val="{{ false }}">
             <sc-for list="{{ planDays }}" as="p" hint-placeholder-count="2">
               <div style="background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:17px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
                 <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
@@ -724,6 +731,8 @@
                 <button sc-camel-on-click="{{ p.confirm }}" style="width:100%;margin-top:9px;padding:13px;border:0;border-radius:13px;background:linear-gradient(135deg,#5b8def,#7b6ef0);color:#fff;font-size:13px;font-weight:800;cursor:pointer">{{ p.confirmLabel }}</button>
               </div>
             </sc-for>
+
+            </sc-if>
 
             <sc-if value="{{ hasLeftovers }}" hint-placeholder-val="{{ false }}">
               <div style="background:#fff;border:1px solid #f3e3e6;border-radius:22px;padding:17px">
@@ -2074,6 +2083,10 @@ class Component extends DCLogic {
       /* 화면 전환은 단계(aiStage) 하나로 정한다. aiView 는 'new' 로 시작한 뒤
          'results' 로 바뀌는 곳이 없어서 촬영안도 코파일럿도 영영 안 떴다. */
       aiShowPlan: st.aiStage === 'results',
+      autoPlanOpen: !!st.autoPlanOpen,
+      autoPlanLabel: st.autoPlanOpen ? '▾ AI 자동 배치 숨기기' : '▸ AI 자동 배치 보기',
+      autoPlanHint: st.autoPlanOpen ? 'AI가 날짜까지 정해 묶은 안입니다. 참고용입니다.' : '직접 넣는 대신 AI가 묶어 준 안을 봅니다.',
+      toggleAutoPlan: () => this.setState({ autoPlanOpen: !st.autoPlanOpen }),
       aiShowMain: true,
       aiView: st.aiView || 'new',
       changeAiView: e => this.setState({ aiView:e.target.value, aiStage:e.target.value === 'new' ? 'upload' : 'results', aiPhase:e.target.value === 'new' ? 'idle' : st.aiPhase }),

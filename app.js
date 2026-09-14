@@ -90,7 +90,7 @@ const aiState = {
   pollTimer: null,
   options: { scenes: true, cast: true, locations: true, schedule: true },
   // 기획자가 거는 조건. 강제 묶기/분리, 뺄 날짜, 우선 고려할 배우.
-  planOptions: { pinned: [], split: [], excludeDates: [], priorityMembers: [], dateFrom: '', dateTo: '', dayStart: 18, dayEnd: 23 },
+  planOptions: { pinned: [], split: [], excludeDates: [], excludeScenes: [], priorityMembers: [], scenePeriods: {}, dateFrom: '', dateTo: '', dayStart: 18, dayEnd: 23 },
 };
 
 // firebase data
@@ -979,6 +979,8 @@ function resolveMemberId(name) {
  *  범위를 지정하지 않으면 지금 보고 있는 주 7일만 본다. */
 function planDates() {
   const plan = aiState.planOptions || {};
+  const scenePeriods = plan.scenePeriods || {};
+  const periodFor = row => scenePeriods[idOfRow(row)] || scenePeriods[String(row.index)] || '';
   const from = String(plan.dateFrom || '').trim(), to = String(plan.dateTo || '').trim();
   const start = new Date(`${from}T12:00:00`), end = new Date(`${to}T12:00:00`);
   if (!from || !to || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
@@ -1361,7 +1363,14 @@ function buildSceneSchedule(scenes = [], options = {}) {
        들어갈 시간이 없으면 뒤 씬부터 덜어내고, 덜어낸 씬은 다음 그룹으로 돌린다.
        강제로 묶으라고 한 씬은 덜어내지 않는다. */
     let ordered = orderSceneGroup(selected);
-    const calculate = list => aiCandidates(list.map(row => row.scene), list.reduce((s, r) => s + r.minutes, 0) / 60);
+    const calculate = list => {
+      const result = aiCandidates(list.map(row => row.scene), list.reduce((s, r) => s + r.minutes, 0) / 60);
+      const periods = new Set(list.map(periodFor).filter(Boolean));
+      if (periods.size !== 1) return result;
+      const period = [...periods][0];
+      result.items = result.items.filter(slot => period === 'night' ? slot.time >= 18 : slot.time < 18);
+      return result;
+    };
     const hasFull = value => value.items.some(slot => slot.full);
     let result = calculate(ordered);
     while (!hasFull(result) && ordered.length > 1) {

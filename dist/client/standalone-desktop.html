@@ -367,14 +367,14 @@
           <div style="background:#fff;border:1px solid #f0f1fb;border-radius:24px;padding:22px 24px;box-shadow:0 18px 34px rgba(122,134,205,.14)">
             <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
               <div style="flex:1;min-width:180px">
-                <div style="font-size:18px;font-weight:800;color:#222c52">AI 분석 결과</div>
-                <div style="font-size:12.5px;color:#9098ba;margin-top:5px">{{ planSummary }}</div>
+            <div style="font-size:18px;font-weight:800;color:#222c52">AI 분석 결과</div>
+            <div style="font-size:12.5px;color:#9098ba;margin-top:5px">{{ planSummary }}</div>
+            <div style="font-size:12px;color:#5b6ee0;font-weight:800;margin-top:7px">{{ planDaySummary }}</div>
               </div>
               <sc-raw-select value="{{ aiProjectId }}" sc-camel-on-change="{{ changeAiProject }}" style="flex:0 1 220px;min-width:0;padding:11px 13px;border:1px solid #e5e8f7;border-radius:12px;background:#fbfcff;color:#2b3560;font-size:13px;font-weight:700">
                 <sc-for list="{{ aiProjects }}" as="p"><option value="{{ p.id }}">{{ p.name }}</option></sc-for>
               </sc-raw-select>
-              <button sc-camel-on-click="{{ reanalyzeLeftovers }}" style="flex:0 0 auto;padding:10px 16px;border:1px solid #dbe4fb;border-radius:12px;background:#fff;color:#3b82f6;font-size:12.5px;font-weight:800;cursor:pointer">제외 되돌리기</button>
-              <button sc-camel-on-click="{{ reoptimizeAll }}" style="flex:0 0 auto;padding:10px 16px;border:1px solid #e5e8f7;border-radius:12px;background:#fff;color:#7b83a8;font-size:12.5px;font-weight:800;cursor:pointer">전체 다시 최적화</button>
+              <button sc-camel-on-click="{{ openPlanConditions }}" style="flex:0 0 auto;padding:10px 16px;border:1px solid #e5e8f7;border-radius:12px;background:#fff;color:#7b83a8;font-size:12.5px;font-weight:800;cursor:pointer">조건 설정</button>
             </div>
             <sc-if value="{{ planDone }}" hint-placeholder-val="{{ false }}">
               <div style="margin-top:16px;padding:14px 16px;border-radius:15px;background:#eaf7ef;display:flex;align-items:center;gap:11px">
@@ -526,6 +526,12 @@
           </div>
 
           <sc-if value="{{ autoPlanOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:14px 0 10px">
+            <span style="font-size:12px;color:#7b83a8;font-weight:800">AI 분석 배치 카드 · 자동배치 안</span>
+            <sc-for list="{{ planAlternatives }}" as="a" hint-placeholder-count="5"><button sc-camel-on-click="{{ a.go }}" style="padding:6px 11px;border:1px solid {{ a.line }};border-radius:8px;background:{{ a.bg }};color:{{ a.fg }};font-size:11px;font-weight:800;cursor:pointer">{{ a.label }}</button></sc-for>
+            <button sc-camel-on-click="{{ exportPlanImage }}" style="margin-left:auto;padding:7px 11px;border:0;border-radius:9px;background:#5b6ee0;color:#fff;font-size:11px;font-weight:800;cursor:pointer">이미지로 저장</button>
+            <button sc-camel-on-click="{{ copyPlanText }}" style="padding:7px 11px;border:1px solid #e5e8f7;border-radius:9px;background:#fff;color:#5a6595;font-size:11px;font-weight:800;cursor:pointer">텍스트 복사</button>
+          </div>
           <sc-for list="{{ planDays }}" as="p" hint-placeholder-count="2">
             <div style="background:#fff;border:1px solid #f0f1fb;border-radius:24px;padding:22px 24px;box-shadow:0 18px 34px rgba(122,134,205,.14)">
               <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -795,6 +801,12 @@
                   <div style="display:flex;gap:8px;margin-top:11px">
                     <button sc-camel-on-click="{{ pinPicked }}" style="flex:1;padding:11px;border:1px solid #cfe0fb;border-radius:12px;background:#eff5ff;font-size:12.5px;font-weight:800;color:#2f6fd0;cursor:pointer">함께 묶기</button>
                     <button sc-camel-on-click="{{ splitPicked }}" style="flex:1;padding:11px;border:1px solid #f3d9de;border-radius:12px;background:#fff5f7;font-size:12.5px;font-weight:800;color:#b03650;cursor:pointer">따로 찍기</button>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:11px">
+                    <span style="font-size:11.5px;color:#7b83a8;font-weight:800">선택 씬 시간대</span>
+                    <button sc-camel-on-click="{{ setPickedDay }}" style="padding:7px 11px;border:1px solid #cfe0fb;border-radius:9px;background:#eff5ff;font-size:11.5px;font-weight:800;color:#2f6fd0;cursor:pointer">낮씬</button>
+                    <button sc-camel-on-click="{{ setPickedNight }}" style="padding:7px 11px;border:1px solid #e7d8fb;border-radius:9px;background:#f7f1ff;font-size:11.5px;font-weight:800;color:#7046a8;cursor:pointer">밤씬</button>
+                    <span style="font-size:10.5px;color:#a1a7c6">낮 18시 이전 · 밤 18시 이후</span>
                   </div>
 
                   <sc-if value="{{ hasPlanRules }}" hint-placeholder-val="{{ false }}">
@@ -1078,10 +1090,14 @@
                   <div style="display:grid;grid-template-columns:64px repeat(7,minmax(0,1fr));border-bottom:1px solid #f3f4fb;min-height:34px">
                     <div style="padding:9px 0;text-align:center;font-size:12px;font-weight:600;color:#9aa1c2">{{ row.hour }}</div>
                     <sc-for list="{{ row.cells }}" as="c" hint-placeholder-count="7">
-                      <div sc-camel-on-click="{{ c.add }}" style="padding:3px 4px;border-left:1px solid #f3f4fb;cursor:pointer;display:flex;flex-direction:column;gap:1px">
-                        <sc-for list="{{ c.items }}" as="s" hint-placeholder-count="1">
-                          <div data-shoot-card="1" sc-camel-on-click="{{ s.edit }}" title="{{ s.hint }}" style="border-radius:7px;padding:{{ s.pad }};background:{{ s.bg }};border-left:3px solid {{ s.bar }};min-height:{{ s.minH }};margin-top:{{ s.offset }};cursor:pointer;opacity:{{ s.dim }}">
-                            <div style="font-size:11px;font-weight:800;color:{{ s.bar }};line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.title }}</div>
+                      <div sc-camel-on-click="{{ c.add }}" style="padding:3px 4px;border-left:1px solid #f3f4fb;cursor:pointer;display:grid;grid-template-columns:repeat({{ c.columns }},minmax(0,1fr));gap:2px;align-items:start">
+                        <sc-for list="{{ c.lanes }}" as="lane" hint-placeholder-count="1">
+                          <div style="min-width:0;display:flex;flex-direction:column;gap:1px">
+                            <sc-for list="{{ lane.items }}" as="s" hint-placeholder-count="1">
+                              <div data-shoot-card="1" sc-camel-on-click="{{ s.edit }}" title="{{ s.hint }}" style="border-radius:7px;padding:{{ s.pad }};background:{{ s.bg }};border-left:3px solid {{ s.bar }};min-height:{{ s.minH }};margin-top:{{ s.offset }};cursor:pointer;opacity:{{ s.dim }};min-width:0">
+                                <div style="font-size:11px;font-weight:800;color:{{ s.bar }};line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.title }}</div>
+                              </div>
+                            </sc-for>
                           </div>
                         </sc-for>
                       </div>
@@ -1251,7 +1267,7 @@
               <button sc-camel-on-click="{{ copyPersonalWeek }}" style="flex:1;padding:12px;border:1px solid #e5e8f7;background:#fff;border-radius:12px;font-size:13px;font-weight:700;color:#5a6595;cursor:pointer">⧉ 이번 주 일정 복사</button>
             </div>
           </div>
-          <div style="background:#fff;border:1px solid #eceefa;border-radius:20px;padding:20px;box-shadow:0 10px 26px rgba(90,105,180,.06);display:flex;align-items:center;gap:14px">
+          <div sc-camel-on-click="{{ openRepeat }}" style="background:#fff;border:1px solid #eceefa;border-radius:20px;padding:20px;box-shadow:0 10px 26px rgba(90,105,180,.06);display:flex;align-items:center;gap:14px;cursor:pointer">
             <span style="width:44px;height:44px;border-radius:13px;background:#eef1ff;display:inline-flex;align-items:center;justify-content:center;font-size:18px">🔁</span>
             <span style="flex:1">
               <span style="display:block;font-size:15px;font-weight:800;color:#222c52">반복 등록</span>
@@ -1641,7 +1657,7 @@ class Component extends DCLogic {
   state = {
     splash: true, screen: 'weekly', weekOffset: 0,
     slots: [], shootDay: 2, shootDate: '', person: '', shootProjectId: '', logOpen: false, shootView: 'list', pickerProject: null, pickerRole: 'planning',
-    aiPhase: 'idle', aiStage: 'upload', aiPct: 0, aiStartedAt: 0, aiTick: 0, aiFile: null, aiOpts: null, aiExtra: [true, true, false], aiSceneIndex: 0, aiCandidateIndex: 0, aiView: 'analysis', groupKey: '', groupSlotKey: '',
+    aiPhase: 'idle', aiStage: 'upload', aiPct: 0, aiStartedAt: 0, aiTick: 0, aiFile: null, aiOpts: null, aiExtra: [true, true, false], aiSceneIndex: 0, aiCandidateIndex: 0, aiView: 'new', planVariant: 0, groupKey: '', groupSlotKey: '',
     aiPrompt: '이번 주에 촬영 가능한 시간 알려줘',
     weekView: '주', shootFilter: '전체', shootLayout: '주간 보드', settingsTab: '일반 설정', dept: '전체', query: '',
     formType: '가능', formTitle: '', formStart: '09:00', formEnd: '10:00', formDay: 0,
@@ -1673,7 +1689,7 @@ class Component extends DCLogic {
       if (live && live.revision !== this.state.live?.revision) {
         const job = live.ai?.job;
         const phase = job ? (job.status === 'completed' ? 'done' : ['running','queued'].includes(job.status) ? 'running' : 'idle') : this.state.aiPhase;
-        this.setState({ live, weekOffset: live.weekOffset || 0, aiPhase: phase, aiStage: phase === 'running' ? 'running' : phase === 'done' ? 'results' : this.state.aiStage, aiPct: job?.progress || 0,
+        this.setState({ live, weekOffset: live.weekOffset || 0, aiPhase: phase, aiStage: phase === 'running' ? 'running' : phase === 'done' ? 'results' : this.state.aiStage, aiView: phase === 'done' ? 'results' : this.state.aiView, aiPct: job?.progress || 0,
           aiFile: live.ai?.fileName || this.state.aiFile, aiProjectId: this.state.aiProjectId || live.ai?.projectId || '' });
       }
     } catch (_) {}
@@ -1712,6 +1728,13 @@ class Component extends DCLogic {
     } catch (error) { window.alert(error.message); }
   };
   editAiConditions = () => this.setState({ aiStage: 'options' });
+  planLines = () => {
+    const groups = this.engine()?.snapshot?.()?.ai?.sceneGroups || [], variant = this.state.planVariant || 0, byDate = new Map();
+    for (const g of groups) { const opts = (g.candidates || []).filter(Boolean); const c = opts[Math.min(variant, Math.max(0, opts.length - 1))] || opts[0]; if (!c) continue; const key = c.date || String(c.day); if (!byDate.has(key)) byDate.set(key, []); byDate.get(key).push(`${g.sceneIds.join(', ')} · ${c.time}:00-${c.endTime || c.time + 1}:00`); }
+    return [...byDate.entries()].map(([date, rows]) => `${date}  ${rows.join(' / ')}`);
+  };
+  copyPlanText = async () => { const lines = ['[AI 자동배치]', ...this.planLines()]; try { await navigator.clipboard.writeText(lines.join('\n')); window.alert('자동배치 안을 복사했습니다.'); } catch (_) { window.alert(lines.join('\n')); } };
+  exportPlanImage = () => { const lines = ['AI 자동배치', ...this.planLines()]; const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d'); canvas.width = 1400; canvas.height = Math.max(220, 90 + lines.length * 48); ctx.fillStyle = '#f7f8ff'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = '#222c52'; ctx.font = '800 34px sans-serif'; ctx.fillText(lines[0], 56, 68); ctx.font = '600 22px sans-serif'; lines.slice(1).forEach((line, i) => ctx.fillText(line, 56, 125 + i * 48)); const a = document.createElement('a'); a.download = 'hnubs-ai-auto-plan.png'; a.href = canvas.toDataURL('image/png'); a.click(); };
   backAiStage = () => {
     const stage = this.state.aiStage;
     this.setState({ aiStage: stage === 'results' || stage === 'running' ? 'options' : 'upload' });
@@ -2150,6 +2173,15 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
     this.setPlan({ split: [...(this.planOptions().split || []), picked] });
     this.setState({ planPicked: [] });
   };
+  setPickedPeriod = period => {
+    const picked = this.state.planPicked || [];
+    if (!picked.length) { window.alert('먼저 씬을 선택하세요.'); return; }
+    const current = this.planOptions().scenePeriods || {};
+    const next = { ...current }; picked.forEach(id => { next[String(id)] = period; });
+    this.setPlan({ scenePeriods: next }); this.setState({ planPicked: [] });
+  };
+  setPickedDay = () => this.setPickedPeriod('day');
+  setPickedNight = () => this.setPickedPeriod('night');
   clearPlan = () => {
     this.setPlan({ pinned: [], split: [], excludeDates: [], priorityMembers: [], excludeScenes: [] });
     this.setState({ planPicked: [] });
@@ -2545,6 +2577,12 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
       return out.filter(b => b.e > b.s);
     };
 
+    const shootIncludesMember = (s, memberId) => {
+      if (!memberId) return false;
+      if ((s.castIds || []).map(String).includes(String(memberId)) || (s.cast || []).some(c => String(c?.id || '') === String(memberId))) return true;
+      const project = (live?.projects || []).find(p => p.id === s.projectId);
+      return [...(project?.roles?.planning || []), ...(project?.roles?.production || [])].some(p => String(p?.id || '') === String(memberId));
+    };
     const events = live ? dates.map((date, i) => {
       const sched = selectedLive?.schedules?.[dateKeyFor(date)] || {};
       const fixed = selectedLive?.fixedSchedule?.[fixedKeyOf(date)] || [];
@@ -2552,7 +2590,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
         ...fixed.map(f => ({ t: f.label || '수업', s: Number(f.start), e: Number(f.end), c: '수업', k: 'fixed' })),
         ...cutFixed(rangeEvents(sched.unavailableRanges, '불가능', '개인'), fixed).map(x => ({ ...x, k: 'unavail' })),
         ...cutFixed(rangeEvents(sched.availableRanges, '가능', '학습'), fixed).map(x => ({ ...x, k: 'avail' })),
-        ...(live.shoots || []).filter(s => s.date === iso(date) && (s.cast || []).some(c => c.id === selectedLive?.id)).map(s => ({ t: s.title, s: +s.startH, e: +s.endH, c: '촬영', k: 'shoot' }))
+        ...(live.shoots || []).filter(s => s.date === iso(date) && shootIncludesMember(s, selectedLive?.id)).map(s => ({ t: s.title, s: +s.startH, e: +s.endH, c: '촬영', k: 'shoot' }))
       ];
     }) : (st.cleared ? PERSONAL.map(() => []) : PERSONAL.map((d, i) => d.concat(st.extra.filter(e => e.day === i))));
 
@@ -2649,18 +2687,18 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
           {key:'shoot-project',label:'프로젝트 관리',icon:'folder',go:()=>this.setState({shootView:'project'})}]:[])
       ] : n.key === 'ai' ? [
         {...n,suffix:'▾',suffixTurn:st.screen==='ai'?'180deg':'0deg',suffixBg:st.screen==='ai'?'#eef4ff':'transparent',go:()=>this.setState({screen:'ai'})},
-        ...(st.screen==='ai'?[{key:'ai-analysis',label:'새 분석 / 결과',icon:'subdirectory_arrow_right',go:()=>this.setState({aiView:'analysis'})},{key:'ai-history',label:'과거 분석 목록',icon:'history',go:()=>this.setState({aiView:'history'})}]:[])
+        ...(st.screen==='ai'?[{key:'ai-new',label:'새 분석',icon:'add_circle',go:()=>this.setState({aiView:'new',aiStage:'upload',aiPhase:'idle'})},{key:'ai-results',label:'분석 결과',icon:'history',go:()=>this.setState({aiView:'results'})}]:[])
       ]:[{...n,go:()=>this.setState({screen:n.key})}]).map(n=>{
-        const active=n.key==='shoot'?st.screen==='shoot':n.key==='shoot-list'?st.screen==='shoot'&&st.shootView==='list':n.key==='shoot-project'?st.screen==='shoot'&&st.shootView==='project':n.key==='ai'?st.screen==='ai':n.key==='ai-analysis'?st.screen==='ai'&&st.aiView==='analysis':n.key==='ai-history'?st.screen==='ai'&&st.aiView==='history':st.screen===n.key;
+        const active=n.key==='shoot'?st.screen==='shoot':n.key==='shoot-list'?st.screen==='shoot'&&st.shootView==='list':n.key==='shoot-project'?st.screen==='shoot'&&st.shootView==='project':n.key==='ai'?st.screen==='ai':n.key==='ai-new'?st.screen==='ai'&&st.aiView==='new':n.key==='ai-results'?st.screen==='ai'&&st.aiView==='results':st.screen===n.key;
         return {suffix:'',suffixTurn:'0deg',suffixBg:'transparent',...n,iconClass:active?'ms ms-fill':'ms',iconColor:active?A:'#a1a7c6',weight:active?800:600,color:active?'#2b3560':'#8b93b8',bg:active?'rgba(255,255,255,.95)':'transparent',shadow:active?'0 6px 16px rgba(90,105,180,.12)':'none'};
       }),
 
       isWeekly: st.screen === 'weekly', isAI: st.screen === 'ai', isShoot: st.screen === 'shoot',
       isPersonal: st.screen === 'personal', isMembers: st.screen === 'members',
       shootShowProject: st.shootView === 'project', shootMainDisplay: st.shootView === 'project' ? 'none' : 'grid',
-      isSettings: st.screen === 'settings', aiShowHistory: st.aiView === 'history',
-      aiShowPlan: st.aiStage === 'results' && st.aiView !== 'history',
-      aiMainDisplay: (st.aiView === 'history' || st.aiStage === 'results') ? 'none' : 'grid',
+      isSettings: st.screen === 'settings', aiShowHistory: st.aiView === 'results',
+      aiShowPlan: st.aiStage === 'results' && st.aiView === 'results',
+      aiMainDisplay: st.aiView === 'new' ? 'grid' : 'none',
       aiSetupDisplay: ['upload','options'].includes(st.aiStage) ? 'block' : 'none',
       // 프로젝트가 없으면 업로드 카드를 감추고 안내를 대신 띄운다
       aiNoProject: st.aiStage === 'upload' && !st.aiProjectId,
@@ -2791,6 +2829,18 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
             const mins = groups.reduce((n, g) => n + (g.estimatedMinutes || 0), 0);
             return `${groups.length}일에 나눠 찍으면 됩니다 · 총 ${scenes}씬 · ${Math.floor(mins / 60)}시간 ${mins % 60}분`;
           })(),
+          planDaySummary: (() => {
+            const byDate = new Map();
+            for (const g of groups) {
+              const c = g.candidates?.find(x => x.full) || g.candidates?.[0];
+              if (!c) continue;
+              const key = c.date || String(c.day);
+              const when = c.date ? new Date(`${c.date}T12:00:00`) : dates[c.day];
+              if (!byDate.has(key)) byDate.set(key, { when, ids: [] });
+              byDate.get(key).ids.push(...g.sceneIds);
+            }
+            return [...byDate.values()].map(x => `${this.dowOf(x.when)}은 ${[...new Set(x.ids)].join(', ')}`).join(' · ') || '조건에 맞는 촬영 날짜를 계산 중입니다.';
+          })(),
           planDays: (() => {
             /* 시간이 겹치는 것 자체는 문제가 아니다. 배우가 다르면 두 팀이 같은 시간에 찍어도 된다.
                같은 사람이 두 촬영에 동시에 들어갈 때만 다른 시간으로 민다. */
@@ -2908,10 +2958,12 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
             /* 직접 고른 값이 앞 일차와 겹치면 그대로 두지 않는다. 겹치지 않는 다음 시간으로 민다. */
             /* 후보가 전부 앞 일차와 겹치면 예전에는 첫 후보를 그냥 보여 줬다.
                그러면 같은 시간에 두 팀이 찍는 일정표가 조용히 만들어진다. forced 로 표시한다. */
+            const variant = Math.max(0, Number(st.planVariant) || 0);
             const pick = (prefix, fit, skipKey) => {
               const manual = opts.find(o => o.key === (st.planPickedSlot || {})[prefix]);
               const ok = o => o.key !== skipKey && !clashes(o.slot) && fit(o.slot);
-              const free = (manual && ok(manual)) ? manual : opts.find(ok) || null;
+              const available = opts.filter(ok);
+              const free = (manual && ok(manual)) ? manual : available[Math.min(variant, Math.max(0, available.length - 1))] || null;
               const chosen = free || (skipKey ? null : opts[0] || null);
               if (chosen) hold(chosen.slot);
               return chosen ? { ...chosen, forced: !free } : null;
@@ -2945,6 +2997,9 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
             return cards;
             });
           })(),
+          planAlternatives: Array.from({ length: 5 }, (_, i) => ({ label: `${i + 1}안`, bg: (st.planVariant || 0) === i ? '#5b6ee0' : '#fff', fg: (st.planVariant || 0) === i ? '#fff' : '#5a6595', line: (st.planVariant || 0) === i ? '#5b6ee0' : '#e5e8f7', go: () => this.setState({ planVariant: i }) })),
+          exportPlanImage: this.exportPlanImage,
+          copyPlanText: this.copyPlanText,
           registerAllDays: () => this.registerAllDays(groups),
 
           planProjectName: (live?.projects || []).find(x => x.id === st.aiProjectId)?.name || '선택한 프로젝트',
@@ -2955,7 +3010,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
             : !(live?.projects || []).find(x => x.id === st.aiProjectId)?.aiAnalysis ? '아직 분석하지 않은 프로젝트입니다'
             : '묶을 수 있는 씬이 없습니다',
           planEmptyHint: !st.aiProjectId ? '분석을 마친 프로젝트를 고르면 촬영안이 나옵니다.'
-            : !(live?.projects || []).find(x => x.id === st.aiProjectId)?.aiAnalysis ? '새 분석 / 결과 탭에서 대본을 올려 분석해 주세요.'
+            : !(live?.projects || []).find(x => x.id === st.aiProjectId)?.aiAnalysis ? 'AI 분석 메뉴에서 새 분석을 골라 대본을 올려 주세요.'
             : '배역과 등록 인원이 연결되어 있는지 확인해 주세요.',
           planStats: (() => {
             const tt = live?.ai?.totals || { all: 0, confirmed: 0, planning: 0, unassigned: 0, conflicts: 0, days: 0 };
@@ -2982,6 +3037,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
             return `전체 ${tt.all || 0}씬 확정 · 미배정 0 · 충돌 0 · 총 촬영일 ${days}일`;
           })(),
           goShootTab: () => this.setState({ screen: 'shoot', shootView: 'list' }),
+          openPlanConditions: () => { this.setState({ advancedOpen: true }); },
           reoptimizeAll: () => {
             const nl = String.fromCharCode(10);
             if (!window.confirm(`확정한 일정까지 포함해 처음부터 다시 계산합니다.${nl}이미 만든 촬영 일정은 지워지지 않습니다.${nl}${nl}계속할까요?`)) return;
@@ -3081,6 +3137,8 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
               }),
               pinPicked: this.pinPicked,
               splitPicked: this.splitPicked,
+              setPickedDay: this.setPickedDay,
+              setPickedNight: this.setPickedNight,
               clearPlan: this.clearPlan,
             };
           })(),
@@ -3186,7 +3244,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
         const at = a.updatedAt ? a.updatedAt.slice(0, 16).replace('T', ' ') : '';
         const ok = sceneN > 0;
         return { project: p.name || '이름 없는 프로젝트', name: fname, ext, at, badge: ok ? `씬 ${sceneN}개${a.elapsedMs ? ` · ${Math.round(a.elapsedMs / 1000)}초` : ''}${a.missingScenes ? ` · ${a.missingScenes}개 누락` : ''}` : '분석 기록',
-          badgeBg: ok ? '#e9f8ef' : '#eef1ff', badgeFg: ok ? '#2b8a5b' : '#3b82f6', tint: ok ? '#fdeef0' : '#eef1ff', open:()=>{ this.engine()?.selectAnalysisProject?.(p.id); this.setState({aiProjectId:p.id,aiFile:fname,aiPhase:'done',aiPct:100,aiSceneIndex:0,aiCandidateIndex:0,aiView:'analysis'}); } };
+          badgeBg: ok ? '#e9f8ef' : '#eef1ff', badgeFg: ok ? '#2b8a5b' : '#3b82f6', tint: ok ? '#fdeef0' : '#eef1ff', open:()=>{ this.engine()?.selectAnalysisProject?.(p.id); this.setState({aiProjectId:p.id,aiFile:fname,aiPhase:'done',aiStage:'results',aiPct:100,aiSceneIndex:0,aiCandidateIndex:0,aiView:'results'}); } };
       }),
       aiRecentEmpty: !((live?.projects || []).some(p => p.aiAnalysis)),
       aiOutcomes: [
@@ -3243,13 +3301,18 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
         hour: hourLabel(9 + hi),
         cells: DOW.map((_, di) => {
           const hourStart = 9 + hi;
-          /* 칸 안에서는 시작이 이른 순서로 세운다. 저장 순서대로 두면
-             20:30 촬영이 20:00 촬영보다 위에 그려진다.
-             flow 는 '앞 촬영이 끝난 지점'. 이어지는 촬영을 딱 붙여 그리는 데 쓴다. */
-          let flow = hourStart;
-          const items = filteredShoot(di).filter(s => Math.floor(s.sH) === hourStart)
-            .sort((a, b) => a.sH - b.sH || a.eH - b.eH)
-            .map(s => ({
+          /* 시간이 겹치지 않는 일정은 같은 세로 열을 재사용하고, 겹치는 일정만
+             새 열로 보내 좌우에 놓는다. 프로젝트가 달라도 위아래로 밀리지 않는다. */
+          const laneEnds = [], rawLanes = [];
+          for (const s of filteredShoot(di).filter(s => Math.floor(s.sH) === hourStart)
+            .sort((a, b) => a.sH - b.sH || a.eH - b.eH)) {
+            let lane = laneEnds.findIndex(end => end <= s.sH);
+            if (lane < 0) { lane = laneEnds.length; laneEnds.push(hourStart); rawLanes.push([]); }
+            rawLanes[lane].push(s); laneEnds[lane] = Math.max(laneEnds[lane], s.eH);
+          }
+          const lanes = rawLanes.map(raw => {
+            let flow = hourStart;
+            return { items: raw.map(s => ({
             /* 좁은 칸에서 기획을 글자로 적으면 씬 번호가 잘린다. 색으로 구분한다.
                제목이 '1화 S#1' 처럼 기획명을 이미 달고 있으면(에어가 그렇게 넣는다) 떼어 낸다. */
             title: (() => {
@@ -3267,14 +3330,14 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
             edit: e => { e?.stopPropagation?.(); if (s.raw) this.editShoot(s.raw); },
             // 색은 기획을 나타내니 상태는 진하기로 구분한다. 끝난 촬영은 흐리게.
             dim: s.status === '완료' ? '.45' : '1',
-            /* 한 시간 = 26px. 30분이면 반 칸, 18:30 시작이면 반 칸 내려서 그린다.
-               긴 촬영은 2칸에서 끊는다. 3시간짜리가 칸을 통째로 늘려 표가 헐렁해진다. */
-            minH: Math.max(11, Math.min(s.eH - s.sH, 2) * 26 - 6) + 'px',
+            // 프로젝트마다 카드 크기가 달라 보이지 않게 높이는 통일하고 실제 시간은 툴팁에 둔다.
+            minH: '20px',
             /* 앞 촬영이 끝난 지점부터 이어 붙인다. 연달아 찍는 건 딱 붙고, 비는 시간만큼만 떨어진다. */
             offset: (() => { const gap = Math.max(0, (s.sH - flow) * 26); flow = Math.max(flow, s.eH); return gap; })() + 'px',
-            pad: (s.eH - s.sH) < 1 ? '2px 7px' : '5px 7px',
-          }));
-          return { items, add: e => {
+            pad: (s.eH - s.sH) < 1 ? '2px 5px' : '5px',
+          })) };
+          });
+          return { lanes, columns: Math.max(1, lanes.length), add: e => {
             // 등록된 일정 위를 눌렀으면 그건 수정이다. 새 창을 덮어쓰지 않는다.
             if (e?.target?.closest?.('[data-shoot-card]')) return;
             this.setState({ shootDay: di, modalOpen: true, shootEditId: '', shootTitle: '', shootPlace: '', shootNote: '', shootCast: [],
@@ -3484,6 +3547,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
       shootTimeOptions: this.halfHourList(9, 22),
       shootEndTimeOptions: this.halfHourList(9, 23),
       resetForm: () => this.setState({ formTitle: '', formType: '가능', formStart: '09:00', formEnd: '10:00', formDay: 0 }),
+      openRepeat: () => this.addFixedClass(),
       formDays: dates.map((d, i) => ({ i, label: `${d.getMonth() + 1}. ${d.getDate()} (${this.dowOf(d)})` })),
       formDay: st.formDay,
       changeFormDay: e => this.setState({ formDay: Number(e.target.value) }),

@@ -394,10 +394,14 @@
                 <div style="display:grid;grid-template-columns:34px repeat(7,minmax(0,1fr));border-bottom:1px solid #f3f4fb;min-height:30px">
                   <div style="padding:7px 0;text-align:center;font-size:9px;font-weight:600;color:#9aa1c2">{{ row.hour }}</div>
                   <sc-for list="{{ row.cells }}" as="c" hint-placeholder-count="7">
-                    <div sc-camel-on-click="{{ c.add }}" style="padding:2px;border-left:1px solid #f3f4fb;display:flex;flex-direction:column;gap:2px;cursor:pointer">
-                      <sc-for list="{{ c.items }}" as="s" hint-placeholder-count="1">
-                        <div data-shoot-card="1" sc-camel-on-click="{{ s.edit }}" title="{{ s.hint }}" style="border-radius:6px;padding:3px 4px;background:{{ s.bg }};border-left:2.5px solid {{ s.bar }};opacity:{{ s.dim }};cursor:pointer">
-                          <div style="font-size:9px;font-weight:800;color:{{ s.bar }};line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.title }}</div>
+                    <div sc-camel-on-click="{{ c.add }}" style="padding:2px;border-left:1px solid #f3f4fb;display:grid;grid-template-columns:repeat({{ c.columns }},minmax(0,1fr));gap:1px;align-items:start;cursor:pointer">
+                      <sc-for list="{{ c.lanes }}" as="lane" hint-placeholder-count="1">
+                        <div style="min-width:0;display:flex;flex-direction:column;gap:2px">
+                          <sc-for list="{{ lane.items }}" as="s" hint-placeholder-count="1">
+                            <div data-shoot-card="1" sc-camel-on-click="{{ s.edit }}" title="{{ s.hint }}" style="border-radius:6px;padding:3px;background:{{ s.bg }};border-left:2.5px solid {{ s.bar }};opacity:{{ s.dim }};cursor:pointer;min-width:0">
+                              <div style="font-size:9px;font-weight:800;color:{{ s.bar }};line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.title }}</div>
+                            </div>
+                          </sc-for>
                         </div>
                       </sc-for>
                     </div>
@@ -549,11 +553,10 @@
         <div style="font-size:27px;font-weight:800;color:#1c2549;letter-spacing:-.02em">AI 분석</div>
         <div style="font-size:13.5px;color:#8b93b8;font-weight:600;margin-top:7px;line-height:1.6">촬영 일정을 더 효율적으로,<br>AI가 도와드릴게요.</div>
 
-        <div style="display:flex;background:#f3f5fd;border-radius:13px;padding:4px;margin-top:14px">
-          <sc-for list="{{ aiViewTabs }}" as="v" hint-placeholder-count="2">
-            <button sc-camel-on-click="{{ v.go }}" style="flex:1;padding:9px 0;border:0;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;color:{{ v.fg }};background:{{ v.bg }}">{{ v.label }}</button>
-          </sc-for>
-        </div>
+        <sc-raw-select value="{{ aiView }}" sc-camel-on-change="{{ changeAiView }}" style="width:100%;margin-top:14px;padding:12px 13px;border:1px solid #e5e8f7;border-radius:13px;background:#fff;color:#2b3560;font-size:13px;font-weight:800">
+          <option value="new">새 분석</option>
+          <option value="results">분석 결과</option>
+        </sc-raw-select>
 
         <sc-if value="{{ aiShowPlan }}" hint-placeholder-val="{{ false }}">
           <sc-if value="{{ planEmpty }}" hint-placeholder-val="{{ false }}">
@@ -571,6 +574,13 @@
             <div style="background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:17px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
               <div style="font-size:15.5px;font-weight:800;color:#222c52">AI 분석 결과</div>
               <div style="font-size:12px;color:#9098ba;margin-top:4px">{{ planSummary }}</div>
+              <div style="font-size:11.5px;color:#5b6ee0;font-weight:800;margin-top:6px">{{ planDaySummary }}</div>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px">
+                <span style="font-size:11px;color:#7b83a8;font-weight:800">자동배치 안</span>
+                <sc-for list="{{ planAlternatives }}" as="a" hint-placeholder-count="5"><button sc-camel-on-click="{{ a.go }}" style="padding:5px 9px;border:1px solid {{ a.line }};border-radius:8px;background:{{ a.bg }};color:{{ a.fg }};font-size:10.5px;font-weight:800;cursor:pointer">{{ a.label }}</button></sc-for>
+                <button sc-camel-on-click="{{ exportPlanImage }}" style="padding:6px 9px;border:0;border-radius:8px;background:#5b6ee0;color:#fff;font-size:10.5px;font-weight:800;cursor:pointer">이미지 저장</button>
+                <button sc-camel-on-click="{{ copyPlanText }}" style="padding:6px 9px;border:1px solid #e5e8f7;border-radius:8px;background:#fff;color:#5a6595;font-size:10.5px;font-weight:800;cursor:pointer">복사</button>
+              </div>
               <sc-raw-select value="{{ aiProjectId }}" sc-camel-on-change="{{ changeAiProject }}" style="width:100%;margin-top:11px;padding:11px;border:1px solid #e5e8f7;border-radius:12px;background:#fbfcff;color:#2b3560;font-size:12.5px;font-weight:700">
                 <sc-for list="{{ aiProjects }}" as="p"><option value="{{ p.id }}">{{ p.name }}</option></sc-for>
               </sc-raw-select>
@@ -824,7 +834,7 @@
           </div>
         </div>
 
-        <div style="background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:16px;margin-top:12px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
+        <div style="display:{{ aiNewOnlyDisplay }};background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:16px;margin-top:12px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
           <div style="display:flex;align-items:baseline;justify-content:space-between">
             <span style="font-size:15px;font-weight:800;color:#222c52">서버 로그</span>
             <span style="font-size:10.5px;color:#9aa1c2;font-weight:700">실시간</span>
@@ -843,7 +853,7 @@
           </div>
         </div>
 
-        <div style="background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:16px;margin-top:12px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
+        <div style="display:{{ aiResultsOnlyDisplay }};background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:16px;margin-top:12px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
           <div style="font-size:15px;font-weight:800;color:#222c52">과거 분석 목록</div>
           <div style="font-size:11.5px;color:#9098ba;margin-top:5px">항목을 누르면 저장된 결과를 다시 볼 수 있습니다.</div>
           <div style="display:flex;flex-direction:column;gap:11px;margin-top:13px">
@@ -864,7 +874,7 @@
           </div>
         </div>
 
-        <div style="background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:16px;margin-top:12px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
+        <div style="display:{{ aiNewOnlyDisplay }};background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:16px;margin-top:12px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
           <div style="font-size:14.5px;font-weight:800;color:#222c52">AI 분석으로 이런 결과를 얻을 수 있어요</div>
           <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:13px">
             <sc-for list="{{ aiOutcomes }}" as="o" hint-placeholder-count="4">
@@ -1333,11 +1343,11 @@ class Component extends DCLogic {
     logOpen: false, roleProject: null, roleKey: 'planning', roleSel: [],
     splash: true, splashOut: false, tab: 'home', weekOffset: 0,
     slots: [], shootDay: 2, shootView: '목록', personalView: '주간 시간표',
-    aiPhase: 'idle', aiStage: 'upload', aiPct: 0, aiStartedAt: 0, aiTick: 0, aiToggle: [true, true, false], aiOpts: [true,true,true,true], aiSceneIndex: 0, aiCandidateIndex: 0,
+    aiPhase: 'idle', aiStage: 'upload', aiPct: 0, aiStartedAt: 0, aiTick: 0, aiToggle: [true, true, false], aiOpts: [true,true,true,true], aiSceneIndex: 0, aiCandidateIndex: 0, planVariant: 0,
     sheetOpen: false, live: null, aiProjectId: '', aiFile: null, mPerson: '',
     mfTitle: '', mfPlace: '', mfStart: '14:00', mfEnd: '16:00', mfDay: 2, mfStatus: '가능', mfKind: '이번 주 일정',
     mfEditId: '', mfCast: [], mfNote: '',
-    aiView: 'analysis', droppedScenes: {}, planPickedSlot: {}, projectEditId: ''
+    aiView: 'new', droppedScenes: {}, planPickedSlot: {}, projectEditId: ''
   };
 
   /** 저장 계열은 한 번에 하나만 돈다. 연타하면 같은 일정이 여러 건 생긴다.
@@ -1357,7 +1367,7 @@ class Component extends DCLogic {
       if (live && live.revision !== this.state.live?.revision) {
         const job = live.ai?.job;
         const phase = job ? (job.status === 'completed' ? 'done' : ['running','queued'].includes(job.status) ? 'running' : 'idle') : this.state.aiPhase;
-        this.setState({ live, weekOffset:live.weekOffset||0, aiPhase:phase, aiStage: phase === 'running' ? 'running' : phase === 'done' ? 'results' : this.state.aiStage, aiPct:job?.progress || 0,
+        this.setState({ live, weekOffset:live.weekOffset||0, aiPhase:phase, aiStage: phase === 'running' ? 'running' : phase === 'done' ? 'results' : this.state.aiStage, aiView: phase === 'done' ? 'results' : this.state.aiView, aiPct:job?.progress || 0,
           aiProjectId:this.state.aiProjectId||live.ai?.projectId||'', aiFile:live.ai?.fileName||this.state.aiFile });
       }
     } catch (_) {}
@@ -1391,6 +1401,22 @@ class Component extends DCLogic {
     } catch(error) { window.alert(error.message); }
   };
   editAiConditions = () => this.setState({ aiStage: 'options' });
+  planLines = () => {
+    const groups = this.engine()?.snapshot?.().ai?.sceneGroups || [];
+    const variant = Math.max(0, Number(this.state.planVariant) || 0);
+    const byDate = new Map();
+    groups.forEach(g => {
+      const opts = (g.candidates || []).filter(c => c.full || c.available?.length >= c.total);
+      const c = opts[Math.min(variant, Math.max(0, opts.length - 1))] || g.candidates?.[0];
+      if (!c) return;
+      const key = c.date || String(c.day); const when = c.date ? new Date(`${c.date}T12:00:00`) : new Date();
+      if (!byDate.has(key)) byDate.set(key, { when, ids: [], start: c.time, end: c.endTime || c.time + 1 });
+      const row = byDate.get(key); row.ids.push(...g.sceneIds); row.start = Math.min(row.start, c.time); row.end = Math.max(row.end, c.endTime || c.time + 1);
+    });
+    return [...byDate.values()].map(x => `${this.fmtShort(x.when)} (${this.dowOf(x.when)}) ${x.ids.join(', ')} · ${this.hourLabel(x.start)}–${this.hourLabel(x.end)}`);
+  };
+  copyPlanText = async () => { const lines = ['[AI 자동배치]', ...this.planLines()]; try { await navigator.clipboard.writeText(lines.join('\n')); window.alert('자동배치 안을 복사했습니다.'); } catch (_) { window.alert(lines.join('\n')); } };
+  exportPlanImage = () => { const lines = ['AI 자동배치', ...this.planLines()]; const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d'); canvas.width = 1000; canvas.height = Math.max(220, 80 + lines.length * 42); ctx.fillStyle = '#f7f8ff'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = '#222c52'; ctx.font = '800 28px sans-serif'; ctx.fillText(lines[0], 40, 55); ctx.font = '600 17px sans-serif'; lines.slice(1).forEach((line, i) => ctx.fillText(line, 40, 100 + i * 42)); const a = document.createElement('a'); a.download = 'hnubs-ai-auto-plan.png'; a.href = canvas.toDataURL('image/png'); a.click(); };
   backAiStage = () => {
     const stage = this.state.aiStage;
     this.setState({ aiStage: stage === 'results' || stage === 'running' ? 'options' : 'upload' });
@@ -1752,6 +1778,12 @@ class Component extends DCLogic {
       return out.filter(b => b.e > b.s);
     };
 
+    const shootIncludesMember = (s, memberId) => {
+      if (!memberId) return false;
+      if ((s.castIds || []).map(String).includes(String(memberId)) || (s.cast || []).some(c => String(c?.id || '') === String(memberId))) return true;
+      const project = (live?.projects || []).find(p => p.id === s.projectId);
+      return [...(project?.roles?.planning || []), ...(project?.roles?.production || [])].some(p => String(p?.id || '') === String(memberId));
+    };
     const personalEvents = live ? dates.map((date,i) => {
       const sched = selectedMember?.schedules?.[dateKeyFor(date)] || {};
       const fixed = selectedMember?.fixedSchedule?.[this.fixedKeyOf(date)] || [];
@@ -1759,7 +1791,7 @@ class Component extends DCLogic {
         ...fixed.map(f => ({ t:f.label||'수업', s:Number(f.start), e:Number(f.end), c:'수업' })),
         ...cutFixed(rangeEvents(sched.unavailableRanges,'불가능','개인'), fixed),
         ...cutFixed(rangeEvents(sched.availableRanges,'가능','학습'), fixed),
-        ...(live.shoots||[]).filter(s=>s.date===iso(date)&&(s.cast||[]).some(c=>c.id===selectedMember?.id)).map(s=>({t:s.title,s:+s.startH,e:+s.endH,c:'촬영'}))
+        ...(live.shoots||[]).filter(s=>s.date===iso(date)&&shootIncludesMember(s, selectedMember?.id)).map(s=>({t:s.title,s:+s.startH,e:+s.endH,c:'촬영'}))
       ];
     }) : PERSONAL;
     const hourLabels = ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00'];
@@ -1839,6 +1871,18 @@ class Component extends DCLogic {
             const scenes = groups.reduce((n, g) => n + g.sceneIds.length, 0);
             const mins = groups.reduce((n, g) => n + (g.estimatedMinutes || 0), 0);
             return `${groups.length}일에 나눠 찍으면 됩니다 · 총 ${scenes}씬 · ${Math.floor(mins / 60)}시간 ${mins % 60}분`;
+          })(),
+          planDaySummary: (() => {
+            const byDate = new Map();
+            for (const g of groups) {
+              const c = g.candidates?.find(x => x.full) || g.candidates?.[0];
+              if (!c) continue;
+              const key = c.date || String(c.day);
+              const when = c.date ? new Date(`${c.date}T12:00:00`) : dates[c.day];
+              if (!byDate.has(key)) byDate.set(key, { when, ids: [] });
+              byDate.get(key).ids.push(...g.sceneIds);
+            }
+            return [...byDate.values()].map(x => `${this.dowOf(x.when)}은 ${[...new Set(x.ids)].join(', ')}`).join(' · ') || '조건에 맞는 촬영 날짜를 계산 중입니다.';
           })(),
           planDays: (() => {
             /* 시간이 겹치는 것 자체는 문제가 아니다. 배우가 다르면 두 팀이 같은 시간에 찍어도 된다.
@@ -1957,10 +2001,12 @@ class Component extends DCLogic {
             // 직접 고른 값이 앞 일차와 겹치면 겹치지 않는 다음 시간으로 민다.
             /* 후보가 전부 앞 일차와 겹치면 예전에는 첫 후보를 그냥 보여 줬다.
                그러면 같은 시간에 두 팀이 찍는 일정표가 조용히 만들어진다. forced 로 표시한다. */
+            const variant = Math.max(0, Number(st.planVariant) || 0);
             const pick = (prefix, fit, skipKey) => {
               const manual = opts.find(o => o.key === (st.planPickedSlot || {})[prefix]);
               const ok = o => o.key !== skipKey && !clashes(o.slot) && fit(o.slot);
-              const free = (manual && ok(manual)) ? manual : opts.find(ok) || null;
+              const available = opts.filter(ok);
+              const free = (manual && ok(manual)) ? manual : available[Math.min(variant, Math.max(0, available.length - 1))] || null;
               const chosen = free || (skipKey ? null : opts[0] || null);
               if (chosen) hold(chosen.slot);
               return chosen ? { ...chosen, forced: !free } : null;
@@ -1991,6 +2037,9 @@ class Component extends DCLogic {
             return cards;
             });
           })(),
+          planAlternatives: Array.from({ length: 5 }, (_, i) => ({ label: `${i + 1}안`, bg: (st.planVariant || 0) === i ? '#5b6ee0' : '#fff', fg: (st.planVariant || 0) === i ? '#fff' : '#5a6595', line: (st.planVariant || 0) === i ? '#5b6ee0' : '#e5e8f7', go: () => this.setState({ planVariant: i }) })),
+          exportPlanImage: this.exportPlanImage,
+          copyPlanText: this.copyPlanText,
           planProjectName: (live?.projects || []).find(x => x.id === st.aiProjectId)?.name || '선택한 프로젝트',
           /* 엔진이 세는 값을 그대로 쓴다. 화면에서 따로 세면 확정한 씬이 빠지지 않아
              '바로 배정 가능 16씬 / 미배정 1씬' 처럼 앞뒤가 안 맞는 숫자가 나온다. */
@@ -2013,7 +2062,7 @@ class Component extends DCLogic {
             : !(live?.projects || []).find(x => x.id === st.aiProjectId)?.aiAnalysis ? '아직 분석하지 않은 프로젝트입니다'
             : '묶을 수 있는 씬이 없습니다',
           planEmptyHint: !st.aiProjectId ? '분석을 마친 프로젝트를 고르면 촬영안이 나옵니다.'
-            : !(live?.projects || []).find(x => x.id === st.aiProjectId)?.aiAnalysis ? '새 분석 / 결과 탭에서 대본을 올려 분석해 주세요.'
+            : !(live?.projects || []).find(x => x.id === st.aiProjectId)?.aiAnalysis ? '드롭다운에서 새 분석을 골라 대본을 올려 주세요.'
             : '배역과 등록 인원이 연결되어 있는지 확인해 주세요.',
           hasLeftovers: groups.some(g => g.sceneIds.some(id => (st.droppedScenes || {})[`${g.key}|${id}`])),
           leftoverCount: `${groups.reduce((n, g) => n + g.sceneIds.filter(id => (st.droppedScenes || {})[`${g.key}|${id}`]).length, 0)}개`,
@@ -2022,9 +2071,13 @@ class Component extends DCLogic {
           reanalyzeLeftovers: () => this.setState({ droppedScenes: {} }),
         };
       })(),
-      // 촬영안은 따로 있는 화면이 아니라 4단계의 마지막 '결과'다.
-      aiShowPlan: st.aiStage === 'results' && st.aiView !== 'history',
-      aiShowMain: st.aiView !== 'plan',
+      // 결과 화면에는 현재 결과와 과거 분석 목록을 함께 보여 준다.
+      aiShowPlan: st.aiStage === 'results' && st.aiView === 'results',
+      aiShowMain: true,
+      aiView: st.aiView || 'new',
+      changeAiView: e => this.setState({ aiView:e.target.value, aiStage:e.target.value === 'new' ? 'upload' : 'results', aiPhase:e.target.value === 'new' ? 'idle' : st.aiPhase }),
+      aiNewOnlyDisplay: st.aiView === 'new' ? 'block' : 'none',
+      aiResultsOnlyDisplay: st.aiView === 'results' ? 'block' : 'none',
       aiSetupDisplay: ['upload','options'].includes(st.aiStage) ? 'block' : 'none',
       aiSetupShellDisplay: ['upload','options'].includes(st.aiStage) ? 'block' : 'none',
       // 프로젝트가 없으면 업로드 카드를 감추고 안내를 대신 띄운다
@@ -2139,13 +2192,6 @@ class Component extends DCLogic {
       copilotDateLabel: `${this.fmtShort(dates[st.shootDay])} (${this.dowOf(dates[st.shootDay])})`,
       copilotScenesEmpty: !(live?.ai?.scenes || []).length,
       copilotDateChoices: dates.map((d, i) => ({ label: `${this.fmtShort(d)} ${this.dowOf(d)}`, dow: this.dowOf(d), md: this.fmtShort(d), bg: st.shootDay === i ? '#3b82f6' : '#fff', fg: st.shootDay === i ? '#fff' : '#5a6595', line: st.shootDay === i ? '#3b82f6' : '#e1e7f5', pick: () => this.setState({ shootDay: i }) })),
-      aiViewTabs: ['분석', '촬영안'].map(label => {
-        const key = label === '촬영안' ? 'plan' : 'analysis';
-        const on = (st.aiView || 'analysis') === key;
-        return { label, go: () => this.setState({ aiView: key }),
-          fg: on ? '#fff' : '#7b83a8',
-          bg: on ? 'linear-gradient(135deg,#4f8ef7,#3b82f6)' : 'transparent' };
-      }),
       showFab: st.tab === 'shoot' || st.tab === 'personal',
       sheetOpen: st.sheetOpen,
       sheetTitle: st.tab === 'personal'
@@ -2309,7 +2355,14 @@ class Component extends DCLogic {
               mfDay: di, mfStart: this.hhmmOf(9 + hi), mfEnd: this.hhmmOf(10 + hi),
               mfTitle: '', mfPlace: '', mfNote: '', mfProjectId: '', mfCast: [] });
           },
-          items: (live ? (live.shoots || []).filter(s => s.date === iso(dates[di]) && Math.floor(+s.startH) === 9 + hi) : []).map(s => {
+          ...(() => {
+            const laneEnds = [], lanes = [];
+            const rows = (live ? (live.shoots || []).filter(s => s.date === iso(dates[di]) && Math.floor(+s.startH) === 9 + hi) : [])
+              .sort((a, b) => (+a.startH - +b.startH) || (+a.endH - +b.endH));
+            for (const s of rows) {
+              let lane = laneEnds.findIndex(end => end <= +s.startH);
+              if (lane < 0) { lane = laneEnds.length; laneEnds.push(9 + hi); lanes.push({ items: [] }); }
+              laneEnds[lane] = Math.max(laneEnds[lane], +s.endH);
             const stt = shootStatus(s);
             /* 좁은 칸에 기획명을 글자로 적으면 씬 번호가 잘린다. PC 일정표와 같이 색으로 구분한다.
                제목이 '1화 S#1' 처럼 기획명을 달고 있으면 떼되, 떼고 남는 게 없으면 그대로 둔다. */
@@ -2319,11 +2372,13 @@ class Component extends DCLogic {
             const short = name ? (String(s.title).replace(new RegExp(`^${name}\\s*`), '').trim() || s.title) : s.title;
             const time = `${String(s.startH).padStart(2, '0')}:00-${String(s.endH).padStart(2, '0')}:00`;
             // 제목이 기획명과 같으면 '5화 · 5화' 가 된다. 한 번만 적는다. (PC 와 같은 규칙)
-            return { title: short, time, edit: e => { e?.stopPropagation?.(); this.editShoot(s); },
+              lanes[lane].items.push({ title: short, time, edit: e => { e?.stopPropagation?.(); this.editShoot(s); },
               hint: (name && name !== s.title) ? `${name} · ${s.title} · ${time}` : `${s.title} · ${time}`,
               bg: color ? color + '1f' : STATUS[stt].bg, bar: color || '#c8d2f0',
-              fg: color || STATUS[stt].fg, dim: stt === '완료' ? '.45' : '1' };
-          })
+              fg: color || STATUS[stt].fg, dim: stt === '완료' ? '.45' : '1' });
+            }
+            return { lanes, columns: Math.max(1, lanes.length) };
+          })()
         }))
       })),
       // 칸은 색으로만 구분한다. 어떤 색이 어떤 기획인지 여기서 읽는다.
@@ -2458,7 +2513,7 @@ class Component extends DCLogic {
         const ext = (fname.split('.').pop() || 'DOC').toUpperCase().slice(0, 4);
         const sceneN = (a.scenes || []).length, ok = sceneN > 0;
         return { project: p.name || '이름 없는 프로젝트', name: fname, ext, at: a.updatedAt ? a.updatedAt.slice(0, 16).replace('T', ' ') : '',
-          badge: ok ? `씬 ${sceneN}개${a.elapsedMs ? ` · ${Math.round(a.elapsedMs / 1000)}초` : ''}${a.missingScenes ? ` · ${a.missingScenes}개 누락` : ''}` : '분석 기록', badgeBg: ok ? '#e9f8ef' : '#eef1ff', badgeFg: ok ? '#2b8a5b' : '#3b82f6', tint: ok ? '#fdeef0' : '#eef1ff', open:()=>{this.engine()?.selectAnalysisProject?.(p.id);this.setState({aiProjectId:p.id,aiFile:fname,aiPhase:'done',aiPct:100,aiSceneIndex:0,aiCandidateIndex:0,aiView:'analysis'});} };
+          badge: ok ? `씬 ${sceneN}개${a.elapsedMs ? ` · ${Math.round(a.elapsedMs / 1000)}초` : ''}${a.missingScenes ? ` · ${a.missingScenes}개 누락` : ''}` : '분석 기록', badgeBg: ok ? '#e9f8ef' : '#eef1ff', badgeFg: ok ? '#2b8a5b' : '#3b82f6', tint: ok ? '#fdeef0' : '#eef1ff', open:()=>{this.engine()?.selectAnalysisProject?.(p.id);this.setState({aiProjectId:p.id,aiFile:fname,aiPhase:'done',aiStage:'results',aiPct:100,aiSceneIndex:0,aiCandidateIndex:0,aiView:'results'});} };
       }),
       aiRecentEmpty: !((live?.projects || []).some(p => p.aiAnalysis)),
       aiOutcomes: [

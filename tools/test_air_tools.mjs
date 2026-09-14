@@ -11,7 +11,14 @@ const availableNames = dateIsos.map((_, d) => hours.map(h =>
 const context = {
   currentDate: '2026-09-13', hours, dateIsos, availableNames,
   members: [{ name: '강주형', dept: '아나운서부', hours: 10 }, { name: '고재헌', dept: '기술부', hours: 4 }],
-  projects: ['1화', '5화'],
+  projects: [
+    { id: 'p1', name: '1화', aiAnalysis: { scenes: [
+      { sceneId: 'S#1', estimatedMinutes: 45 },
+      { sceneId: 'S#2', estimatedMinutes: 70 },
+      { sceneId: 'S#3', estimatedMinutes: 20 },
+    ] } },
+    { id: 'p5', name: '5화' },
+  ],
   shoots: [
     { id: 'a1', date: '2026-09-14', startH: 18, endH: 19, title: '1화 S#1', cast: [{ name: '강주형' }] },
     { id: 'a2', date: '2026-09-17', startH: 18, endH: 23, title: '1화 S#3', cast: [{ name: '이서연' }] },
@@ -122,17 +129,21 @@ assert.ok(runTool('edit_shoot_cast', { id: '없는id' }, context).error);
   assert.strictEqual(apart[0].startH, 18);
   assert.strictEqual(apart[1].startH, 18, '사람이 안 겹치면 같은 시간이어야 한다');
 
-  // 끝 시각 없이 '이후'만 주면 씬당 30분으로 채운다
+  // 끝 시각 없이 '이후'만 주면 AI 분석의 씬별 예상시간을 우선 쓴다
   const open = runTool('create_shoots', { items: [{ title: 'C', date: '2026-09-15', startH: 18.5 }] }, context).__action.items[0];
   assert.strictEqual(open.endH, 19);
-  assert.ok(/30분/.test(open.note));
+  assert.ok(/기본 예상시간 30분/.test(open.note));
+
+  const analyzed = runTool('create_shoots', { items: [{ title: '1화 S#1', projectName: '1화', date: '2026-09-15', startH: 18 }] }, context).__action.items[0];
+  assert.strictEqual(analyzed.endH, 18.75);
+  assert.ok(/AI 분석 예상시간 45분/.test(analyzed.note));
 
   const afterScenes = runTool('create_shoots', { items: [
-    { title: 'S#1', date: '2026-09-15', startH: 18, castNames: ['이서연'] },
-    { title: 'S#2', date: '2026-09-15', startH: 18, castNames: ['이서연'] },
-    { title: 'S#3', date: '2026-09-15', startH: 18, castNames: ['이서연'] },
+    { title: 'S#1', projectName: '1화', date: '2026-09-15', startH: 18, castNames: ['이서연'] },
+    { title: 'S#2', projectName: '1화', date: '2026-09-15', startH: 18, castNames: ['이서연'] },
+    { title: 'S#3', projectName: '1화', date: '2026-09-15', startH: 18, castNames: ['이서연'] },
   ] }, context).__action.items;
-  assert.deepStrictEqual(afterScenes.map(x => [x.startH, x.endH]), [[18, 18.5], [18.5, 19], [19, 19.5]]);
+  assert.deepStrictEqual(afterScenes.map(x => [x.startH, x.endH]), [[18, 18.75], [18.75, 18.75 + 70 / 60], [18.75 + 70 / 60, 18.75 + 70 / 60 + 20 / 60]]);
 }
 
 console.log('air tools OK');

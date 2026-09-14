@@ -134,7 +134,25 @@ function resolveDates({ expression = '' }, context) {
 
 const makeAction = value => ({ __action: value });
 
-function createShoots({ items = [] }, _context) {
+/** 종료 시각이 없는 씬은 해당 프로젝트의 AI 분석 예상시간을 우선 사용한다. */
+function analyzedSceneMinutes(item, context) {
+  const title = String(item.title || '');
+  const wanted = [...title.matchAll(/S\s*#\s*(\d+)/gi)].map(m => `S#${Number(m[1])}`);
+  if (!wanted.length) return 30;
+  const projects = (context.projects || []).filter(p => p && typeof p === 'object');
+  const named = String(item.projectName || '').trim();
+  const project = projects.find(p => named && p.name === named)
+    || projects.find(p => p.name && title.includes(p.name));
+  const saved = project?.aiAnalysis || {};
+  const scenes = saved.job?.scenes || saved.scenes
+    || Object.values(saved.analysisJobs || {}).find(job => Array.isArray(job?.scenes))?.scenes || [];
+  const minutes = scenes
+    .filter(scene => wanted.includes(String(scene?.sceneId || '').replace(/\s+/g, '').toUpperCase()))
+    .reduce((sum, scene) => sum + Math.max(0, Number(scene?.estimatedMinutes) || 0), 0);
+  return minutes > 0 ? Math.min(480, minutes) : 30;
+}
+
+function createShoots({ items = [] }, context) {
   if (!Array.isArray(items) || !items.length) return { error: '등록할 촬영이 없습니다.' };
   /* 사람은 '18시 40분 이후' 처럼 말한다. 끝 시각을 안 주면 씬당 30분으로 잡고,
      30분 단위가 아니면 맞춰 준 뒤 원문을 메모에 남긴다. 그래야 등록이 막히지 않는다. */
@@ -149,9 +167,14 @@ function createShoots({ items = [] }, _context) {
       }
     }
     if (!Number.isFinite(Number(out.endH)) || Number(out.endH) <= Number(out.startH)) {
-      out.endH = Math.min(24, Number(out.startH) + 0.5);
+      const minutes = analyzedSceneMinutes(out, context);
+      const duration = Math.max(10, minutes) / 60;
+      out.endH = Math.min(24, Number(out.startH) + duration);
       out._defaultDuration = true;
-      out.note = [out.note, '종료 시각을 안 알려 주셔서 씬당 30분으로 잡았습니다'].filter(Boolean).join(' · ');
+      out._durationHours = duration;
+      out.note = [out.note, minutes === 30
+        ? '종료 시각이 없어 기본 예상시간 30분을 적용했습니다'
+        : `종료 시각이 없어 AI 분석 예상시간 ${minutes}분을 적용했습니다`].filter(Boolean).join(' · ');
     }
     return out;
   });
@@ -161,7 +184,9 @@ function createShoots({ items = [] }, _context) {
      출연진이 전혀 안 겹치면 두 팀이 동시에 찍을 수 있으므로 그대로 둔다. */
   const byDate = new Map();
   for (const item of fixed) {
-    const key = `${item.date}|${item.startH}|${item.endH}`;
+    const key = item._defaultDuration
+      ? `${item.date}|${item.startH}|AI예상`
+      : `${item.date}|${item.startH}|${item.endH}`;
     if (!byDate.has(key)) byDate.set(key, []);
     byDate.get(key).push(item);
   }
@@ -185,10 +210,12 @@ function createShoots({ items = [] }, _context) {
       const chain = group.filter((_, i) => bucket[i] === id);
       if (chain.length < 2) continue;               // 혼자면 원래 구간 그대로
       if (chain.every(item => item._defaultDuration)) {
+        let cursor = start;
         chain.forEach((item, i) => {
-          item.startH = start + i * 0.5;
-          item.endH = Math.min(24, item.startH + 0.5);
-          item.note = [item.note, `같은 출연자가 있어 ${chain.length}씬을 30분씩 이어서 배치했습니다`].filter(Boolean).join(' · ');
+          item.startH = cursor;
+          item.endH = Math.min(24, cursor + Math.max(1 / 6, Number(item._durationHours) || 0.5));
+          cursor = item.endH;
+          item.note = [item.note, `같은 출연자가 있어 ${chain.length}씬을 AI 예상시간대로 이어 배치했습니다`].filter(Boolean).join(' · ');
         });
         continue;
       }
@@ -202,7 +229,7 @@ function createShoots({ items = [] }, _context) {
       });
     }
   }
-  fixed.forEach(item => delete item._defaultDuration);
+  fixed.forEach(item => { delete item._defaultDuration; delete item._durationHours; });
   return makeAction({ type: 'shoot_schedules', items: fixed });
 }
 function createPersonal({ items = [] }, _context) {

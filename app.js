@@ -333,7 +333,8 @@ function rangesOn(m, iso) {
   if (Number.isNaN(date.getTime())) return [];
   const dayIndex = (date.getDay() + 6) % 7;
   // 저장된 개인 일정은 주 단위로 묶여 있으니 그 날이 속한 주에서 꺼낸다.
-  const record = m?.__id ? allWeeks[weekKeyFromLabel(dayLabelOf(weekStartOf(iso)))]?.[m.__id] : null;
+  const bucket = allWeeks[weekKeyFromLabel(dayLabelOf(weekStartOf(iso)))] || {};
+  const record = m?.__id ? (bucket[m.__id] || Object.values(bucket).find(x => x?.name === m.name)) : Object.values(bucket).find(x => x?.name === m?.name);
   // 저장 형식이 날짜 라벨(9. 19)과 ISO(2026-09-19)로 섞여 있어 둘 다 읽는다.
   const p = record?.schedules?.[dayLabelOf(date)] ?? record?.schedules?.[iso]
     ?? m?.schedules?.[dayLabelOf(date)] ?? m?.schedules?.[iso];

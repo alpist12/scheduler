@@ -90,7 +90,7 @@ const aiState = {
   pollTimer: null,
   options: { scenes: true, cast: true, locations: true, schedule: true },
   // 기획자가 거는 조건. 강제 묶기/분리, 뺄 날짜, 우선 고려할 배우.
-  planOptions: { pinned: [], split: [], excludeDates: [], excludeScenes: [], priorityMembers: [], scenePeriods: {}, dateFrom: '', dateTo: '', dayStart: 18, dayEnd: 22.5 },
+  planOptions: { pinned: [], split: [], excludeDates: [], excludeScenes: [], priorityMembers: [], scenePeriods: {}, allowedWeekdays: [0,1,2,3,4,5,6], dateFrom: '', dateTo: '', dayStart: 18, dayEnd: 22.5 },
 };
 
 // firebase data
@@ -982,14 +982,17 @@ function resolveMemberId(name) {
  *  범위를 지정하지 않으면 지금 보고 있는 주 7일만 본다. */
 function planDates() {
   const plan = aiState.planOptions || {};
+  const weekdays = new Set((Array.isArray(plan.allowedWeekdays) ? plan.allowedWeekdays : [0,1,2,3,4,5,6]).map(Number));
   const from = String(plan.dateFrom || '').trim(), to = String(plan.dateTo || '').trim();
   const start = new Date(`${from}T12:00:00`), end = new Date(`${to}T12:00:00`);
   if (!from || !to || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
-    return DAYS.map((_, dayIndex) => ({ iso: isoDate(dayDate(dayIndex)), dayIndex }));
+    return DAYS.map((_, dayIndex) => ({ iso: isoDate(dayDate(dayIndex)), dayIndex }))
+      .filter(item => weekdays.has(item.dayIndex));
   }
   const out = [];
   for (const cursor = new Date(start); cursor <= end && out.length < 120; cursor.setDate(cursor.getDate() + 1)) {
-    out.push({ iso: isoDate(new Date(cursor)), dayIndex: (cursor.getDay() + 6) % 7 });
+    const dayIndex = (cursor.getDay() + 6) % 7;
+    if (weekdays.has(dayIndex)) out.push({ iso: isoDate(new Date(cursor)), dayIndex });
   }
   return out;
 }
@@ -1146,6 +1149,7 @@ function aiCandidates(scenes = [], durationHours = 0) {
   const plan = aiState.planOptions || {};
   const excluded = new Set((Array.isArray(plan.excludeDates) ? plan.excludeDates : []).map(String));
   const priority = new Set((Array.isArray(plan.priorityMembers) ? plan.priorityMembers : []).map(String));
+  const planDayStart = Number(plan.dayStart) || 18, planDayEnd = Number(plan.dayEnd) || 22.5;
   const ids = new Set(scenes.flatMap(sceneRequiredCharacters).map(resolveMemberId).filter(id => base[id]));
   for (const name of scenes.flatMap(scene => sceneCrewNames(scene, aiProjectId()))) {
     const id = resolveMemberId(name);
@@ -1177,7 +1181,9 @@ function aiCandidates(scenes = [], durationHours = 0) {
       return (mine.length ? mine : [{ from: 0, to: totalHours }])
         .map(span => ({ ...span, ranges: rangesOn(member, iso) }));
     });
-    return candidateStarts({ totalHours, windows }).map(time => {
+    /* 촬영 가능 시간대를 여기서도 지킨다. 안 넘기면 기본값(9~23)이 쓰여
+       저녁에만 되는 촬영에 아침 9시·낮 1시가 후보로 올라온다. */
+    return candidateStarts({ totalHours, windows, dayStart: planDayStart, dayEnd: planDayEnd }).map(time => {
     const yes = all.filter(([id, member]) => {
       const mine = spans.filter(s => s.who.has(id));
       // 출연하지 않는 사람(기획·촬영)은 처음부터 끝까지 있어야 한다
@@ -1185,12 +1191,29 @@ function aiCandidates(scenes = [], durationHours = 0) {
       return mine.every(s => freeIn(member, iso, time + s.from, time + s.to));
     });
     const yesIds = new Set(yes.map(([id]) => id));
+    /* 앞뒤 일정과 너무 붙은 시각인지 센다. 수업이 끝나자마자 카메라를 드는
+       일정은 종이 위에서만 성립한다. 코파일럿이 쓰는 준비시간과 같은 값을 쓴다. */
+    const gap = shootGapHours();
+    const dow = DAY_KEYS[(new Date(`${iso}T12:00:00`).getDay() + 6) % 7];
+    const tightFor = [...ids].reduce((n, id) => {
+      const member = members()[id];
+      if (!member) return n;
+      const around = [
+        ...((member.fixedSchedule || {})[dow] || []).map(f => ({ s: +f.start, e: +f.end })),
+        ...Object.values(shoots)
+          .filter(x => x && x.date === iso && shootMemberIds(x).has(id))
+          .map(x => ({ s: +x.startH, e: +x.endH })),
+      ];
+      const tight = around.some(x => (time - x.e >= 0 && time - x.e < gap)
+        || (x.s - (time + totalHours) >= 0 && x.s - (time + totalHours) < gap));
+      return n + (tight ? 1 : 0);
+    }, 0);
     const continuity = continuityScore({
       date: iso, start: time, end: time + totalHours, requiredIds: [...ids],
       shoots: Object.values(shoots), memberIdsOfShoot: shootMemberIds,
     });
     return {
-      iso, day: dayIndex, time, endTime: time + totalHours, all, yes,
+      iso, day: dayIndex, time, endTime: time + totalHours, all, yes, tightFor,
       full: yes.length === ids.size, continuityHits: continuity.score, continuity: continuity.label,
       missing: [...state.required].filter(id => !yesIds.has(id)).map(id => members()[id]?.name).filter(Boolean),
     };
@@ -1208,7 +1231,10 @@ function aiCandidates(scenes = [], durationHours = 0) {
     /* 정렬 기준: 우선 인원 → 가능 인원(10% 단위) → 가까운 날짜 → 이른 시간.
        비율을 그대로 쓰면 5/6 과 6/6 처럼 한 명 차이로 2주 뒤가 1순위가 된다.
        10% 단위로 묶어 비슷하면 가까운 날을 고른다. */
+    /* 준비시간이 빠듯한 후보는 뒤로 민다. 가능 인원이 같다면 숨 돌릴 틈이 있는 쪽이 낫다.
+       버리지는 않는다 — 정말 그 시간밖에 없을 수도 있다. */
     .sort((a, b) => Number(b.full) - Number(a.full)
+      || (a.tightFor > 0 ? 1 : 0) - (b.tightFor > 0 ? 1 : 0)
       || b.continuityHits - a.continuityHits
       || b.priorityHits - a.priorityHits
       || Math.round(b.ratio * 10) - Math.round(a.ratio * 10)
@@ -1496,6 +1522,11 @@ function buildSceneSchedule(scenes = [], options = {}) {
       key: ordered.map(row => row.index).join('-'), sceneIndexes: ordered.map(row => row.index),
       reason,
       sceneIds: ordered.map(row => sceneIdAt(row.index)),
+      // 카드에서 실제 촬영 순서를 시간표처럼 보여 줄 수 있도록 AI가 정한 순서와 씬별 분량을 함께 내린다.
+      orderedScenes: ordered.map(row => ({
+        sceneId: sceneIdAt(row.index), minutes: row.minutes,
+        location: row.scene.location || row.scene.place || row.scene.title || '장소 미정',
+      })),
       totalPeople: everyone.size, sharedNames: shared.map(id => base[id]?.name || '').filter(Boolean),
       sharedIds: shared, linkLines: [...placeLinks.slice(0, 2), ...links].slice(0, 3),
       partialNames: partial.map(id => base[id]?.name || '').filter(Boolean), estimatedMinutes: minutes,
@@ -2959,6 +2990,10 @@ window.HNUBS_ENGINE = {
         ? { ...(current.scenePeriods || {}) }
         : Object.fromEntries(Object.entries(patch.scenePeriods || {})
             .filter(([key, value]) => key && value).map(([key, value]) => [String(key), String(value)])),
+      // 0=월 ... 6=일. 빈 배열도 사용자가 모두 끈 명시적인 조건으로 보존한다.
+      allowedWeekdays: patch.allowedWeekdays === undefined
+        ? (Array.isArray(current.allowedWeekdays) ? current.allowedWeekdays : [0,1,2,3,4,5,6])
+        : [...new Set(list(patch.allowedWeekdays).map(Number).filter(day => Number.isInteger(day) && day >= 0 && day <= 6))],
       /* 하루 중 촬영 가능한 시간대. 방송국 촬영은 대부분 저녁이라 18시를 기본으로 둔다.
          이게 없으면 다들 비어 있는 오전 9시가 '가능'으로 나와 쓸 수 없는 답이 된다. */
       dayStart: patch.dayStart === undefined ? (Number(current.dayStart) || 18) : Math.min(22, Math.max(9, Number(patch.dayStart) || 18)),

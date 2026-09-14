@@ -410,6 +410,34 @@
             <button sc-camel-on-click="{{ copyPlanText }}" style="padding:7px 11px;border:1px solid #e5e8f7;border-radius:9px;background:#fff;color:#5a6595;font-size:11px;font-weight:800;cursor:pointer">텍스트 복사</button>
             <button sc-camel-on-click="{{ planConditionClick }}" style="padding:7px 11px;border:1px solid #e5e8f7;border-radius:9px;background:#fff;color:#5a6595;font-size:11px;font-weight:800;cursor:pointer">조건 설정</button>
           </div>
+          <sc-if value="{{ advancedOpen }}" hint-placeholder-val="{{ false }}">
+            <div data-plan-conditions style="margin:0 0 14px;padding:16px;border:1px solid #dce7ff;border-radius:16px;background:#f8faff">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                <div style="font-size:13.5px;font-weight:800;color:#222c52">자동배치 조건</div>
+                <button sc-camel-on-click="{{ planConditionClick }}" style="padding:6px 10px;border:1px solid #e5e8f7;border-radius:9px;background:#fff;color:#7b83a8;font-size:11px;font-weight:700;cursor:pointer">닫기</button>
+              </div>
+              <div style="font-size:12px;font-weight:800;color:#5a6595;margin-top:13px">촬영할 요일</div>
+              <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-top:8px">
+                <sc-for list="{{ planWeekdays }}" as="d" hint-placeholder-count="7">
+                  <button sc-camel-on-click="{{ d.toggle }}" style="padding:9px 4px;border:1px solid {{ d.line }};border-radius:10px;background:{{ d.bg }};color:{{ d.fg }};font-size:12px;font-weight:800;cursor:pointer">{{ d.label }}</button>
+                </sc-for>
+              </div>
+              <div style="font-size:12px;font-weight:800;color:#5a6595;margin-top:14px">촬영 가능 기간</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+                <input type="date" value="{{ planFrom }}" sc-camel-on-change="{{ changePlanFrom }}" style="flex:1;min-width:0;padding:10px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#3a4373">
+                <span style="color:#a1a7c6">~</span>
+                <input type="date" value="{{ planTo }}" sc-camel-on-change="{{ changePlanTo }}" style="flex:1;min-width:0;padding:10px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#3a4373">
+                <sc-for list="{{ planQuickRanges }}" as="q" hint-placeholder-count="3"><button sc-camel-on-click="{{ q.pick }}" style="padding:9px 10px;border:1px solid #e5e8f7;border-radius:9px;background:#fff;color:#5a6595;font-size:11px;font-weight:700;cursor:pointer">{{ q.label }}</button></sc-for>
+              </div>
+              <div style="font-size:12px;font-weight:800;color:#5a6595;margin-top:14px">하루 촬영 시간</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:8px;max-width:420px">
+                <sc-raw-select value="{{ planDayStart }}" sc-camel-on-change="{{ changeDayStart }}" style="flex:1;padding:10px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#3a4373"><sc-for list="{{ planHourOptions }}" as="h"><option value="{{ h.value }}">{{ h.label }}</option></sc-for></sc-raw-select>
+                <span style="color:#a1a7c6">~</span>
+                <sc-raw-select value="{{ planDayEnd }}" sc-camel-on-change="{{ changeDayEnd }}" style="flex:1;padding:10px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#3a4373"><sc-for list="{{ planHourOptions }}" as="h"><option value="{{ h.value }}">{{ h.label }}</option></sc-for></sc-raw-select>
+              </div>
+              <div style="font-size:11px;color:#9098ba;margin-top:8px">선택한 요일 중 개인 일정과 다른 프로젝트 촬영을 피하고, 가능한 가장 빠른 날짜부터 배치합니다.</div>
+            </div>
+          </sc-if>
           <sc-for list="{{ planDays }}" as="p" hint-placeholder-count="2">
             <div style="background:#fff;border:1px solid #f0f1fb;border-radius:24px;padding:22px 24px;box-shadow:0 18px 34px rgba(122,134,205,.14)">
               <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -424,6 +452,19 @@
                 <div style="display:flex;flex-direction:column;gap:5px;margin-top:8px">
                   <sc-for list="{{ p.reasonLines }}" as="l" hint-placeholder-count="3">
                     <div style="font-size:12px;color:#6c7699;font-weight:600;line-height:1.6">· {{ l }}</div>
+                  </sc-for>
+                </div>
+              </div>
+
+              <div style="margin-top:16px">
+                <div style="font-size:12.5px;font-weight:800;color:#5a6595">씬별 촬영 순서</div>
+                <div style="display:flex;flex-direction:column;gap:7px;margin-top:9px">
+                  <sc-for list="{{ p.sequence }}" as="s" hint-placeholder-count="3">
+                    <div style="display:grid;grid-template-columns:26px 92px minmax(0,1fr);gap:9px;align-items:center;padding:9px 11px;border:1px solid #e9edf9;border-radius:11px;background:#fcfdff">
+                      <span style="width:24px;height:24px;border-radius:8px;background:#eef4ff;color:#3b82f6;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">{{ s.n }}</span>
+                      <span style="font-size:11.5px;font-weight:800;color:#5a6595">{{ s.time }}</span>
+                      <span style="min-width:0;font-size:12px;font-weight:700;color:#2b3560">{{ s.sceneId }} · {{ s.location }}</span>
+                    </div>
                   </sc-for>
                 </div>
               </div>
@@ -790,9 +831,9 @@
                   </div>
                 </div>
 
-                <button sc-camel-on-click="{{ toggleAdvanced }}" style="width:100%;margin-top:12px;padding:12px;border:1px solid #eef0fa;border-radius:14px;background:#fff;font-size:13px;font-weight:700;color:#7b83a8;cursor:pointer;text-align:left">{{ advancedLabel }}</button>
+                <button sc-camel-on-click="{{ toggleAdvanced }}" style="display:none;width:100%;margin-top:12px;padding:12px;border:1px solid #eef0fa;border-radius:14px;background:#fff;font-size:13px;font-weight:700;color:#7b83a8;cursor:pointer;text-align:left">{{ advancedLabel }}</button>
 
-                <sc-if value="{{ advancedOpen }}" hint-placeholder-val="{{ false }}">
+                <sc-if value="{{ false }}" hint-placeholder-val="{{ false }}">
                 <div style="margin-top:10px;padding:18px;border:1px solid #eef0fa;border-radius:18px;background:#fff">
                   <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
                     <div style="font-size:13.5px;font-weight:800;color:#222c52">세부 조건</div>
@@ -3010,6 +3051,14 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
               const keyOf = id => `${keyPrefix}|${id}`;
               const mins = ids.length === g.sceneIds.length ? g.estimatedMinutes
                 : Math.round((g.estimatedMinutes || 0) * ids.length / Math.max(1, g.sceneIds.length));
+              let sequenceCursor = Math.round(Number(c?.time || 0) * 60);
+              const sequence = (g.orderedScenes || g.sceneIds.map(sceneId => ({ sceneId, minutes: 30, location: '장소 미정' })))
+                .filter(scene => ids.includes(scene.sceneId)).map((scene, index) => {
+                  const start = sequenceCursor;
+                  sequenceCursor += Number(scene.minutes) || 30;
+                  return { n: index + 1, sceneId: scene.sceneId, location: scene.location || '장소 미정',
+                    time: c ? `${this.hourLabel(start / 60)}–${this.hourLabel(sequenceCursor / 60)}` : '시간 미정' };
+                });
               nth += 1;
               return {
                 nth: carry ? `${nth}일차 (이월)` : `${nth}일차`,
@@ -3019,6 +3068,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
                 fg: (!c || forced) ? '#b03650' : full ? '#237a4f' : '#8a6a1f',
                 what: `씬 ${ids.length}개 · 예상 ${mins}분 · ${ids.slice(0, 3).join(', ')}${ids.length > 3 ? ' 외' : ''}`,
                 castNames: (c?.available || []).map(x => x.name).join(', ') || '-',
+                sequence,
                 /* 추천 / 추가 가능 / 충돌 로 나눠 준다.
                    '가능'과 '추천'이 섞이면 무엇을 확정할지 판단할 수 없다. */
                 sections: (() => {
@@ -3202,7 +3252,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
           advancedOpen: !!st.advancedOpen,
           advancedLabel: st.advancedOpen ? '▾ 세부 조건 닫기' : '▸ 세부 조건 (묶기 · 기간 · 제외 날짜 · 우선 인원)',
               toggleAdvanced: () => this.setState({ advancedOpen: !st.advancedOpen }),
-              planConditionClick: () => this.setState({ advancedOpen: true, autoPlanOpen: true }),
+              planConditionClick: () => this.setState({ advancedOpen: !st.advancedOpen, autoPlanOpen: true }),
           // 씬을 전부 나열하면 15개까지 이어져 카드 밖으로 나간다. 앞 두 개만 적고 나머지는 개수로.
           ...(() => {
             const plan = this.planOptions();
@@ -3309,6 +3359,9 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
         const plan = this.planOptions();
         const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         const shift = days => { const d = new Date(); d.setDate(d.getDate() + days); return iso(d); };
+        const allowedWeekdays = Array.isArray(plan.allowedWeekdays) ? plan.allowedWeekdays.map(Number) : [0,1,2,3,4,5,6];
+        const hours = [];
+        for (let h = 9; h <= 22.5; h += .5) hours.push({ value: String(h), label: this.hourLabel(h) });
         return {
           planFrom: plan.dateFrom || '',
           planTo: plan.dateTo || '',
@@ -3322,6 +3375,16 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${slot.time}시 - ${endH}시
             { label: '2주', from: iso(new Date()), to: shift(13) },
             { label: '4주', from: iso(new Date()), to: shift(27) },
           ].map(r => ({ label: r.label, pick: () => this.setPlan({ dateFrom: r.from, dateTo: r.to }) })),
+          planWeekdays: ['월','화','수','목','금','토','일'].map((label, day) => {
+            const on = allowedWeekdays.includes(day);
+            return { label, bg: on ? '#5b6ee0' : '#fff', fg: on ? '#fff' : '#7b83a8', line: on ? '#5b6ee0' : '#e5e8f7',
+              toggle: () => this.setPlan({ allowedWeekdays: on ? allowedWeekdays.filter(x => x !== day) : [...allowedWeekdays, day].sort() }) };
+          }),
+          planHourOptions: hours,
+          planDayStart: String(Number(plan.dayStart) || 18),
+          planDayEnd: String(Number(plan.dayEnd) || 22.5),
+          changeDayStart: e => this.setPlan({ dayStart: Number(e.target.value) }),
+          changeDayEnd: e => this.setPlan({ dayEnd: Number(e.target.value) }),
         };
       })(),
 

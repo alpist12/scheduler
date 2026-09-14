@@ -90,7 +90,7 @@ const aiState = {
   pollTimer: null,
   options: { scenes: true, cast: true, locations: true, schedule: true },
   // 기획자가 거는 조건. 강제 묶기/분리, 뺄 날짜, 우선 고려할 배우.
-  planOptions: { pinned: [], split: [], excludeDates: [], excludeScenes: [], priorityMembers: [], scenePeriods: {}, dateFrom: '', dateTo: '', dayStart: 18, dayEnd: 22.5 },
+  planOptions: { pinned: [], split: [], excludeDates: [], excludeScenes: [], priorityMembers: [], scenePeriods: {}, allowedWeekdays: [0,1,2,3,4,5,6], dateFrom: '', dateTo: '', dayStart: 18, dayEnd: 22.5 },
 };
 
 // firebase data
@@ -982,14 +982,17 @@ function resolveMemberId(name) {
  *  범위를 지정하지 않으면 지금 보고 있는 주 7일만 본다. */
 function planDates() {
   const plan = aiState.planOptions || {};
+  const weekdays = new Set((Array.isArray(plan.allowedWeekdays) ? plan.allowedWeekdays : [0,1,2,3,4,5,6]).map(Number));
   const from = String(plan.dateFrom || '').trim(), to = String(plan.dateTo || '').trim();
   const start = new Date(`${from}T12:00:00`), end = new Date(`${to}T12:00:00`);
   if (!from || !to || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
-    return DAYS.map((_, dayIndex) => ({ iso: isoDate(dayDate(dayIndex)), dayIndex }));
+    return DAYS.map((_, dayIndex) => ({ iso: isoDate(dayDate(dayIndex)), dayIndex }))
+      .filter(item => weekdays.has(item.dayIndex));
   }
   const out = [];
   for (const cursor = new Date(start); cursor <= end && out.length < 120; cursor.setDate(cursor.getDate() + 1)) {
-    out.push({ iso: isoDate(new Date(cursor)), dayIndex: (cursor.getDay() + 6) % 7 });
+    const dayIndex = (cursor.getDay() + 6) % 7;
+    if (weekdays.has(dayIndex)) out.push({ iso: isoDate(new Date(cursor)), dayIndex });
   }
   return out;
 }
@@ -1519,6 +1522,11 @@ function buildSceneSchedule(scenes = [], options = {}) {
       key: ordered.map(row => row.index).join('-'), sceneIndexes: ordered.map(row => row.index),
       reason,
       sceneIds: ordered.map(row => sceneIdAt(row.index)),
+      // 카드에서 실제 촬영 순서를 시간표처럼 보여 줄 수 있도록 AI가 정한 순서와 씬별 분량을 함께 내린다.
+      orderedScenes: ordered.map(row => ({
+        sceneId: sceneIdAt(row.index), minutes: row.minutes,
+        location: row.scene.location || row.scene.place || row.scene.title || '장소 미정',
+      })),
       totalPeople: everyone.size, sharedNames: shared.map(id => base[id]?.name || '').filter(Boolean),
       sharedIds: shared, linkLines: [...placeLinks.slice(0, 2), ...links].slice(0, 3),
       partialNames: partial.map(id => base[id]?.name || '').filter(Boolean), estimatedMinutes: minutes,
@@ -2982,6 +2990,10 @@ window.HNUBS_ENGINE = {
         ? { ...(current.scenePeriods || {}) }
         : Object.fromEntries(Object.entries(patch.scenePeriods || {})
             .filter(([key, value]) => key && value).map(([key, value]) => [String(key), String(value)])),
+      // 0=월 ... 6=일. 빈 배열도 사용자가 모두 끈 명시적인 조건으로 보존한다.
+      allowedWeekdays: patch.allowedWeekdays === undefined
+        ? (Array.isArray(current.allowedWeekdays) ? current.allowedWeekdays : [0,1,2,3,4,5,6])
+        : [...new Set(list(patch.allowedWeekdays).map(Number).filter(day => Number.isInteger(day) && day >= 0 && day <= 6))],
       /* 하루 중 촬영 가능한 시간대. 방송국 촬영은 대부분 저녁이라 18시를 기본으로 둔다.
          이게 없으면 다들 비어 있는 오전 9시가 '가능'으로 나와 쓸 수 없는 답이 된다. */
       dayStart: patch.dayStart === undefined ? (Number(current.dayStart) || 18) : Math.min(22, Math.max(9, Number(patch.dayStart) || 18)),

@@ -1254,7 +1254,7 @@
                     <div style="height:44px;border-bottom:1px solid #f6f7fc"></div>
                   </sc-for>
                   <sc-for list="{{ col.events }}" as="e" hint-placeholder-count="2">
-                    <div style="position:absolute;left:4px;right:4px;top:{{ e.top }};height:{{ e.height }};border-radius:9px;padding:7px 8px;overflow:hidden;background:{{ e.bg }};border-left:3px solid {{ e.line }}">
+                    <div title="{{ e.tip }}" style="position:absolute;z-index:{{ e.zIndex }};left:{{ e.left }};width:{{ e.width }};top:{{ e.top }};height:{{ e.height }};border-radius:9px;padding:7px 8px;overflow:hidden;background:{{ e.bg }};border-left:3px solid {{ e.line }}">
                       <button sc-camel-on-click="{{ e.onDel }}" style="position:absolute;top:2px;right:3px;border:0;background:none;color:{{ e.fg }};opacity:.6;font-size:12px;cursor:pointer;line-height:1;padding:2px">{{ e.delMark }}</button>
                       <div style="font-size:11.5px;font-weight:800;color:{{ e.fg }};line-height:1.25;white-space:{{ e.wrap }};overflow:hidden;text-overflow:ellipsis">{{ e.title }}</div>
                       <div style="font-size:10.5px;color:{{ e.fg }};opacity:.75;margin-top:3px;font-weight:600">{{ e.time }}</div>
@@ -2838,15 +2838,47 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
       : { bg: '#fdf6e0', fg: '#8a6a1f' };
 
 
-    const mkEvents = (list, dayIdx) => list.map(e => {
+    /* 겹치는 일정을 같은 자리에 그리면 뒤엣것이 앞엣것을 덮는다. 실제로 9/15 의
+       S#1(18-20) 이 S#7(19-21) 에 가려져 촬영 한 건이 통째로 안 보였다.
+       겹치는 덩어리끼리 열을 나눠 나란히 세운다. */
+    const layout = list => {
+      const sorted = [...list].sort((a, b) => a.s - b.s || a.e - b.e);
+      const place = new Map();
+      let bunch = [], bunchEnd = -Infinity;
+      const settle = () => {
+        if (!bunch.length) return;
+        const colEnd = [];
+        for (const e of bunch) {
+          let col = colEnd.findIndex(end => end <= e.s);
+          if (col < 0) { col = colEnd.length; colEnd.push(0); }
+          colEnd[col] = e.e;
+          place.set(e, col);
+        }
+        for (const e of bunch) place.set(e, { col: place.get(e), cols: colEnd.length });
+        bunch = []; bunchEnd = -Infinity;
+      };
+      for (const e of sorted) {
+        if (bunch.length && e.s >= bunchEnd) settle();
+        bunch.push(e); bunchEnd = Math.max(bunchEnd, e.e);
+      }
+      settle();
+      return sorted.map(e => ({ event: e, ...(place.get(e) || { col: 0, cols: 1 }) }));
+    };
+    const mkEvents = (list, dayIdx) => layout(list).map(({ event: e, col, cols }) => {
       const c = CAT[e.c] || CAT.기타;
       const label = (Math.floor(e.s) + ':' + (e.s % 1 ? '30' : '00')) + ' - ' + (Math.floor(e.e) + ':' + (e.e % 1 ? '30' : '00'));
       const canDelete = live && (e.k === 'avail' || e.k === 'unavail') && dayIdx != null;
       // 1시간 이하 일정은 카드 높이가 부족해 시간 줄을 생략한다.
-      const roomy = (e.e - e.s) >= 2;
-      return { title: e.t, time: roomy ? label : '', wrap: roomy ? 'normal' : 'nowrap', bg: c.bg, line: c.line, fg: c.fg,
+      /* 카드 안에는 시간을 적지 않는다. 왼쪽 시간축이 이미 말해 주고,
+         겹쳐서 폭이 반으로 줄면 제목이 'S...' 로 잘린다. 정확한 시각은 툴팁에. */
+      return { title: e.t, time: '', tip: `${e.t} · ${label}`, wrap: 'normal', bg: c.bg, line: c.line, fg: c.fg,
         delMark: canDelete ? '×' : '',
         onDel: canDelete ? (() => this.deletePersonalDay(dayIdx)) : (() => {}),
+        /* 겹치면 계단식으로 민다. 반으로 쪼개면 폭이 36px 밖에 안 남아
+           'S#1' 조차 'S...' 로 잘린다. 밀어 두면 앞 카드의 제목은 계속 보인다. */
+        left: `${4 + col * 16}px`,
+        width: `calc(100% - ${8 + (cols - 1) * 16}px)`,
+        zIndex: String(col + 1),
         top: ((Math.max(e.s, 9) - 9) * 44) + 'px', height: Math.max((Math.min(e.e, 23) - Math.max(e.s, 9)) * 44 - 4, 26) + 'px',
         mtop: ((Math.max(e.s, 9) - 9) * 34) + 'px', mheight: Math.max((Math.min(e.e, 23) - Math.max(e.s, 9)) * 34 - 3, 20) + 'px' };
     });

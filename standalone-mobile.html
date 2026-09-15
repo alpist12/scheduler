@@ -507,8 +507,8 @@
                       <div sc-camel-on-click="{{ sl.add }}" style="height:38px;border-bottom:1px solid #f6f7fc;cursor:pointer"></div>
                     </sc-for>
                     <sc-for list="{{ col.events }}" as="e" hint-placeholder-count="3">
-                      <div data-personal-card="1" sc-camel-on-click="{{ e.remove }}" title="{{ e.tip }}" style="cursor:pointer;position:absolute;z-index:{{ e.zIndex }};left:{{ e.left }};width:{{ e.width }};top:{{ e.top }};height:{{ e.height }};border-radius:8px;padding:5px 6px;overflow:hidden;background:{{ e.bg }};border-left:3px solid {{ e.line }}">
-                        <div style="font-size:10px;font-weight:800;color:{{ e.fg }};line-height:1.25;white-space:{{ e.wrap }};overflow:hidden;text-overflow:ellipsis">{{ e.title }}</div>
+                      <div data-personal-card="1" sc-camel-on-click="{{ e.remove }}" title="{{ e.tip }}" style="cursor:pointer;position:absolute;z-index:{{ e.zIndex }};left:{{ e.left }};width:{{ e.width }};top:{{ e.top }};height:{{ e.height }};border-radius:8px;padding:{{ e.pad }};overflow:hidden;background:{{ e.bg }};border-left:3px solid {{ e.line }}">
+                        <div style="font-size:{{ e.size }};font-weight:800;color:{{ e.fg }};line-height:1.25;white-space:{{ e.wrap }};word-break:keep-all;overflow-wrap:anywhere;overflow:hidden">{{ e.title }}</div>
                         <div style="font-size:9px;color:{{ e.fg }};opacity:.75;margin-top:2px;font-weight:600">{{ e.time }}</div>
                       </div>
                     </sc-for>
@@ -631,6 +631,20 @@
                       <sc-for list="{{ planHourOptions }}" as="h"><option value="{{ h.value }}">{{ h.label }}</option></sc-for>
                     </sc-raw-select>
                   </div>
+                  <div style="font-size:11.5px;font-weight:800;color:#5a6595;margin-top:15px">요일별 촬영 시간</div>
+                  <div style="font-size:10.5px;color:#a7adcd;font-weight:600;margin-top:3px">비워 두면 위 기본값을 씁니다.</div>
+                  <sc-for list="{{ planDayRows }}" as="d" hint-placeholder-count="7">
+                    <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+                      <span style="width:16px;font-size:11.5px;font-weight:800;color:{{ d.tone }}">{{ d.label }}</span>
+                      <sc-raw-select value="{{ d.start }}" sc-camel-on-change="{{ d.changeStart }}" style="flex:1;min-width:0;padding:8px;border:1px solid #eceefa;border-radius:9px;background:#fbfcff;font-size:11.5px;color:{{ d.tone }}">
+                        <sc-for list="{{ planHourOptionsWithDefault }}" as="h"><option value="{{ h.value }}">{{ h.label }}</option></sc-for>
+                      </sc-raw-select>
+                      <span style="color:#c9cee6;font-size:11px">~</span>
+                      <sc-raw-select value="{{ d.end }}" sc-camel-on-change="{{ d.changeEnd }}" style="flex:1;min-width:0;padding:8px;border:1px solid #eceefa;border-radius:9px;background:#fbfcff;font-size:11.5px;color:{{ d.tone }}">
+                        <sc-for list="{{ planHourOptionsWithDefault }}" as="h"><option value="{{ h.value }}">{{ h.label }}</option></sc-for>
+                      </sc-raw-select>
+                    </div>
+                  </sc-for>
                 </div>
               </sc-if>
             </div>
@@ -2119,8 +2133,13 @@ class Component extends DCLogic {
       return { title: e.t, time: '',
         tip: `${e.t} · ${label(e.s)} - ${label(e.e)}`, wrap: 'normal', bg: c.bg, line: c.line, fg: c.fg,
         /* 겹치면 계단식으로 민다. 반으로 쪼개면 제목이 남지 않는다. */
-        left: `${3 + col * 12}px`,
-        width: `calc(100% - ${6 + (cols - 1) * 12}px)`,
+        /* 겹치면 폭을 똑같이 나눠 나란히 세운다. 계단식으로 밀면 앞 카드가
+           몇 px 만 남아 제목이 한 글자로 잘린다. 좁아진 만큼 글자를 줄인다. */
+        left: `calc(${col} * (100% - 6px) / ${cols} + 3px)`,
+        width: `calc((100% - 6px) / ${cols} - 2px)`,
+        size: cols > 1 ? '8.5px' : '10px',
+        // 폭이 반으로 줄면 좌우 패딩이 글자 자리를 다 먹는다.
+        pad: cols > 1 ? '4px 3px' : '5px 6px',
         zIndex: String(col + 1),
         top: ((Math.max(e.s, 9) - 9) * 38) + 'px', height: Math.max((Math.min(e.e, 23) - Math.max(e.s, 9)) * 38 - 3, 22) + 'px' };
     });
@@ -2472,6 +2491,30 @@ class Component extends DCLogic {
               toggle: () => this.setPlanDraft({ allowedWeekdays: on ? allowedWeekdays.filter(x => x !== day) : [...allowedWeekdays, day].sort() }) };
           }),
           planHourOptions: hours,
+          /* 요일마다 촬영 가능한 시간이 다르다. 하나로 묶어 두면 어느 요일에도 안 맞는
+             값이 되고, 그 시간대에서만 후보를 찾으니 배치도 어긋난다.
+             비워 두면(기본) 위의 '하루 촬영 가능 시간대'를 그대로 쓴다. */
+          planDayRows: allowedWeekdays.slice().sort((a, b) => a - b).map(day => {
+            const win = (plan.dayWindows || {})[day] || (plan.dayWindows || {})[String(day)] || null;
+            const setWin = (key, value) => {
+              const next = { ...(plan.dayWindows || {}) };
+              if (!value) delete next[day];
+              else next[day] = {
+                start: key === 'start' ? Number(value) : Number(win?.start ?? plan.dayStart ?? 18),
+                end: key === 'end' ? Number(value) : Number(win?.end ?? plan.dayEnd ?? 22.5),
+              };
+              this.setPlanDraft({ dayWindows: next });
+            };
+            return {
+              label: ['월', '화', '수', '목', '금', '토', '일'][day],
+              start: win ? String(win.start) : '',
+              end: win ? String(win.end) : '',
+              tone: win ? '#3a4373' : '#a7adcd',
+              changeStart: e => setWin('start', e.target.value),
+              changeEnd: e => setWin('end', e.target.value),
+            };
+          }),
+          planHourOptionsWithDefault: [{ value: '', label: '기본' }, ...hours],
           planDayStart: String(Number(plan.dayStart) || 18),
           planDayEnd: String(Number(plan.dayEnd) || 22.5),
           changeDayStart: e => this.setPlanDraft({ dayStart: Number(e.target.value) }),

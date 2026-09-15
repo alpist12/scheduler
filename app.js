@@ -1199,6 +1199,15 @@ function aiCandidates(scenes = [], durationHours = 0, busy = []) {
   const excluded = new Set((Array.isArray(plan.excludeDates) ? plan.excludeDates : []).map(String));
   const priority = new Set((Array.isArray(plan.priorityMembers) ? plan.priorityMembers : []).map(String));
   const planDayStart = Number(plan.dayStart) || 18, planDayEnd = Number(plan.dayEnd) || 22.5;
+  /* 요일마다 사정이 다르다. 월요일은 저녁만, 토요일은 온종일 가능한 식이다.
+     요일별 값이 있으면 그 날은 그걸 쓰고, 없으면 위의 기본값을 쓴다. */
+  const dayWindows = plan.dayWindows || {};
+  const windowFor = dayIndex => {
+    const w = dayWindows[dayIndex] || dayWindows[String(dayIndex)];
+    const start = Number(w?.start), end = Number(w?.end);
+    return Number.isFinite(start) && Number.isFinite(end) && end > start
+      ? { start, end } : { start: planDayStart, end: planDayEnd };
+  };
   const ids = new Set(scenes.flatMap(sceneRequiredCharacters).map(resolveMemberId).filter(id => base[id]));
   for (const name of scenes.flatMap(scene => sceneCrewNames(scene, aiProjectId()))) {
     const id = resolveMemberId(name);
@@ -1235,7 +1244,8 @@ function aiCandidates(scenes = [], durationHours = 0, busy = []) {
     });
     /* 촬영 가능 시간대를 여기서도 지킨다. 안 넘기면 기본값(9~23)이 쓰여
        저녁에만 되는 촬영에 아침 9시·낮 1시가 후보로 올라온다. */
-    return candidateStarts({ totalHours, windows, dayStart: planDayStart, dayEnd: planDayEnd }).map(time => {
+    const win = windowFor(dayIndex);
+    return candidateStarts({ totalHours, windows, dayStart: win.start, dayEnd: win.end }).map(time => {
     const yes = all.filter(([id, member]) => {
       const mine = spans.filter(s => s.who.has(id));
       // 출연하지 않는 사람(기획·촬영)은 처음부터 끝까지 있어야 한다
@@ -3064,6 +3074,17 @@ window.HNUBS_ENGINE = {
       // 촬영 가능 기간. 비워두면 보고 있는 주만 본다.
       dateFrom: patch.dateFrom === undefined ? (current.dateFrom || '') : String(patch.dateFrom || ''),
       dateTo: patch.dateTo === undefined ? (current.dateTo || '') : String(patch.dateTo || ''),
+      /* 요일별 촬영 가능 시간. 월요일은 저녁만, 토요일은 온종일 하는 식으로
+         요일마다 사정이 다르다. 비워 둔 요일은 위의 기본값(dayStart~dayEnd)을 쓴다. */
+      dayWindows: patch.dayWindows === undefined
+        ? { ...(current.dayWindows || {}) }
+        : Object.fromEntries(Object.entries(patch.dayWindows || {})
+            .map(([day, value]) => [Number(day), {
+              start: Math.min(22, Math.max(9, Number(value?.start))),
+              end: Math.min(23, Math.max(10, Number(value?.end))),
+            }])
+            .filter(([day, value]) => Number.isInteger(day) && day >= 0 && day <= 6
+              && Number.isFinite(value.start) && Number.isFinite(value.end) && value.end > value.start)),
       // 확정한 일정까지 다시 계산할지. 평소에는 건드리지 않는다.
       includeConfirmed: patch.includeConfirmed === undefined ? !!current.includeConfirmed : !!patch.includeConfirmed,
     };

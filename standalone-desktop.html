@@ -438,6 +438,17 @@
                 <span style="color:#a1a7c6">~</span>
                 <sc-raw-select value="{{ planDayEnd }}" sc-camel-on-change="{{ changeDayEnd }}" style="flex:1;padding:10px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#3a4373"><sc-for list="{{ planHourOptions }}" as="h"><option value="{{ h.value }}">{{ h.label }}</option></sc-for></sc-raw-select>
               </div>
+              <div style="font-size:12px;font-weight:800;color:#5a6595;margin-top:14px">요일별 촬영 시간 <span style="font-weight:600;color:#a1a7c6">· 비워 두면 위 기본값</span></div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-top:8px">
+                <sc-for list="{{ planDayRows }}" as="d" hint-placeholder-count="7">
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <span style="width:18px;font-size:12px;font-weight:800;color:{{ d.tone }}">{{ d.label }}</span>
+                    <sc-raw-select value="{{ d.start }}" sc-camel-on-change="{{ d.changeStart }}" style="flex:1;min-width:0;padding:7px;border:1px solid #e5e8f7;border-radius:8px;background:#fff;color:{{ d.tone }};font-size:12px"><sc-for list="{{ planHourOptionsWithDefault }}" as="h"><option value="{{ h.value }}">{{ h.label }}</option></sc-for></sc-raw-select>
+                    <span style="color:#c9cee6;font-size:11px">~</span>
+                    <sc-raw-select value="{{ d.end }}" sc-camel-on-change="{{ d.changeEnd }}" style="flex:1;min-width:0;padding:7px;border:1px solid #e5e8f7;border-radius:8px;background:#fff;color:{{ d.tone }};font-size:12px"><sc-for list="{{ planHourOptionsWithDefault }}" as="h"><option value="{{ h.value }}">{{ h.label }}</option></sc-for></sc-raw-select>
+                  </div>
+                </sc-for>
+              </div>
               <div style="font-size:11px;color:#9098ba;margin-top:8px">선택한 요일 중 개인 일정과 다른 프로젝트 촬영을 피하고, 가능한 가장 빠른 날짜부터 배치합니다.</div>
               <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
                 <button sc-camel-on-click="{{ cancelPlanConditions }}" style="padding:9px 14px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#7b83a8;font-size:12px;font-weight:800;cursor:pointer">취소</button>
@@ -1254,9 +1265,9 @@
                     <div style="height:44px;border-bottom:1px solid #f6f7fc"></div>
                   </sc-for>
                   <sc-for list="{{ col.events }}" as="e" hint-placeholder-count="2">
-                    <div title="{{ e.tip }}" style="position:absolute;z-index:{{ e.zIndex }};left:{{ e.left }};width:{{ e.width }};top:{{ e.top }};height:{{ e.height }};border-radius:9px;padding:7px 8px;overflow:hidden;background:{{ e.bg }};border-left:3px solid {{ e.line }}">
+                    <div title="{{ e.tip }}" style="position:absolute;z-index:{{ e.zIndex }};left:{{ e.left }};width:{{ e.width }};top:{{ e.top }};height:{{ e.height }};border-radius:9px;padding:{{ e.pad }};overflow:hidden;background:{{ e.bg }};border-left:3px solid {{ e.line }}">
                       <button sc-camel-on-click="{{ e.onDel }}" style="position:absolute;top:2px;right:3px;border:0;background:none;color:{{ e.fg }};opacity:.6;font-size:12px;cursor:pointer;line-height:1;padding:2px">{{ e.delMark }}</button>
-                      <div style="font-size:11.5px;font-weight:800;color:{{ e.fg }};line-height:1.25;white-space:{{ e.wrap }};overflow:hidden;text-overflow:ellipsis">{{ e.title }}</div>
+                      <div style="font-size:{{ e.size }};font-weight:800;color:{{ e.fg }};line-height:1.25;white-space:{{ e.wrap }};word-break:keep-all;overflow-wrap:anywhere;overflow:hidden">{{ e.title }}</div>
                       <div style="font-size:10.5px;color:{{ e.fg }};opacity:.75;margin-top:3px;font-weight:600">{{ e.time }}</div>
                     </div>
                   </sc-for>
@@ -2892,8 +2903,13 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
         onDel: canDelete ? (() => this.deletePersonalDay(dayIdx)) : (() => {}),
         /* 겹치면 계단식으로 민다. 반으로 쪼개면 폭이 36px 밖에 안 남아
            'S#1' 조차 'S...' 로 잘린다. 밀어 두면 앞 카드의 제목은 계속 보인다. */
-        left: `${4 + col * 16}px`,
-        width: `calc(100% - ${8 + (cols - 1) * 16}px)`,
+        /* 겹치면 폭을 똑같이 나눠 나란히 세운다. 계단식으로 밀면 앞 카드가
+           16px 만 남아 '회의'가 '회' 로 잘린다. 좁아진 만큼 글자를 줄인다. */
+        left: `calc(${col} * (100% - 8px) / ${cols} + 4px)`,
+        width: `calc((100% - 8px) / ${cols} - 2px)`,
+        size: cols > 1 ? '10px' : '11.5px',
+        // 폭이 반으로 줄면 좌우 8px 패딩이 글자 자리를 다 먹는다.
+        pad: cols > 1 ? '5px 4px' : '7px 8px',
         zIndex: String(col + 1),
         top: ((Math.max(e.s, 9) - 9) * 44) + 'px', height: Math.max((Math.min(e.e, 23) - Math.max(e.s, 9)) * 44 - 4, 26) + 'px',
         mtop: ((Math.max(e.s, 9) - 9) * 34) + 'px', mheight: Math.max((Math.min(e.e, 23) - Math.max(e.s, 9)) * 34 - 3, 20) + 'px' };
@@ -3530,6 +3546,30 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
               toggle: () => this.setPlanDraft({ allowedWeekdays: on ? allowedWeekdays.filter(x => x !== day) : [...allowedWeekdays, day].sort() }) };
           }),
           planHourOptions: hours,
+          /* 요일마다 촬영 가능한 시간이 다르다. 하나로 묶어 두면 어느 요일에도 안 맞는
+             값이 되고, 그 시간대에서만 후보를 찾으니 배치도 어긋난다.
+             비워 두면(기본) 위의 '하루 촬영 시간'을 그대로 쓴다. */
+          planDayRows: allowedWeekdays.slice().sort((a, b) => a - b).map(day => {
+            const win = (plan.dayWindows || {})[day] || (plan.dayWindows || {})[String(day)] || null;
+            const setWin = (key, value) => {
+              const next = { ...(plan.dayWindows || {}) };
+              if (!value) delete next[day];
+              else next[day] = {
+                start: key === 'start' ? Number(value) : Number(win?.start ?? plan.dayStart ?? 18),
+                end: key === 'end' ? Number(value) : Number(win?.end ?? plan.dayEnd ?? 22.5),
+              };
+              this.setPlanDraft({ dayWindows: next });
+            };
+            return {
+              label: ['월', '화', '수', '목', '금', '토', '일'][day],
+              start: win ? String(win.start) : '',
+              end: win ? String(win.end) : '',
+              tone: win ? '#3a4373' : '#a1a7c6',
+              changeStart: e => setWin('start', e.target.value),
+              changeEnd: e => setWin('end', e.target.value),
+            };
+          }),
+          planHourOptionsWithDefault: [{ value: '', label: '기본' }, ...hours],
           planDayStart: String(Number(plan.dayStart) || 18),
           planDayEnd: String(Number(plan.dayEnd) || 22.5),
           changeDayStart: e => this.setPlanDraft({ dayStart: Number(e.target.value) }),

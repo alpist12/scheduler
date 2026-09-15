@@ -507,7 +507,7 @@
                       <div sc-camel-on-click="{{ sl.add }}" style="height:38px;border-bottom:1px solid #f6f7fc;cursor:pointer"></div>
                     </sc-for>
                     <sc-for list="{{ col.events }}" as="e" hint-placeholder-count="3">
-                      <div data-personal-card="1" sc-camel-on-click="{{ e.remove }}" title="{{ e.tip }}" style="cursor:pointer;position:absolute;z-index:{{ e.zIndex }};left:{{ e.left }};width:{{ e.width }};top:{{ e.top }};height:{{ e.height }};border-radius:8px;padding:{{ e.pad }};overflow:hidden;background:{{ e.bg }};border-left:3px solid {{ e.line }}">
+                      <div data-personal-card="1" sc-camel-on-click="{{ e.remove }}" title="{{ e.tip }}" style="cursor:pointer;position:absolute;z-index:{{ e.zIndex }};left:{{ e.left }};width:{{ e.width }};top:{{ e.top }};height:{{ e.height }};border-radius:8px;padding:{{ e.pad }};overflow:hidden;background:{{ e.bg }};border-left:{{ e.edge }} solid {{ e.line }}">
                         <div style="font-size:{{ e.size }};font-weight:800;color:{{ e.fg }};line-height:1.25;white-space:{{ e.wrap }};word-break:keep-all;overflow-wrap:anywhere;overflow:hidden">{{ e.title }}</div>
                         <div style="font-size:9px;color:{{ e.fg }};opacity:.75;margin-top:2px;font-weight:600">{{ e.time }}</div>
                       </div>
@@ -639,6 +639,10 @@
                       </sc-raw-select>
                     </div>
                   </sc-for>
+                  <div style="display:flex;gap:7px;margin-top:13px">
+                    <button sc-camel-on-click="{{ cancelPlanConditions }}" style="flex:1;padding:10px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#7b83a8;font-size:12px;font-weight:800;cursor:pointer">취소</button>
+                    <button sc-camel-on-click="{{ applyPlanConditions }}" style="flex:1;padding:10px;border:0;border-radius:10px;background:#5b6ee0;color:#fff;font-size:12px;font-weight:800;cursor:pointer">이 조건으로 재배치</button>
+                  </div>
                 </div>
               </sc-if>
             </div>
@@ -690,10 +694,6 @@
                         <span style="min-width:0;font-size:11px;font-weight:700;color:#2b3560">{{ s.sceneId }} · {{ s.location }}</span>
                       </div>
                     </sc-for>
-                  </div>
-                  <div style="display:flex;gap:7px;margin-top:12px">
-                    <button sc-camel-on-click="{{ cancelPlanConditions }}" style="flex:1;padding:10px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#7b83a8;font-size:12px;font-weight:800">취소</button>
-                    <button sc-camel-on-click="{{ applyPlanConditions }}" style="flex:1;padding:10px;border:0;border-radius:10px;background:#5b6ee0;color:#fff;font-size:12px;font-weight:800">이 조건으로 재배치</button>
                   </div>
                 </div>
                 <sc-for list="{{ p.sections }}" as="sec" hint-placeholder-count="3">
@@ -2131,9 +2131,11 @@ class Component extends DCLogic {
            몇 px 만 남아 제목이 한 글자로 잘린다. 좁아진 만큼 글자를 줄인다. */
         left: `calc(${col} * (100% - 6px) / ${cols} + 3px)`,
         width: `calc((100% - 6px) / ${cols} - 2px)`,
-        size: cols > 1 ? '8.5px' : '10px',
-        // 폭이 반으로 줄면 좌우 패딩이 글자 자리를 다 먹는다.
-        pad: cols > 1 ? '4px 3px' : '5px 6px',
+        /* 모바일은 한 칸이 60px 남짓이라 반으로 나누면 30px 뿐이다.
+           글자와 여백을 더 줄여야 'S#1' 이 한 줄에 들어간다. */
+        size: cols > 1 ? '7.5px' : '10px',
+        pad: cols > 1 ? '3px 2px' : '5px 6px',
+        edge: cols > 1 ? '2px' : '3px',
         zIndex: String(col + 1),
         top: ((Math.max(e.s, 9) - 9) * 38) + 'px', height: Math.max((Math.min(e.e, 23) - Math.max(e.s, 9)) * 38 - 3, 22) + 'px' };
     });

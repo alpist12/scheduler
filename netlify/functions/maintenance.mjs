@@ -9,6 +9,9 @@ import { firebaseGet, firebaseSet } from './_shared.mjs';
 
 const PATH = 'scheduler/점검';
 const PASSWORD = String(process.env.SCHEDULER_ADMIN_PASSWORD || '').trim();
+const MAX_FAILURES = 5;
+const LOCK_MS = 10 * 60 * 1000;
+const attempts = new Map();
 
 const json = (statusCode, value) => ({
   statusCode,
@@ -20,6 +23,32 @@ const now = () => new Intl.DateTimeFormat('sv-SE', {
   timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
   hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
 }).format(new Date());
+
+const clientKey = event => String(
+  event.headers?.['x-nf-client-connection-ip']
+  || event.headers?.['client-ip']
+  || event.headers?.['x-forwarded-for']
+  || 'unknown',
+).split(',')[0].trim();
+
+function passwordBlocked(event) {
+  const item = attempts.get(clientKey(event));
+  if (!item) return 0;
+  if (Date.now() - item.since >= LOCK_MS) { attempts.delete(clientKey(event)); return 0; }
+  return item.count >= MAX_FAILURES ? Math.ceil((LOCK_MS - (Date.now() - item.since)) / 1000) : 0;
+}
+
+function recordPasswordResult(event, ok) {
+  const key = clientKey(event);
+  if (ok) { attempts.delete(key); return; }
+  const item = attempts.get(key);
+  attempts.set(key, item && Date.now() - item.since < LOCK_MS
+    ? { ...item, count: item.count + 1 }
+    : { count: 1, since: Date.now() });
+  if (attempts.size > 500) {
+    for (const [id, value] of attempts) if (Date.now() - value.since >= LOCK_MS) attempts.delete(id);
+  }
+}
 
 async function readState() {
   return await firebaseGet(PATH) || {};
@@ -45,8 +74,17 @@ export async function handler(event) {
   }
 
   if (!PASSWORD) return json(503, { error: '서버에 SCHEDULER_ADMIN_PASSWORD 가 설정되지 않았습니다.' });
+  const retryAfter = passwordBlocked(event);
+  if (retryAfter) return {
+    ...json(429, { error: '비밀번호를 여러 번 틀렸습니다. 10분 뒤 다시 시도해 주세요.' }),
+    headers: { ...json(429, {}).headers, 'retry-after': String(retryAfter) },
+  };
   // 모바일 키보드가 뒤에 공백을 붙이는 일이 잦다. 그것 때문에 막지는 않는다.
-  if (String(body.password || '').trim() !== PASSWORD) return json(401, { error: '비밀번호가 올바르지 않습니다.' });
+  if (String(body.password || '').trim() !== PASSWORD) {
+    recordPasswordResult(event, false);
+    return json(401, { error: '비밀번호가 올바르지 않습니다.' });
+  }
+  recordPasswordResult(event, true);
 
   try {
     const state = await readState();
@@ -72,3 +110,9 @@ export async function handler(event) {
     return json(502, { error: error.message });
   }
 }
+
+/* Netlify의 분산 제한도 함께 둔다. 코드 제한은 실패만 세고, 이 제한은 우회 경로까지 막는다. */
+export const config = {
+  path: ['/api/maintenance', '/.netlify/functions/maintenance'],
+  rateLimit: { windowLimit: 20, windowSize: 60, aggregateBy: ['ip', 'domain'] },
+};

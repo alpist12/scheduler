@@ -156,3 +156,25 @@ console.log('engine busy-awareness OK');
   assert.equal(make(placed, Infinity), null, '자동(제한 없음)인데 날짜를 막는다');
 }
 console.log('spread days OK');
+
+// ── AI가 UNKNOWN 장소를 내거나 낮/야외 씬을 늦은 밤으로 보내면 안 된다.
+{
+  const src = fs.readFileSync('app.js', 'utf8');
+  assert(/const normalizedScenes = job =>/.test(src), 'UNKNOWN 장소 공통 정리가 없다');
+  assert(/const scenes = normalizedScenes\(job\)/.test(src), '코파일럿이 UNKNOWN 장소 정리를 건너뛴다');
+  assert(/const currentScenes = normalizedScenes\(currentAiJob\)/.test(src), '자동배치가 UNKNOWN 장소 정리를 건너뛴다');
+  assert(/row\.scene\?\.dayNight/.test(src), 'AI 분석의 낮\/밤 값을 자동배치가 쓰지 않는다');
+  assert(/period === 'day' \|\| outdoor/.test(src) && /slot\.time \+ result\.totalHours <= 20/.test(src),
+    '낮\/야외 씬의 20시 종료 제한이 없다');
+}
+console.log('scene period guards OK');
+
+// 모바일 조건 패널 안에서 조건을 확정할 수 있어야 한다. 일차 카드마다 버튼을 복제하지 않는다.
+{
+  const mobile = fs.readFileSync('standalone-mobile.html', 'utf8');
+  const conditionPanel = mobile.match(/<!-- 분석 조건[\s\S]*?<!-- AI 자동 배치/)?.[0] || '';
+  const planCard = mobile.match(/<sc-for list="\{\{ planDays \}\}"[\s\S]*?<sc-for list="\{\{ p\.sections \}\}"/)?.[0] || '';
+  assert(/applyPlanConditions/.test(conditionPanel), '모바일 조건 패널에 재배치 버튼이 없다');
+  assert(!/applyPlanConditions/.test(planCard), '재배치 버튼이 모바일 일차 카드 안에 잘못 들어갔다');
+}
+console.log('mobile condition actions OK');

@@ -639,6 +639,10 @@
                       </sc-raw-select>
                     </div>
                   </sc-for>
+                  <div style="display:flex;gap:7px;margin-top:13px">
+                    <button sc-camel-on-click="{{ cancelPlanConditions }}" style="flex:1;padding:10px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#7b83a8;font-size:12px;font-weight:800;cursor:pointer">취소</button>
+                    <button sc-camel-on-click="{{ applyPlanConditions }}" style="flex:1;padding:10px;border:0;border-radius:10px;background:#5b6ee0;color:#fff;font-size:12px;font-weight:800;cursor:pointer">이 조건으로 재배치</button>
+                  </div>
                 </div>
               </sc-if>
             </div>
@@ -690,10 +694,6 @@
                         <span style="min-width:0;font-size:11px;font-weight:700;color:#2b3560">{{ s.sceneId }} · {{ s.location }}</span>
                       </div>
                     </sc-for>
-                  </div>
-                  <div style="display:flex;gap:7px;margin-top:12px">
-                    <button sc-camel-on-click="{{ cancelPlanConditions }}" style="flex:1;padding:10px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#7b83a8;font-size:12px;font-weight:800">취소</button>
-                    <button sc-camel-on-click="{{ applyPlanConditions }}" style="flex:1;padding:10px;border:0;border-radius:10px;background:#5b6ee0;color:#fff;font-size:12px;font-weight:800">이 조건으로 재배치</button>
                   </div>
                 </div>
                 <sc-for list="{{ p.sections }}" as="sec" hint-placeholder-count="3">

@@ -41,7 +41,7 @@
 </head>
 <body>
 <iframe id="design-frame" title="HNUBS 방송국 스케줄러"></iframe>
-<iframe id="engine-frame" data-src="index.integrated.html?engine=1&v=67" title="HNUBS 데이터 엔진" aria-hidden="true" tabindex="-1" style="position:fixed;width:1px;height:1px;left:-9999px;top:-9999px;border:0;opacity:0;pointer-events:none"></iframe>
+<iframe id="engine-frame" data-src="index.integrated.html?engine=1&v=68" title="HNUBS 데이터 엔진" aria-hidden="true" tabindex="-1" style="position:fixed;width:1px;height:1px;left:-9999px;top:-9999px;border:0;opacity:0;pointer-events:none"></iframe>
 <aside class="ai-pal" aria-label="Air(에어) AI 도우미">
   <div id="aiPalBubble" class="ai-pal-bubble" role="status">무엇을 도와드릴까요?</div>
   <section id="aiPalChat" class="ai-pal-chat" aria-label="AI 대화창">
@@ -86,7 +86,7 @@
     const showDesign = () => {
       // 점검 중이고 아직 통과 못 했으면 앱을 만들지 않는다. 덮개만 씌우면 뚫린다.
       if (window.HNUBS_GATE_BLOCKED) return;
-      const next = mobileQuery.matches ? 'standalone-mobile.html?v=224' : 'standalone-desktop.html?v=222';
+      const next = mobileQuery.matches ? 'standalone-mobile.html?v=225' : 'standalone-desktop.html?v=222';
       if (!frame.src.endsWith(next)) frame.src = next;
     };
     window.hnubsStartApp = () => {

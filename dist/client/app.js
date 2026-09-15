@@ -973,6 +973,10 @@ function aiCurrentJob() {
   return saved.job || saved.analysisJobs?.[saved.activeJobId] || null;
 }
 
+/* AI가 모르는 장소를 UNKNOWN/N/A로 채워도 화면과 추천 로직에서는 빈 장소로 본다. */
+const normalizedScenes = job => (job?.scenes || []).map(scene =>
+  /^(unknown|n\/a)$/i.test(String(scene.location || '').trim()) ? { ...scene, location: '' } : scene);
+
 function aiCharacters(scenes = []) {
   const values = scenes.flatMap(scene => [scene.characters, scene.speakingCharacters, scene.backgroundCharacters].flatMap(x => Array.isArray(x) ? x : []));
   return [...new Set(values.map(x => String(x || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
@@ -1054,7 +1058,7 @@ const shootGapHours = () => Math.max(0, (Number(appSettings.shootGapMinutes) || 
 /** 그 날짜에 씬을 찍을 수 있는지 판정한다. 추천 / 가능 / 조건부 / 불가. */
 function copilotForDate(iso) {
   const job = aiCurrentJob();
-  const scenes = job?.scenes || [];
+  const scenes = normalizedScenes(job);
   const pid = aiProjectId();
   if (!scenes.length || !/^\d{4}-\d{2}-\d{2}$/.test(String(iso))) return { date: iso, scenes: [] };
 
@@ -1391,7 +1395,12 @@ function buildSceneSchedule(scenes = [], options = {}) {
   /* 기획자가 건 조건. 씬 번호(S#3)나 순번 둘 다 받는다. */
   const plan = aiState.planOptions || {};
   const scenePeriods = plan.scenePeriods || {};
-  const periodFor = row => scenePeriods[idOfRow(row)] || scenePeriods[String(row.index)] || '';
+  const periodFor = row => {
+    const picked = scenePeriods[idOfRow(row)] || scenePeriods[String(row.index)];
+    if (picked) return picked;
+    const analyzed = String(row.scene?.dayNight || '').trim().toLowerCase();
+    return analyzed === 'night' ? 'night' : analyzed === 'day' ? 'day' : '';
+  };
   const idOf = row => sceneIdAt(row.index);
   const keyset = list => new Set((Array.isArray(list) ? list : []).map(String));
   // 강제 묶기: 같은 묶음에 적힌 씬들은 반드시 한 그룹으로 간다.
@@ -1488,9 +1497,10 @@ function buildSceneSchedule(scenes = [], options = {}) {
     const calculate = list => {
       const result = aiCandidates(list.map(row => row.scene), list.reduce((s, r) => s + r.minutes, 0) / 60, placed, fullDates());
       const periods = new Set(list.map(periodFor).filter(Boolean));
-      if (periods.size !== 1) return result;
-      const period = [...periods][0];
-      result.items = result.items.filter(slot => period === 'night' ? slot.time >= 18 : slot.time < 18);
+      const period = periods.size === 1 ? [...periods][0] : '';
+      const outdoor = list.some(row => /광장|외관|정문|분수|놀이터|야외|공원|길가/.test(String(row.scene?.location || '')));
+      if (period === 'night') result.items = result.items.filter(slot => slot.time >= 18);
+      else if (period === 'day' || outdoor) result.items = result.items.filter(slot => slot.time + result.totalHours <= 20);
       return result;
     };
     const hasFull = value => value.items.some(slot => slot.full);
@@ -2722,8 +2732,7 @@ window.HNUBS_ENGINE = {
     const currentAiJob = aiCurrentJob();
     /* AI 는 모르는 값을 UNKNOWN 으로 채운다. 장소까지 그렇게 오면 카드에 'S#15 · UNKNOWN' 이 뜬다.
        스냅샷 입구에서 한 번 비워 두면 화면마다 있는 '장소 미정' 폴백이 그대로 동작한다. */
-    const currentScenes = (currentAiJob?.scenes || []).map(scene =>
-      /^(unknown|n\/a)$/i.test(String(scene.location || '').trim()) ? { ...scene, location: '' } : scene);
+    const currentScenes = normalizedScenes(currentAiJob);
     const currentCandidates = currentAiJob ? aiCandidates(currentScenes) : { ids: new Set(), items: [] };
     const sceneSchedule = currentAiJob
       ? buildSceneSchedule(currentScenes, { includeConfirmed: !!aiState.planOptions?.includeConfirmed })

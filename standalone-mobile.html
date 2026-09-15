@@ -2058,6 +2058,21 @@ class Component extends DCLogic {
       const project = (live?.projects || []).find(p => p.id === s.projectId);
       return [...(project?.roles?.planning || []), ...(project?.roles?.production || [])].some(p => String(p?.id || '') === String(memberId));
     };
+    /* 같은 프로젝트 촬영이 시간까지 겹치면 카드를 둘로 쪼갤 이유가 없다.
+       "S#1 18-20" 과 "S#7 19-21" 은 결국 그 프로젝트를 18-21 에 찍는 것이다.
+       프로젝트가 다르면 합치지 않는다 — 실제로 가야 할 곳이 둘이다. */
+    const mergeSameProject = list => {
+      const out = [];
+      for (const e of [...list].sort((a, b) => a.s - b.s || a.e - b.e)) {
+        const hit = e.pid ? out.find(x => x.pid === e.pid && e.s < x.e && e.e > x.s) : null;
+        if (!hit) { out.push({ ...e, parts: [e.t] }); continue; }
+        hit.s = Math.min(hit.s, e.s);
+        hit.e = Math.max(hit.e, e.e);
+        hit.parts.push(e.t);
+        hit.t = [...new Set(hit.parts)].join(', ');
+      }
+      return out;
+    };
     const personalEvents = live ? dates.map((date,i) => {
       const sched = selectedMember?.schedules?.[dateKeyFor(date)] || {};
       const fixed = selectedMember?.fixedSchedule?.[this.fixedKeyOf(date)] || [];
@@ -2065,7 +2080,8 @@ class Component extends DCLogic {
         ...fixed.map(f => ({ t:f.label||'수업', s:Number(f.start), e:Number(f.end), c:'수업' })),
         ...cutFixed(rangeEvents(sched.unavailableRanges,'불가능','개인'), fixed),
         ...cutFixed(rangeEvents(sched.availableRanges,'가능','학습'), fixed),
-        ...(live.shoots||[]).filter(s=>s.date===iso(date)&&shootIncludesMember(s, selectedMember?.id)).map(s=>({t:s.title,s:+s.startH,e:+s.endH,c:'촬영'}))
+        ...mergeSameProject((live.shoots||[]).filter(s=>s.date===iso(date)&&shootIncludesMember(s, selectedMember?.id))
+          .map(s=>({t:s.title,s:+s.startH,e:+s.endH,c:'촬영',pid:s.projectId||''})))
       ];
     }) : PERSONAL;
     const hourLabels = ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00'];

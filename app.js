@@ -1194,7 +1194,9 @@ function copilotForDate(iso) {
 /* busy: 이 계산보다 먼저 확정된 배정들. [{ date, start, end, ids:Set }]
    묶음을 하나씩 따로 계산하면 서로를 모른다. 그래서 같은 사람이 같은 시간에
    네 묶음에 동시에 '전원 가능'으로 올라왔다. 앞서 잡힌 자리는 빼고 본다. */
-function aiCandidates(scenes = [], durationHours = 0, busy = []) {
+/* avoidDates: 이미 하루치를 채운 날짜. 후보에서 빼지는 않고 뒤로 민다.
+   빼 버리면 다른 날이 정말 없을 때 배치 자체가 실패한다. */
+function aiCandidates(scenes = [], durationHours = 0, busy = [], avoidDates = null) {
   const plan = aiState.planOptions || {};
   const excluded = new Set((Array.isArray(plan.excludeDates) ? plan.excludeDates : []).map(String));
   const priority = new Set((Array.isArray(plan.priorityMembers) ? plan.priorityMembers : []).map(String));
@@ -1294,7 +1296,11 @@ function aiCandidates(scenes = [], durationHours = 0, busy = []) {
        10% 단위로 묶어 비슷하면 가까운 날을 고른다. */
     /* 준비시간이 빠듯한 후보는 뒤로 민다. 가능 인원이 같다면 숨 돌릴 틈이 있는 쪽이 낫다.
        버리지는 않는다 — 정말 그 시간밖에 없을 수도 있다. */
-    .sort((a, b) => Number(b.full) - Number(a.full)
+    .sort((a, b) =>
+      /* '며칠에 나눠 찍기'를 정했으면, 하루치를 채운 날에 더 얹기보다 새 날을 연다.
+         기획자가 명시한 조건이라 '전원 가능'보다 앞선다. */
+      (avoidDates ? Number(avoidDates.has(a.iso)) - Number(avoidDates.has(b.iso)) : 0)
+      || Number(b.full) - Number(a.full)
       || (a.tightFor > 0 ? 1 : 0) - (b.tightFor > 0 ? 1 : 0)
       || b.continuityHits - a.continuityHits
       || b.priorityHits - a.priorityHits
@@ -1417,6 +1423,19 @@ function buildSceneSchedule(scenes = [], options = {}) {
   /* 이미 자리를 잡은 묶음들. 다음 묶음은 이 자리를 피해서 후보를 찾는다.
      이게 없으면 묶음마다 '전원 가능'이라면서 같은 시간에 겹쳐 쌓인다. */
   const placed = [];
+  /* 며칠에 나눠 찍을지. 하루에 몰 수 있다고 몰아 두면 실제로는 못 찍는 날이 된다.
+     총 분량을 목표 일수로 나눠 하루치를 정하고, 그만큼 찬 날은 뒤로 민다.
+     0(자동)이면 예전처럼 가능한 가장 빠른 날부터 채운다. */
+  const targetDays = Math.max(0, Math.floor(Number(plan.targetDays) || 0));
+  const dayQuota = targetDays
+    ? rows.reduce((sum, row) => sum + row.minutes, 0) / targetDays : Infinity;
+  const fullDates = () => {
+    if (!Number.isFinite(dayQuota)) return null;
+    const used = new Map();
+    for (const x of placed) used.set(x.date, (used.get(x.date) || 0) + (x.end - x.start) * 60);
+    const hit = [...used].filter(([, mins]) => mins >= dayQuota).map(([date]) => date);
+    return hit.length ? new Set(hit) : null;
+  };
   // 덜어낸 씬이 다시 잡히도록 '아직 안 쓴 씬'을 매번 새로 찾는다.
   let guard = rows.length * 4;
   while (guard-- > 0) {
@@ -1467,7 +1486,7 @@ function buildSceneSchedule(scenes = [], options = {}) {
        강제로 묶으라고 한 씬은 덜어내지 않는다. */
     let ordered = orderSceneGroup(selected);
     const calculate = list => {
-      const result = aiCandidates(list.map(row => row.scene), list.reduce((s, r) => s + r.minutes, 0) / 60, placed);
+      const result = aiCandidates(list.map(row => row.scene), list.reduce((s, r) => s + r.minutes, 0) / 60, placed, fullDates());
       const periods = new Set(list.map(periodFor).filter(Boolean));
       if (periods.size !== 1) return result;
       const period = [...periods][0];
@@ -3085,6 +3104,10 @@ window.HNUBS_ENGINE = {
             }])
             .filter(([day, value]) => Number.isInteger(day) && day >= 0 && day <= 6
               && Number.isFinite(value.start) && Number.isFinite(value.end) && value.end > value.start)),
+      /* 며칠에 나눠 찍을지. 0 이면 자동(가능한 가장 빠른 날부터 채움). */
+      targetDays: patch.targetDays === undefined
+        ? (Number(current.targetDays) || 0)
+        : Math.min(14, Math.max(0, Math.floor(Number(patch.targetDays) || 0))),
       // 확정한 일정까지 다시 계산할지. 평소에는 건드리지 않는다.
       includeConfirmed: patch.includeConfirmed === undefined ? !!current.includeConfirmed : !!patch.includeConfirmed,
     };

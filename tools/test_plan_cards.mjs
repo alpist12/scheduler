@@ -107,11 +107,11 @@ console.log('backend guards OK');
 //    예전에는 묶음마다 따로 계산해서 같은 사람이 같은 시간 네 묶음에 '전원 가능'으로 올라왔다.
 {
   const src = fs.readFileSync('app.js', 'utf8');
-  assert(/function aiCandidates\(scenes = \[\], durationHours = 0, busy = \[\]\)/.test(src),
+  assert(/function aiCandidates\(scenes = \[\], durationHours = 0, busy = \[\], avoidDates = null\)/.test(src),
     'aiCandidates 가 이미 잡힌 자리를 안 받는다');
   assert(/const heldFor = \(member, iso, a, b\) => busy\.some/.test(src), '잡힌 자리를 빼는 검사가 없다');
   assert(/!heldFor\(member, iso, a, b\)\s*\n?\s*&& rangesOn/.test(src), 'freeIn 이 잡힌 자리를 무시한다');
-  assert(/aiCandidates\(list\.map\(row => row\.scene\),.*, placed\)/.test(src),
+  assert(/aiCandidates\(list\.map\(row => row\.scene\),.*, placed, fullDates\(\)\)/.test(src),
     '묶음 계산이 placed 를 안 넘긴다');
   assert(/if \(best\) placed\.push\(\{ date: best\.iso, start: best\.time, end: best\.endTime,/.test(src),
     '확정한 묶음의 자리를 기록하지 않는다');
@@ -128,3 +128,31 @@ console.log('backend guards OK');
   assert.equal(heldFor(박, '2026-09-18', 15, 16), false, '다른 사람까지 막는다');
 }
 console.log('engine busy-awareness OK');
+
+// ── '나눠 찍기': 하루에 몰리지 않도록 분량을 나눈다.
+//    (실측: 자동이면 9/18 에 4건 몰리던 것이 3일 기준에서 1/1/2/1 로 퍼진다)
+{
+  const src = fs.readFileSync('app.js', 'utf8');
+  assert(/function aiCandidates\(scenes = \[\], durationHours = 0, busy = \[\], avoidDates = null\)/.test(src),
+    'aiCandidates 가 피할 날짜를 안 받는다');
+  assert(/avoidDates \? Number\(avoidDates\.has\(a\.iso\)\) - Number\(avoidDates\.has\(b\.iso\)\) : 0/.test(src),
+    '찬 날짜를 뒤로 미는 정렬이 없다');
+  assert(/const dayQuota = targetDays/.test(src), '하루 할당량 계산이 없다');
+  assert(/targetDays: patch\.targetDays === undefined/.test(src), 'targetDays 가 저장되지 않는다');
+
+  // 할당량 판정만 떼어 와 확인한다
+  const m = src.match(/const fullDates = \(\) => \{[\s\S]*?\n  \};/);
+  assert(m, 'fullDates 없음');
+  const make = (placed, dayQuota) =>
+    new Function('placed', 'dayQuota', `${m[0]}\nreturn fullDates();`)(placed, dayQuota);
+
+  const placed = [
+    { date: '2026-09-18', start: 13, end: 15 },   // 120분
+    { date: '2026-09-18', start: 15, end: 16 },   //  60분 → 합 180
+    { date: '2026-09-22', start: 19, end: 20 },   //  60분
+  ];
+  assert.deepEqual([...make(placed, 150)], ['2026-09-18'], '할당량을 넘긴 날을 못 걸러낸다');
+  assert.equal(make(placed, 300), null, '아직 안 찬 날을 막는다');
+  assert.equal(make(placed, Infinity), null, '자동(제한 없음)인데 날짜를 막는다');
+}
+console.log('spread days OK');

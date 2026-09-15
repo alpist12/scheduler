@@ -432,6 +432,11 @@
                 <input type="date" value="{{ planTo }}" sc-camel-on-change="{{ changePlanTo }}" style="flex:1;min-width:0;padding:10px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#3a4373">
                 <sc-for list="{{ planQuickRanges }}" as="q" hint-placeholder-count="3"><button sc-camel-on-click="{{ q.pick }}" style="padding:9px 10px;border:1px solid #e5e8f7;border-radius:9px;background:#fff;color:#5a6595;font-size:11px;font-weight:700;cursor:pointer">{{ q.label }}</button></sc-for>
               </div>
+              <div style="font-size:12px;font-weight:800;color:#5a6595;margin-top:14px">나눠 찍기</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:8px;max-width:420px">
+                <sc-raw-select value="{{ planSpread }}" sc-camel-on-change="{{ changePlanSpread }}" style="flex:1;padding:10px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#3a4373"><sc-for list="{{ planSpreadOptions }}" as="o"><option value="{{ o.value }}">{{ o.label }}</option></sc-for></sc-raw-select>
+              </div>
+              <div style="font-size:11px;color:#9098ba;margin-top:6px">하루에 몰지 않도록 분량을 나눕니다. 인원이 안 되는 날은 건너뛰므로 실제 일수는 더 늘 수 있습니다.</div>
               <div style="font-size:12px;font-weight:800;color:#5a6595;margin-top:14px">촬영 가능 시간 <span style="font-weight:600;color:#a1a7c6">· 요일마다 따로 정합니다</span></div>
               <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-top:8px">
                 <sc-for list="{{ planDayRows }}" as="d" hint-placeholder-count="7">
@@ -3539,6 +3544,12 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
             return { label, bg: on ? '#5b6ee0' : '#fff', fg: on ? '#fff' : '#7b83a8', line: on ? '#5b6ee0' : '#e5e8f7',
               toggle: () => this.setPlanDraft({ allowedWeekdays: on ? allowedWeekdays.filter(x => x !== day) : [...allowedWeekdays, day].sort() }) };
           }),
+          /* 며칠에 나눠 찍을지. '딱 N일'이 아니라 하루 분량의 기준이다.
+             인원이 안 되는 날은 건너뛰므로 실제 일수는 더 늘 수 있다. */
+          planSpread: String(Number(plan.targetDays) || 0),
+          planSpreadOptions: [{ value: '0', label: '자동 (가능한 빠른 날부터)' },
+            ...[2, 3, 4, 5, 6, 7].map(n => ({ value: String(n), label: `${n}일에 나눠 찍기` }))],
+          changePlanSpread: e => this.setPlanDraft({ targetDays: Number(e.target.value) }),
           planHourOptions: hours,
           /* 요일마다 촬영 가능한 시간이 다르다. 하나로 묶어 두면 어느 요일에도 안 맞는
              값이 되고, 그 시간대에서만 후보를 찾으니 배치도 어긋난다.

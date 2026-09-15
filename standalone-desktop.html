@@ -432,20 +432,14 @@
                 <input type="date" value="{{ planTo }}" sc-camel-on-change="{{ changePlanTo }}" style="flex:1;min-width:0;padding:10px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#3a4373">
                 <sc-for list="{{ planQuickRanges }}" as="q" hint-placeholder-count="3"><button sc-camel-on-click="{{ q.pick }}" style="padding:9px 10px;border:1px solid #e5e8f7;border-radius:9px;background:#fff;color:#5a6595;font-size:11px;font-weight:700;cursor:pointer">{{ q.label }}</button></sc-for>
               </div>
-              <div style="font-size:12px;font-weight:800;color:#5a6595;margin-top:14px">하루 촬영 시간</div>
-              <div style="display:flex;align-items:center;gap:8px;margin-top:8px;max-width:420px">
-                <sc-raw-select value="{{ planDayStart }}" sc-camel-on-change="{{ changeDayStart }}" style="flex:1;padding:10px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#3a4373"><sc-for list="{{ planHourOptions }}" as="h"><option value="{{ h.value }}">{{ h.label }}</option></sc-for></sc-raw-select>
-                <span style="color:#a1a7c6">~</span>
-                <sc-raw-select value="{{ planDayEnd }}" sc-camel-on-change="{{ changeDayEnd }}" style="flex:1;padding:10px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#3a4373"><sc-for list="{{ planHourOptions }}" as="h"><option value="{{ h.value }}">{{ h.label }}</option></sc-for></sc-raw-select>
-              </div>
-              <div style="font-size:12px;font-weight:800;color:#5a6595;margin-top:14px">요일별 촬영 시간 <span style="font-weight:600;color:#a1a7c6">· 비워 두면 위 기본값</span></div>
+              <div style="font-size:12px;font-weight:800;color:#5a6595;margin-top:14px">촬영 가능 시간 <span style="font-weight:600;color:#a1a7c6">· 요일마다 따로 정합니다</span></div>
               <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-top:8px">
                 <sc-for list="{{ planDayRows }}" as="d" hint-placeholder-count="7">
                   <div style="display:flex;align-items:center;gap:6px">
                     <span style="width:18px;font-size:12px;font-weight:800;color:{{ d.tone }}">{{ d.label }}</span>
-                    <sc-raw-select value="{{ d.start }}" sc-camel-on-change="{{ d.changeStart }}" style="flex:1;min-width:0;padding:7px;border:1px solid #e5e8f7;border-radius:8px;background:#fff;color:{{ d.tone }};font-size:12px"><sc-for list="{{ planHourOptionsWithDefault }}" as="h"><option value="{{ h.value }}">{{ h.label }}</option></sc-for></sc-raw-select>
+                    <sc-raw-select value="{{ d.start }}" sc-camel-on-change="{{ d.changeStart }}" style="flex:1;min-width:0;padding:7px;border:1px solid #e5e8f7;border-radius:8px;background:#fff;color:{{ d.tone }};font-size:12px"><sc-for list="{{ planHourOptions }}" as="h"><option value="{{ h.value }}">{{ h.label }}</option></sc-for></sc-raw-select>
                     <span style="color:#c9cee6;font-size:11px">~</span>
-                    <sc-raw-select value="{{ d.end }}" sc-camel-on-change="{{ d.changeEnd }}" style="flex:1;min-width:0;padding:7px;border:1px solid #e5e8f7;border-radius:8px;background:#fff;color:{{ d.tone }};font-size:12px"><sc-for list="{{ planHourOptionsWithDefault }}" as="h"><option value="{{ h.value }}">{{ h.label }}</option></sc-for></sc-raw-select>
+                    <sc-raw-select value="{{ d.end }}" sc-camel-on-change="{{ d.changeEnd }}" style="flex:1;min-width:0;padding:7px;border:1px solid #e5e8f7;border-radius:8px;background:#fff;color:{{ d.tone }};font-size:12px"><sc-for list="{{ planHourOptions }}" as="h"><option value="{{ h.value }}">{{ h.label }}</option></sc-for></sc-raw-select>
                   </div>
                 </sc-for>
               </div>
@@ -3551,29 +3545,19 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
              비워 두면(기본) 위의 '하루 촬영 시간'을 그대로 쓴다. */
           planDayRows: allowedWeekdays.slice().sort((a, b) => a - b).map(day => {
             const win = (plan.dayWindows || {})[day] || (plan.dayWindows || {})[String(day)] || null;
-            const setWin = (key, value) => {
-              const next = { ...(plan.dayWindows || {}) };
-              if (!value) delete next[day];
-              else next[day] = {
-                start: key === 'start' ? Number(value) : Number(win?.start ?? plan.dayStart ?? 18),
-                end: key === 'end' ? Number(value) : Number(win?.end ?? plan.dayEnd ?? 22.5),
-              };
-              this.setPlanDraft({ dayWindows: next });
-            };
+            const start = Number(win?.start ?? plan.dayStart ?? 18);
+            const end = Number(win?.end ?? plan.dayEnd ?? 22.5);
+            const setWin = (key, value) => this.setPlanDraft({ dayWindows: {
+              ...(plan.dayWindows || {}),
+              [day]: { start: key === 'start' ? Number(value) : start, end: key === 'end' ? Number(value) : end },
+            } });
             return {
               label: ['월', '화', '수', '목', '금', '토', '일'][day],
-              start: win ? String(win.start) : '',
-              end: win ? String(win.end) : '',
-              tone: win ? '#3a4373' : '#a1a7c6',
+              start: String(start), end: String(end), tone: '#3a4373',
               changeStart: e => setWin('start', e.target.value),
               changeEnd: e => setWin('end', e.target.value),
             };
           }),
-          planHourOptionsWithDefault: [{ value: '', label: '기본' }, ...hours],
-          planDayStart: String(Number(plan.dayStart) || 18),
-          planDayEnd: String(Number(plan.dayEnd) || 22.5),
-          changeDayStart: e => this.setPlanDraft({ dayStart: Number(e.target.value) }),
-          changeDayEnd: e => this.setPlanDraft({ dayEnd: Number(e.target.value) }),
         };
       })(),
 

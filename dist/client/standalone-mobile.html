@@ -507,8 +507,8 @@
                       <div sc-camel-on-click="{{ sl.add }}" style="height:38px;border-bottom:1px solid #f6f7fc;cursor:pointer"></div>
                     </sc-for>
                     <sc-for list="{{ col.events }}" as="e" hint-placeholder-count="3">
-                      <div data-personal-card="1" sc-camel-on-click="{{ e.remove }}" title="눌러서 삭제" style="cursor:pointer;position:absolute;left:3px;right:3px;top:{{ e.top }};height:{{ e.height }};border-radius:8px;padding:5px 6px;overflow:hidden;background:{{ e.bg }};border-left:3px solid {{ e.line }}">
-                        <div style="font-size:10px;font-weight:800;color:{{ e.fg }};line-height:1.25;white-space:{{ e.wrap }};overflow:hidden;text-overflow:ellipsis">{{ e.title }}</div>
+                      <div data-personal-card="1" sc-camel-on-click="{{ e.remove }}" title="{{ e.tip }}" style="cursor:pointer;position:absolute;z-index:{{ e.zIndex }};left:{{ e.left }};width:{{ e.width }};top:{{ e.top }};height:{{ e.height }};border-radius:8px;padding:{{ e.pad }};overflow:hidden;background:{{ e.bg }};border-left:3px solid {{ e.line }}">
+                        <div style="font-size:{{ e.size }};font-weight:800;color:{{ e.fg }};line-height:1.25;white-space:{{ e.wrap }};word-break:keep-all;overflow-wrap:anywhere;overflow:hidden">{{ e.title }}</div>
                         <div style="font-size:9px;color:{{ e.fg }};opacity:.75;margin-top:2px;font-weight:600">{{ e.time }}</div>
                       </div>
                     </sc-for>
@@ -620,17 +620,25 @@
                     </sc-for>
                   </div>
 
-                  <div style="font-size:11.5px;font-weight:800;color:#5a6595;margin-top:15px">하루 촬영 가능 시간대</div>
-                  <div style="font-size:10.5px;color:#a7adcd;font-weight:600;margin-top:3px">이 시간 밖은 추천하지 않습니다.</div>
-                  <div style="display:flex;align-items:center;gap:6px;margin-top:7px">
-                    <sc-raw-select value="{{ planDayStart }}" sc-camel-on-change="{{ changeDayStart }}" style="flex:1;min-width:0;padding:10px;border:1px solid #eceefa;border-radius:10px;background:#fbfcff;font-size:12px;color:#3a4373">
-                      <sc-for list="{{ planHourOptions }}" as="h"><option value="{{ h.value }}">{{ h.label }}</option></sc-for>
-                    </sc-raw-select>
-                    <span style="color:#a1a7c6;font-weight:700">~</span>
-                    <sc-raw-select value="{{ planDayEnd }}" sc-camel-on-change="{{ changeDayEnd }}" style="flex:1;min-width:0;padding:10px;border:1px solid #eceefa;border-radius:10px;background:#fbfcff;font-size:12px;color:#3a4373">
-                      <sc-for list="{{ planHourOptions }}" as="h"><option value="{{ h.value }}">{{ h.label }}</option></sc-for>
-                    </sc-raw-select>
-                  </div>
+                  <div style="font-size:11.5px;font-weight:800;color:#5a6595;margin-top:15px">나눠 찍기</div>
+                  <div style="font-size:10.5px;color:#a7adcd;font-weight:600;margin-top:3px">하루에 몰지 않도록 분량을 나눕니다.</div>
+                  <sc-raw-select value="{{ planSpread }}" sc-camel-on-change="{{ changePlanSpread }}" style="width:100%;margin-top:7px;padding:10px;border:1px solid #eceefa;border-radius:10px;background:#fbfcff;font-size:12px;color:#3a4373">
+                    <sc-for list="{{ planSpreadOptions }}" as="o"><option value="{{ o.value }}">{{ o.label }}</option></sc-for>
+                  </sc-raw-select>
+                  <div style="font-size:11.5px;font-weight:800;color:#5a6595;margin-top:15px">촬영 가능 시간</div>
+                  <div style="font-size:10.5px;color:#a7adcd;font-weight:600;margin-top:3px">요일마다 따로 정합니다. 이 시간 밖은 추천하지 않습니다.</div>
+                  <sc-for list="{{ planDayRows }}" as="d" hint-placeholder-count="7">
+                    <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+                      <span style="width:16px;font-size:11.5px;font-weight:800;color:{{ d.tone }}">{{ d.label }}</span>
+                      <sc-raw-select value="{{ d.start }}" sc-camel-on-change="{{ d.changeStart }}" style="flex:1;min-width:0;padding:8px;border:1px solid #eceefa;border-radius:9px;background:#fbfcff;font-size:11.5px;color:{{ d.tone }}">
+                        <sc-for list="{{ planHourOptions }}" as="h"><option value="{{ h.value }}">{{ h.label }}</option></sc-for>
+                      </sc-raw-select>
+                      <span style="color:#c9cee6;font-size:11px">~</span>
+                      <sc-raw-select value="{{ d.end }}" sc-camel-on-change="{{ d.changeEnd }}" style="flex:1;min-width:0;padding:8px;border:1px solid #eceefa;border-radius:9px;background:#fbfcff;font-size:11.5px;color:{{ d.tone }}">
+                        <sc-for list="{{ planHourOptions }}" as="h"><option value="{{ h.value }}">{{ h.label }}</option></sc-for>
+                      </sc-raw-select>
+                    </div>
+                  </sc-for>
                 </div>
               </sc-if>
             </div>
@@ -2058,6 +2066,21 @@ class Component extends DCLogic {
       const project = (live?.projects || []).find(p => p.id === s.projectId);
       return [...(project?.roles?.planning || []), ...(project?.roles?.production || [])].some(p => String(p?.id || '') === String(memberId));
     };
+    /* 같은 프로젝트 촬영이 시간까지 겹치면 카드를 둘로 쪼갤 이유가 없다.
+       "S#1 18-20" 과 "S#7 19-21" 은 결국 그 프로젝트를 18-21 에 찍는 것이다.
+       프로젝트가 다르면 합치지 않는다 — 실제로 가야 할 곳이 둘이다. */
+    const mergeSameProject = list => {
+      const out = [];
+      for (const e of [...list].sort((a, b) => a.s - b.s || a.e - b.e)) {
+        const hit = e.pid ? out.find(x => x.pid === e.pid && e.s < x.e && e.e > x.s) : null;
+        if (!hit) { out.push({ ...e, parts: [e.t] }); continue; }
+        hit.s = Math.min(hit.s, e.s);
+        hit.e = Math.max(hit.e, e.e);
+        hit.parts.push(e.t);
+        hit.t = [...new Set(hit.parts)].join(', ');
+      }
+      return out;
+    };
     const personalEvents = live ? dates.map((date,i) => {
       const sched = selectedMember?.schedules?.[dateKeyFor(date)] || {};
       const fixed = selectedMember?.fixedSchedule?.[this.fixedKeyOf(date)] || [];
@@ -2065,16 +2088,53 @@ class Component extends DCLogic {
         ...fixed.map(f => ({ t:f.label||'수업', s:Number(f.start), e:Number(f.end), c:'수업' })),
         ...cutFixed(rangeEvents(sched.unavailableRanges,'불가능','개인'), fixed),
         ...cutFixed(rangeEvents(sched.availableRanges,'가능','학습'), fixed),
-        ...(live.shoots||[]).filter(s=>s.date===iso(date)&&shootIncludesMember(s, selectedMember?.id)).map(s=>({t:s.title,s:+s.startH,e:+s.endH,c:'촬영'}))
+        ...mergeSameProject((live.shoots||[]).filter(s=>s.date===iso(date)&&shootIncludesMember(s, selectedMember?.id))
+          .map(s=>({t:s.title,s:+s.startH,e:+s.endH,c:'촬영',pid:s.projectId||''})))
       ];
     }) : PERSONAL;
     const hourLabels = ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00'];
 
     const label = v => this.hourLabel(v);
-    const mkEvents = list => list.map(e => {
+    /* 겹치는 일정을 같은 자리에 그리면 뒤엣것이 앞엣것을 덮는다. 실제로 9/15 의
+       S#1(18-20) 이 S#7(19-21) 에 가려져 촬영 한 건이 통째로 안 보였다.
+       겹치는 덩어리끼리 열을 나눠 나란히 세운다. */
+    const layout = list => {
+      const sorted = [...list].sort((a, b) => a.s - b.s || a.e - b.e);
+      const place = new Map();
+      let bunch = [], bunchEnd = -Infinity;
+      const settle = () => {
+        if (!bunch.length) return;
+        const colEnd = [];
+        for (const e of bunch) {
+          let col = colEnd.findIndex(end => end <= e.s);
+          if (col < 0) { col = colEnd.length; colEnd.push(0); }
+          colEnd[col] = e.e;
+          place.set(e, col);
+        }
+        for (const e of bunch) place.set(e, { col: place.get(e), cols: colEnd.length });
+        bunch = []; bunchEnd = -Infinity;
+      };
+      for (const e of sorted) {
+        if (bunch.length && e.s >= bunchEnd) settle();
+        bunch.push(e); bunchEnd = Math.max(bunchEnd, e.e);
+      }
+      settle();
+      return sorted.map(e => ({ event: e, ...(place.get(e) || { col: 0, cols: 1 }) }));
+    };
+    const mkEvents = list => layout(list).map(({ event: e, col, cols }) => {
       const c = CAT[e.c] || CAT.기타;
-      const roomy = (e.e - e.s) >= 2;
-      return { title: e.t, time: roomy ? label(e.s) + ' - ' + label(e.e) : '', wrap: roomy ? 'normal' : 'nowrap', bg: c.bg, line: c.line, fg: c.fg,
+      /* 카드 안에는 시간을 적지 않는다. 왼쪽 시간축이 이미 말해 준다. */
+      return { title: e.t, time: '',
+        tip: `${e.t} · ${label(e.s)} - ${label(e.e)}`, wrap: 'normal', bg: c.bg, line: c.line, fg: c.fg,
+        /* 겹치면 계단식으로 민다. 반으로 쪼개면 제목이 남지 않는다. */
+        /* 겹치면 폭을 똑같이 나눠 나란히 세운다. 계단식으로 밀면 앞 카드가
+           몇 px 만 남아 제목이 한 글자로 잘린다. 좁아진 만큼 글자를 줄인다. */
+        left: `calc(${col} * (100% - 6px) / ${cols} + 3px)`,
+        width: `calc((100% - 6px) / ${cols} - 2px)`,
+        size: cols > 1 ? '8.5px' : '10px',
+        // 폭이 반으로 줄면 좌우 패딩이 글자 자리를 다 먹는다.
+        pad: cols > 1 ? '4px 3px' : '5px 6px',
+        zIndex: String(col + 1),
         top: ((Math.max(e.s, 9) - 9) * 38) + 'px', height: Math.max((Math.min(e.e, 23) - Math.max(e.s, 9)) * 38 - 3, 22) + 'px' };
     });
 
@@ -2424,11 +2484,31 @@ class Component extends DCLogic {
             return { label, bg: on ? '#5b6ee0' : '#fff', fg: on ? '#fff' : '#7b83a8', line: on ? '#5b6ee0' : '#e5e8f7',
               toggle: () => this.setPlanDraft({ allowedWeekdays: on ? allowedWeekdays.filter(x => x !== day) : [...allowedWeekdays, day].sort() }) };
           }),
+          /* 며칠에 나눠 찍을지. '딱 N일'이 아니라 하루 분량의 기준이다.
+             인원이 안 되는 날은 건너뛰므로 실제 일수는 더 늘 수 있다. */
+          planSpread: String(Number(plan.targetDays) || 0),
+          planSpreadOptions: [{ value: '0', label: '자동 (가능한 빠른 날부터)' },
+            ...[2, 3, 4, 5, 6, 7].map(n => ({ value: String(n), label: `${n}일에 나눠 찍기` }))],
+          changePlanSpread: e => this.setPlanDraft({ targetDays: Number(e.target.value) }),
           planHourOptions: hours,
-          planDayStart: String(Number(plan.dayStart) || 18),
-          planDayEnd: String(Number(plan.dayEnd) || 22.5),
-          changeDayStart: e => this.setPlanDraft({ dayStart: Number(e.target.value) }),
-          changeDayEnd: e => this.setPlanDraft({ dayEnd: Number(e.target.value) }),
+          /* 요일마다 촬영 가능한 시간이 다르다. 하나로 묶어 두면 어느 요일에도 안 맞는
+             값이 되고, 그 시간대에서만 후보를 찾으니 배치도 어긋난다.
+             비워 두면(기본) 위의 '하루 촬영 가능 시간대'를 그대로 쓴다. */
+          planDayRows: allowedWeekdays.slice().sort((a, b) => a - b).map(day => {
+            const win = (plan.dayWindows || {})[day] || (plan.dayWindows || {})[String(day)] || null;
+            const start = Number(win?.start ?? plan.dayStart ?? 18);
+            const end = Number(win?.end ?? plan.dayEnd ?? 22.5);
+            const setWin = (key, value) => this.setPlanDraft({ dayWindows: {
+              ...(plan.dayWindows || {}),
+              [day]: { start: key === 'start' ? Number(value) : start, end: key === 'end' ? Number(value) : end },
+            } });
+            return {
+              label: ['월', '화', '수', '목', '금', '토', '일'][day],
+              start: String(start), end: String(end), tone: '#3a4373',
+              changeStart: e => setWin('start', e.target.value),
+              changeEnd: e => setWin('end', e.target.value),
+            };
+          }),
         };
       })(),
       autoPlanOpen: !!st.autoPlanOpen,

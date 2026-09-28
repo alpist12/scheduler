@@ -111,6 +111,7 @@
        비밀번호 확인은 서버에서만 한다. 여기서 비교하면 개발자 도구로 뚫린다.
        통과 기록은 탭을 닫으면 사라지는 sessionStorage 에만 둔다. */
     const apiBase = () => (location.pathname.startsWith('/scheduler') ? '/scheduler' : '');
+    const MAINTENANCE_STATUS_URL = 'https://firestore.googleapis.com/v1/projects/hnubs-2sceduler/databases/default/documents/settings/maintenance?key=AIzaSyDXmeiQpRSZshFA1_BgZ2z_8AKLy6_Nc8M';
     const BYPASS = 'hnubs-maint-ok';
     const gate = document.getElementById('maintGate');
     const gateMsg = document.getElementById('maintMsg');
@@ -125,6 +126,17 @@
       if (!res.ok) throw new Error(data.error || `요청 실패 (${res.status})`);
       return data;
     };
+    const readMaintStatus = async () => {
+      const res = await fetch(MAINTENANCE_STATUS_URL);
+      if (res.status === 404) return { blocked: false, message: '', since: '' };
+      if (!res.ok) throw new Error(`점검 상태 읽기 실패 (${res.status})`);
+      const fields = (await res.json()).fields || {};
+      return {
+        blocked: fields.blocked?.booleanValue === true,
+        message: fields.message?.stringValue || '',
+        since: fields.since?.stringValue || '',
+      };
+    };
     window.hnubsMaintenance = maintApi;
 
     const passed = () => { try { return sessionStorage.getItem(BYPASS) === '1'; } catch { return false; } };
@@ -137,7 +149,7 @@
 
     (async () => {
       try {
-        const state = await maintApi({ action: 'status' });
+        const state = await readMaintStatus();
         window.HNUBS_MAINT = state;
         if (state.blocked && !passed()) { showGate(state); return; }   // 통과 전에는 앱을 만들지 않는다
       } catch (error) {

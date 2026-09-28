@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 const source = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const desktop = readFileSync(new URL('../standalone-desktop.html', import.meta.url), 'utf8');
 const mobile = readFileSync(new URL('../standalone-mobile.html', import.meta.url), 'utf8');
+const index = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
 assert.match(source, /const ENGINE_ONLY = .*get\('engine'\) === '1'/);
 assert.match(source, /function render\(\) \{\s*engineRevision \+= 1;\s*if \(ENGINE_ONLY\) return;/);
@@ -24,6 +25,8 @@ assert.doesNotMatch(mobile, /quickLinks:/);
 assert.match(desktop, /componentDidMount\(\)[\s\S]*?this\.setState\(\{ splash: false \}\);/);
 assert.match(mobile, /componentDidMount\(\)[\s\S]*?this\.setState\(\{ splash: false \}\);/);
 assert.match(desktop, /const current = window\.parent\?\.HNUBS_MAINT;/);
+assert.match(index, /firestore\.googleapis\.com\/v1\/projects\/hnubs-2sceduler\/databases\/default\/documents\/settings\/maintenance/);
+assert.match(index, /const state = await readMaintStatus\(\);/);
 
 
 /* 후보 계산이 같은 질문을 수천 번 되묻던 것들. 하나라도 풀리면 재배치가 다시 10초대로 돌아간다.

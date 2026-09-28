@@ -17,7 +17,13 @@ for (const ui of [desktop, mobile]) {
   assert.match(ui, /planDaysAll = \(!st\.autoPlanOpen \|\| st\.(?:advancedOpen|planCondOpen) \|\| st\.planCalculating \|\| st\.aiLoadingProject\) \? \[\]/);
   assert.match(ui, /setTimeout\(\(\) => \{/);
   assert.match(ui, /aiLoadingProject/);
+  assert.match(ui, /if \(live\?\.ready && this\.state\.splash\) this\.leaveSplash\(\);/);
 }
+
+assert.doesNotMatch(mobile, /quickLinks:/);
+assert.match(desktop, /componentDidMount\(\)[\s\S]*?this\.setState\(\{ splash: false \}\);/);
+assert.match(mobile, /componentDidMount\(\)[\s\S]*?this\.setState\(\{ splash: false \}\);/);
+assert.match(desktop, /const current = window\.parent\?\.HNUBS_MAINT;/);
 
 
 /* 후보 계산이 같은 질문을 수천 번 되묻던 것들. 하나라도 풀리면 재배치가 다시 10초대로 돌아간다.

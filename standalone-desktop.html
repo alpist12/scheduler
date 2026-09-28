@@ -1761,6 +1761,7 @@ class Component extends DCLogic {
   readLive = () => {
     try {
       const live = this.engine()?.snapshot?.();
+      if (live?.ready && this.state.splash) this.leaveSplash();
       if (live && live.revision !== this.state.live?.revision) {
         const job = live.ai?.job;
         const phase = job ? (job.status === 'completed' ? 'done' : ['running','queued'].includes(job.status) ? 'running' : 'idle') : this.state.aiPhase;
@@ -1782,8 +1783,7 @@ class Component extends DCLogic {
     this._elapsed = setInterval(() => { if (this.state.aiPhase === 'running') this.setState({ aiTick: Date.now() }); }, 1000);
     this.readLive();
     this.loadMaint();
-    if (this.props.autoSplash === false) { this.setState({ splash: false }); return; }
-    this._t = setTimeout(this.leaveSplash, 2600);
+    this.setState({ splash: false });
   }
   componentWillUnmount() { clearTimeout(this._t); clearInterval(this._live); clearInterval(this._progress); clearInterval(this._elapsed); }
 
@@ -2475,6 +2475,8 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
 
   loadMaint = async () => {
     try {
+      const current = window.parent?.HNUBS_MAINT;
+      if (current) { this.setState({ maintBlocked: !!current.blocked, maintLoaded: true }); return; }
       const api = window.parent?.hnubsMaintenance;
       if (!api) return;
       const r = await api({ action: 'status' });

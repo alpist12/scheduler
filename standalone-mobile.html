@@ -571,6 +571,12 @@
         <div style="font-size:27px;font-weight:800;color:#1c2549;letter-spacing:-.02em">AI 분석</div>
         <div style="font-size:13.5px;color:#8b93b8;font-weight:600;margin-top:7px;line-height:1.6">촬영 일정을 더 효율적으로,<br>AI가 도와드릴게요.</div>
 
+        <div style="margin-top:14px;padding:14px;border:1px solid #e9ecf8;border-radius:18px;background:#fff;box-shadow:0 10px 24px rgba(90,105,180,.08)">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><sc-for list="{{ aiCategoryTabs }}" as="c" hint-placeholder-count="2"><button sc-camel-on-click="{{ c.pick }}" style="min-height:44px;border:1px solid {{ c.line }};border-radius:12px;background:{{ c.bg }};color:{{ c.fg }};font-size:12.5px;font-weight:800">{{ c.label }}</button></sc-for></div>
+          <sc-if value="{{ aiCategoryFestival }}" hint-placeholder-val="{{ false }}"><sc-raw-select value="{{ aiProjectId }}" sc-camel-on-change="{{ changeAiProject }}" style="width:100%;margin-top:10px;padding:12px;border:1px solid #e5e8f7;border-radius:12px;background:#fbfcff;color:#2b3560;font-size:12.5px;font-weight:700"><sc-for list="{{ aiFestivalProjects }}" as="p"><option value="{{ p.id }}">{{ p.name }}</option></sc-for></sc-raw-select></sc-if>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px"><button sc-camel-on-click="{{ startCategoryAnalysis }}" style="min-height:44px;border:0;border-radius:12px;background:linear-gradient(135deg,#4f8ef7,#6366f1);color:#fff;font-size:12.5px;font-weight:800">분석하기</button><button sc-camel-on-click="{{ openCategoryResults }}" style="min-height:44px;border:1px solid #dfe5f7;border-radius:12px;background:#fff;color:#52608e;font-size:12.5px;font-weight:800">분석 결과</button></div>
+        </div>
+
         <div style="position:relative;margin-top:14px;padding:4px;border:1px solid #e4e8f7;border-radius:16px;background:linear-gradient(135deg,#f8faff,#f3f1ff);box-shadow:0 8px 20px rgba(95,108,174,.08)">
           <span class="ms ms-fill" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:19px;color:#5c7df0;pointer-events:none">auto_awesome</span>
           <sc-raw-select value="{{ aiView }}" sc-camel-on-change="{{ changeAiView }}" style="appearance:none;width:100%;padding:11px 38px 11px 40px;border:0;border-radius:12px;background:#fff;color:#263158;font-size:13.5px;font-weight:800;box-shadow:0 3px 10px rgba(71,84,145,.08);outline:none">
@@ -879,7 +885,7 @@
             <button sc-camel-on-click="{{ backAiStage }}" style="padding:8px 11px;border:1px solid #e5e8f7;border-radius:10px;background:#fff;color:#66709d;font-size:11.5px;font-weight:700;cursor:pointer">‹ {{ aiBackLabel }}</button>
           </sc-if>
 
-          <div style="display:flex;align-items:center;gap:9px">
+          <div style="display:{{ aiProjectRowDisplay }};align-items:center;gap:9px">
             <strong style="flex:0 0 auto;font-size:12.5px;color:#5a6595">프로젝트</strong>
             <sc-raw-select value="{{ aiProjectId }}" sc-camel-on-change="{{ changeAiProject }}" style="flex:1;min-width:0;padding:11px 12px;border:1px solid #e9ecfb;border-radius:12px;background:#fbfcff;color:#2b3560;font-weight:700;font-size:13px">
               <sc-for list="{{ aiProjects }}" as="p"><option value="{{ p.id }}">{{ p.name }}</option></sc-for>
@@ -1492,7 +1498,7 @@ class Component extends DCLogic {
     sheetOpen: false, compareOpen: false, compareSel: [], live: null, aiProjectId: '', aiFile: null, mPerson: '',
     mfTitle: '', mfPlace: '', mfStart: '14:00', mfEnd: '16:00', mfDay: 2, mfStatus: '가능', mfKind: '이번 주 일정', mfCategory: '방송제', mfUploadWeek: '', showBroadcast: false,
     mfEditId: '', mfCast: [], mfNote: '',
-    aiView: 'new', aiHistoryOpen: false, droppedScenes: {}, planPickedSlot: {}, projectEditId: ''
+    aiView: 'new', aiCategory: '마디영상', aiHistoryOpen: false, droppedScenes: {}, planPickedSlot: {}, projectEditId: ''
   };
 
   /** 저장 계열은 한 번에 하나만 돈다. 연타하면 같은 일정이 여러 건 생긴다.
@@ -1812,17 +1818,35 @@ class Component extends DCLogic {
     this.readLive();
     this.setState({ planTick: (this.state.planTick || 0) + 1 });
   };
-  loadAiProject = (id, project = null) => {
+  loadAiProject = (id, project = null, extras = {}) => {
     const analyzed = !!project?.aiAnalysis;
     this.setState({ aiProjectId: id, aiFile: project?.aiAnalysis?.script?.filename || null,
       aiPhase: analyzed ? 'done' : 'idle', aiStage: analyzed ? 'results' : 'upload', aiPct: analyzed ? 100 : 0,
-      aiSceneIndex: 0, aiCandidateIndex: 0, autoPlanOpen: false, aiLoadingProject: !!id });
+      aiSceneIndex: 0, aiCandidateIndex: 0, autoPlanOpen: false, aiLoadingProject: !!id, ...extras });
     requestAnimationFrame(() => setTimeout(() => {
       try { this.engine()?.selectAnalysisProject?.(id); }
       catch (e) { this.setState({ aiLoadingProject: false }); window.alert('분석 결과를 불러오지 못했습니다: ' + e.message); return; }
       const live = this.engine()?.snapshot?.();
       this.setState({ ...(live ? { live } : {}), aiLoadingProject: false });
     }, 30));
+  };
+  openAiCategory = async (view = 'new') => {
+    try {
+      const category = this.state.aiCategory || '마디영상';
+      let live = this.state.live || {}, project = (live.projects || []).find(p => p.name === '마디영상');
+      if (category === '마디영상' && !project) {
+        const id = await this.engine()?.saveProject?.({ name:'마디영상', color:'#14a6a1', roles:{}, members:[] });
+        project = { id, name:'마디영상', color:'#14a6a1' };
+        this.readLive();
+      }
+      if (category === '방송제') {
+        project = (live.projects || []).find(p => p.id === this.state.aiProjectId);
+        if (!project) { window.alert('방송제 프로젝트를 먼저 선택하세요.'); return; }
+      }
+      if (!project?.id) throw new Error('분석 프로젝트를 준비하지 못했습니다.');
+      if (view === 'results' && !project.aiAnalysis) { window.alert('저장된 분석 결과가 없습니다.'); return; }
+      this.loadAiProject(project.id, project, { aiView:view, aiStage:view==='new'?'upload':'results', aiPhase:view==='new'?'idle':'done', aiFile:view==='new'?null:project.aiAnalysis?.script?.filename||null, aiHistoryOpen:false });
+    } catch (error) { window.alert(error.message); }
   };
   planOptions = () => {
     try {
@@ -2972,6 +2996,12 @@ class Component extends DCLogic {
       aiFileName: st.aiFile, aiHasFile: !!st.aiFile,
       aiProjectId: st.aiProjectId,
       aiProjects: [{ id: '', name: '프로젝트를 선택하세요' }, ...(live?.projects || [])],
+      aiCategoryTabs: ['마디영상','방송제'].map(label => { const on=(st.aiCategory||'마디영상')===label; return { label, bg:on?'#eef3ff':'#fff', fg:on?'#3b65dc':'#7b83a8', line:on?'#8aa7ff':'#e5e8f7', pick:()=>this.setState({ aiCategory:label, aiProjectId:label==='방송제' && (live?.projects||[]).some(p=>p.id===st.aiProjectId && p.name!=='마디영상') ? st.aiProjectId : '' }) }; }),
+      aiCategoryFestival: st.aiCategory === '방송제',
+      aiFestivalProjects: [{ id:'', name:'프로젝트를 선택하세요' }, ...(live?.projects||[]).filter(p=>p.name!=='마디영상')],
+      startCategoryAnalysis: () => this.openAiCategory('new'),
+      openCategoryResults: () => this.openAiCategory('results'),
+      aiProjectRowDisplay: st.aiCategory === '방송제' ? 'flex' : 'none',
       changeAiProject:e=>{const id=e.target.value,p=(live?.projects||[]).find(x=>x.id===id);this.loadAiProject(id,p);},
       aiRunning: st.aiStage === 'running' || st.aiPhase === 'running', aiDone: st.aiStage === 'results' && (st.aiPhase === 'done' || (live?.ai?.sceneCount || 0) > 0), aiIdle: st.aiStage === 'upload',
       aiResultTitle: live?.ai?.job?.status === 'completed' ? '분석이 완료되었어요!' : st.aiPhase === 'running' ? '분석된 씬부터 확인할 수 있어요.' : '일부 결과만 확인되었습니다. 서버 로그를 확인해 주세요.',

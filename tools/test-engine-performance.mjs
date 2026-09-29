@@ -46,6 +46,9 @@ for (const ui of [desktop, mobile]) {
   assert.match(ui, /비교 인원 조건 설정/);
   assert.match(ui, /t:'2명 이하'/);
   assert.match(ui, /category === '마디영상'/);
+  assert.match(ui, /aiCategoryTabs/);
+  assert.match(ui, /openAiCategory/);
+  assert.match(ui, /방송제 프로젝트/);
   assert.match(ui, /#ef5b6f/);
   assert.match(ui, /#14a6a1/);
 }
@@ -60,5 +63,7 @@ assert.doesNotMatch(source, /const members = \(\) => Object\.fromEntries/);
 assert.match(source, /function shootsByDate\(iso\)/);
 assert.match(source, /const value = computeRangesOn\(m, iso\);/);
 assert.match(source, /shoots: shootsByDate\(iso\), memberIdsOfShoot: shootMemberIds,/);
+assert.match(source, /if \(s\?\.category === '방송국'\) return new Set\(\);/);
+assert.match(source, /if \(record\.category === '방송국'\) return \[\];/);
 
 console.log('engine performance checks passed');

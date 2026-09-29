@@ -296,6 +296,8 @@ function shootsOn(day) {
 // 촬영에 묶인 인원 = 프로젝트 기획·촬영/편집(모든 씬 고정) + 그 씬의 출연진(씬별로 다름)
 function shootMemberIds(s) {
   freshCache();
+  // 방송국 일정은 편집 마감 같은 공지용이다. 사람의 촬영 가능 시간을 막지 않는다.
+  if (s?.category === '방송국') return new Set();
   if (s?.id) { const hit = revCache.castIds.get(s.id); if (hit) return hit; }
   const ids = new Set((Array.isArray(s.cast) ? s.cast : []).map(c => c.id));
   const proj = projectOf(s);
@@ -309,6 +311,7 @@ function shootMemberIds(s) {
 /** 촬영끼리 시간이 겹쳐도 사람이 안 겹치면 같이 찍을 수 있다.
     막는 건 '같은 사람이 같은 시간에 두 촬영'뿐이다. 판정은 여기 한 곳에서만 한다. */
 function shootConflicts(record = {}) {
+  if (record.category === '방송국') return [];
   const date = String(record.date || '');
   const start = Number(record.startH), end = Number(record.endH);
   if (!date || !(end > start)) return [];

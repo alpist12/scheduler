@@ -666,6 +666,11 @@
         </sc-if>
       </sc-if>
 
+      <sc-if value="{{ aiHistoryButtonVisible }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;justify-content:flex-end;margin-top:18px">
+          <button sc-camel-on-click="{{ toggleAiHistory }}" style="display:inline-flex;align-items:center;gap:7px;padding:10px 14px;border:1px solid #dfe5f7;border-radius:12px;background:#fff;color:#52608e;font-size:12.5px;font-weight:800;cursor:pointer;box-shadow:0 6px 16px rgba(80,94,153,.08)"><span class="ms" style="font-size:17px">history</span>{{ aiHistoryButtonLabel }}</button>
+        </div>
+      </sc-if>
       <sc-if value="{{ aiShowHistory }}" hint-placeholder-val="{{ false }}">
         <div style="margin-top:22px;background:#fff;border:1px solid #f0f1fb;border-radius:26px;padding:24px;box-shadow:0 20px 38px rgba(122,134,205,.16)">
           <div style="font-size:18px;font-weight:800;color:#222c52">과거 분석 결과</div><div style="font-size:12.5px;color:#9098ba;margin-top:6px">항목을 누르면 저장된 씬·배역·추천 시간을 다시 확인할 수 있습니다.</div>
@@ -1074,7 +1079,10 @@
 
           </div>
         </sc-if>
-        <div style="display:{{ shootMainDisplay }};justify-content:flex-end">
+        <div style="display:{{ shootMainDisplay }};justify-content:flex-end;align-items:center;gap:12px">
+          <label style="display:flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1px solid #e5e8f7;border-radius:13px;background:#fff;color:#53608e;font-size:12.5px;font-weight:800;cursor:pointer">
+            <input type="checkbox" checked="{{ showBroadcast }}" sc-camel-on-change="{{ toggleBroadcast }}" style="width:17px;height:17px;accent-color:#3b82f6"> 방송국 일정 보기
+          </label>
           <button sc-camel-on-click="{{ openModal }}" style="padding:14px 24px;border:0;border-radius:15px;background:linear-gradient(135deg,#4f8ef7,#3b82f6);color:#fff;font-size:14.5px;font-weight:700;cursor:pointer;box-shadow:0 10px 22px rgba(59,130,246,.3)">+ 촬영 일정 추가</button>
         </div>
 
@@ -1104,7 +1112,9 @@
                       <sc-for list="{{ d.items }}" as="s" hint-placeholder-count="2">
                         <div style="border-radius:12px;padding:10px;background:{{ s.bg }};border:1px solid {{ s.line }}">
                           <div style="font-size:13px;font-weight:800;color:#222c52">{{ s.title }}</div>
-                          <div style="font-size:11.5px;color:#9aa1c2;margin-top:3px;font-weight:600">{{ s.place }}</div>
+                          <div style="font-size:11.5px;color:#8b93b8;margin-top:4px;font-weight:700">{{ s.time }}</div>
+                          <div style="font-size:11.5px;color:#9aa1c2;margin-top:3px;font-weight:600">📍 {{ s.place }}</div>
+                          <div style="font-size:11.5px;color:#6d76a4;margin-top:3px;font-weight:700">{{ s.uploadLabel }}</div>
                           <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:7px">
                             <span style="padding:3px 7px;border-radius:6px;font-size:10.5px;font-weight:800;white-space:nowrap;background:{{ s.projBg }};color:{{ s.projFg }}">{{ s.project }}</span>
                             <span style="padding:3px 7px;border-radius:6px;font-size:10.5px;font-weight:800;white-space:nowrap;background:{{ s.badgeBg }};color:{{ s.badgeFg }}">{{ s.status }}</span>
@@ -1126,6 +1136,7 @@
                     <div style="flex:1;min-width:0;font-size:14px;font-weight:800;color:#222c52">{{ s.title }}</div>
                     <span style="flex:0 0 auto;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:800;background:{{ s.projBg }};color:{{ s.projFg }}">{{ s.project }}</span>
                     <div style="flex:0 0 auto;font-size:12px;color:#9aa1c2;font-weight:600">{{ s.place }}</div>
+                    <div style="flex:0 0 auto;font-size:12px;color:#6d76a4;font-weight:700">{{ s.uploadLabel }}</div>
                     <span style="flex:0 0 auto;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:800;background:{{ s.badgeBg }};color:{{ s.badgeFg }}">{{ s.status }}</span>
                   </div>
                 </sc-for>
@@ -1194,6 +1205,7 @@
                       </span>
                       <span style="display:block;font-size:12.5px;color:#8b93b8;font-weight:700;margin-top:6px">{{ s.time }}</span>
                       <span style="display:block;font-size:12.5px;color:#9aa1c2;margin-top:4px">📍 {{ s.place }}</span>
+                      <span style="display:block;font-size:12.5px;color:#6d76a4;margin-top:4px;font-weight:700">{{ s.uploadLabel }}</span>
                       <span style="display:block;font-size:12.5px;color:#9aa1c2;margin-top:4px">👥 {{ s.crew }}</span>
                     </span>
                   </div>
@@ -1240,6 +1252,15 @@
             </div>
           </sc-for>
         </div>
+
+        <sc-if value="{{ personEmpty }}" hint-placeholder-val="{{ true }}">
+          <div style="margin-top:20px;padding:48px 24px;border:1px dashed #dfe4f4;border-radius:22px;background:rgba(255,255,255,.72);text-align:center">
+            <div style="font-size:28px">👤</div>
+            <div style="margin-top:10px;font-size:15px;font-weight:800;color:#2b3560">확인할 인원을 선택하세요</div>
+            <div style="margin-top:5px;font-size:12.5px;font-weight:600;color:#9aa1c2">위 이름 버튼을 누르면 개인 일정이 열립니다.</div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ personChosen }}" hint-placeholder-val="{{ false }}">
 
         <div style="display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;margin-top:20px;align-items:start">
           <div style="background:#fff;border:1px solid #eceefa;border-radius:22px;padding:18px;box-shadow:0 10px 30px rgba(90,105,180,.07)">
@@ -1374,6 +1395,7 @@
             </div>
           </div>
         </div>
+        </sc-if>
       </div>
     </sc-if>
 
@@ -1549,9 +1571,19 @@
         </div>
         <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:20px">
           <input value="{{ shootTitle }}" sc-camel-on-change="{{ changeShootTitle }}" placeholder="씬 제목 (예: 4화 3씬)" style="grid-column:span 2;padding:13px 14px;border:1px solid #eceefa;border-radius:13px;background:#fbfcff;font-size:13.5px;color:#3a4373">
-          <sc-raw-select value="{{ shootProjectId }}" sc-camel-on-change="{{ changeShootProject }}" style="grid-column:span 2;padding:13px 14px;border:1px solid #eceefa;border-radius:13px;background:#fbfcff;font-size:13.5px;font-weight:700;color:#3a4373">
-            <sc-for list="{{ shootProjects }}" as="p"><option value="{{ p.id }}">{{ p.name }}</option></sc-for>
+          <sc-raw-select value="{{ shootCategory }}" sc-camel-on-change="{{ changeShootCategory }}" style="grid-column:span 2;padding:13px 14px;border:1px solid #eceefa;border-radius:13px;background:#fbfcff;font-size:13.5px;font-weight:700;color:#3a4373">
+            <option value="방송제">방송제</option><option value="마디영상">마디영상</option><option value="방송국">방송국 일정</option>
           </sc-raw-select>
+          <sc-if value="{{ shootIsFestival }}" hint-placeholder-val="{{ true }}">
+            <div style="grid-column:span 2;animation:screenIn .18s ease-out both">
+              <sc-raw-select value="{{ shootProjectId }}" sc-camel-on-change="{{ changeShootProject }}" style="width:100%;padding:13px 14px;border:1px solid #eceefa;border-radius:13px;background:#fbfcff;font-size:13.5px;font-weight:700;color:#3a4373">
+                <sc-for list="{{ shootProjects }}" as="p"><option value="{{ p.id }}">{{ p.name }}</option></sc-for>
+              </sc-raw-select>
+            </div>
+          </sc-if>
+          <sc-if value="{{ shootIsMadi }}" hint-placeholder-val="{{ false }}">
+            <div style="grid-column:span 2;animation:screenIn .18s ease-out both"><input value="{{ shootUploadWeek }}" sc-camel-on-change="{{ changeShootUploadWeek }}" placeholder="업로드 주차 (예: 3주차)" style="width:100%;padding:13px 14px;border:1px solid #eceefa;border-radius:13px;background:#fbfcff;font-size:13.5px;color:#3a4373"></div>
+          </sc-if>
           <input type="date" value="{{ shootDate }}" sc-camel-on-change="{{ changeShootDate }}" style="grid-column:span 2;padding:13px 14px;border:1px solid #eceefa;border-radius:13px;background:#fbfcff;font-size:13.5px;font-weight:700;color:#3a4373">
           <input value="{{ shootPlace }}" sc-camel-on-change="{{ changeShootPlace }}" placeholder="장소 (예: 스튜디오)" style="grid-column:span 2;padding:13px 14px;border:1px solid #eceefa;border-radius:13px;background:#fbfcff;font-size:13.5px;color:#3a4373">
           <sc-raw-select value="{{ shootStart }}" sc-camel-on-change="{{ changeShootStart }}" style="padding:13px 14px;border:1px solid #eceefa;border-radius:13px;background:#fbfcff;font-size:13.5px;font-weight:700;color:#3a4373">
@@ -1699,6 +1731,7 @@ const MPERSONAL = [[], [], [], [], [], [], []];
 const AI_PIPE = ['파일 선택','텍스트 추출 완료','씬·배역 분석 완료','결과 및 촬영 후보 확인'];
 
 const showUiNotice = message => {
+  try { if (window.parent !== window && typeof window.parent.hnubsToast === 'function') return window.parent.hnubsToast(message); } catch (_) {}
   let host = document.getElementById('hnubs-notices');
   if (!host) {
     host = document.createElement('div'); host.id = 'hnubs-notices';
@@ -1732,13 +1765,13 @@ class Component extends DCLogic {
   state = {
     splash: true, screen: 'weekly', weekOffset: 0,
     slots: [], shootDay: 2, shootDate: '', person: '', shootProjectId: '', logOpen: false, shootView: 'list', pickerProject: null, pickerRole: 'planning',
-    aiPhase: 'idle', aiStage: 'upload', aiPct: 0, aiStartedAt: 0, aiTick: 0, aiFile: null, aiOpts: null, aiExtra: [true, true, false], aiSceneIndex: 0, aiCandidateIndex: 0, aiView: 'new', planVariant: 0, groupKey: '', groupSlotKey: '',
+    aiPhase: 'idle', aiStage: 'upload', aiPct: 0, aiStartedAt: 0, aiTick: 0, aiFile: null, aiOpts: null, aiExtra: [true, true, false], aiSceneIndex: 0, aiCandidateIndex: 0, aiView: 'new', aiHistoryOpen: false, planVariant: 0, groupKey: '', groupSlotKey: '',
     aiPrompt: '이번 주에 촬영 가능한 시간 알려줘',
     weekView: '주', shootFilter: '전체', shootLayout: '주간 보드', settingsTab: '일반 설정', dept: '전체', query: '',
     formType: '가능', formTitle: '', formStart: '09:00', formEnd: '10:00', formDay: 0, formRepeat: false, formRepeatWeeks: 8,
     notif: [true, true, true, false, true], saveResults: true,
     modalOpen: false, mobileTab: '홈', extra: [], cleared: false, live: null, aiProjectId: '',
-    shootTitle: '', shootPlace: '', shootPeople: '', shootStart: '14:00', shootEnd: '16:00', shootNote: '',
+    shootTitle: '', shootPlace: '', shootPeople: '', shootStart: '14:00', shootEnd: '16:00', shootNote: '', shootCategory: '방송제', shootUploadWeek: '', showBroadcast: false,
     shootEditId: '', shootCast: [],
     maintBlocked: false, maintLoaded: false,
     adminOpen: (() => { try { return sessionStorage.getItem('hnubs-admin-ok') === '1'; } catch (e) { return false; } })(),
@@ -2535,6 +2568,8 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
       shootTitle: shoot.title || '',
       shootPlace: shoot.location || '',
       shootNote: shoot.note || '',
+      shootCategory: ['방송제', '마디영상', '방송국'].includes(shoot.category) ? shoot.category : '방송제',
+      shootUploadWeek: shoot.uploadWeek || '',
       shootProjectId: shoot.projectId || '',
       shootStart: pad(shoot.startH), shootEnd: pad(shoot.endH),
       shootCast: (shoot.cast || []).map(x => x.id).filter(Boolean),
@@ -2548,7 +2583,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
     this.setState({ modalOpen: true, shootEditId: '', shootDay: this.state.shootDay,
       shootDate: scene.date, shootTitle: scene.id, shootPlace: scene.location || '', shootNote: scene.reason || '',
       shootProjectId: this.state.aiProjectId || '', shootStart: this.hhmm(scene.start || 18), shootEnd: this.hhmm((scene.end || scene.start || 18) + Math.max(.5, (scene.minutes || 30) / 60)),
-      shootCast: (scene.requiredPeople || []).map(x => x.id).filter(Boolean) });
+      shootCategory: '방송제', shootUploadWeek: '', shootCast: (scene.requiredPeople || []).map(x => x.id).filter(Boolean) });
   };
 
   /** 삭제는 되돌릴 수 없다. 무엇을 지우는지 보여주고 두 번 확인받는다. */
@@ -2609,6 +2644,8 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
         date: isoStr, title, startH, endH,
         location: (st.shootPlace || '').trim(),
         note: (st.shootNote || '').trim(),
+        category: st.shootCategory,
+        uploadWeek: st.shootCategory === '마디영상' ? (st.shootUploadWeek || '').trim() : '',
         projectId: st.shootProjectId || '',
         cast: (st.shootCast || []).map(id => ({ id, name: byId.get(id) || '' })).filter(x => x.name),
       });
@@ -2806,7 +2843,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
     const dateKeyFor = d => `${d.getMonth() + 1}월 ${d.getDate()}일 (${dowOf(d)})`;
     const liveMembers = live?.members || [];
     const memberSource = liveMembers.length ? liveMembers.map(m => ({ ...m, grade:'-', dept:String(m.department||'미지정').replace(/부$/,''), role:m.position||'-', hours:m.availableHours||0 })) : [];
-    const selectedLive = liveMembers.find(m => m.name === st.person) || liveMembers[0];
+    const selectedLive = liveMembers.find(m => m.name === st.person);
     const rangeEvents = (ranges, label, cat) => (Array.isArray(ranges) ? ranges : []).map(r => ({ t: label, s: Number(r.start), e: Number(r.end), c: cat }));
     // 고정 시간표(수업)는 이미 불가능이다. 같은 시간에 카드가 포개지지 않게 수업 구간을 빼고 그린다.
     const cutFixed = (blocks, fixed) => {
@@ -2931,15 +2968,15 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
     const sourceShoots = i => live ? (live.shoots || []).filter(s => s.date === iso(dates[i])).map(s => ({
       id:s.id, time:hourLabel(+s.startH) + ' - ' + hourLabel(+s.endH),
       sH: +s.startH, eH: +s.endH,
-      title:s.title, place:s.location || '', status: shootStatus(s), crew:(s.cast || []).map(c => c.name).filter(Boolean).join(', '), projectId:s.projectId,
+      title:s.title, place:s.location || '', status: shootStatus(s), crew:(s.cast || []).map(c => c.name).filter(Boolean).join(', '), projectId:s.projectId, category:s.category || '방송제', uploadWeek:s.uploadWeek||'',
       raw: s   // 수정 창이 날짜·메모·출연진 원본을 그대로 써야 한다
     })) : SHOOT[i];
     const projectById = new Map((live?.projects || []).map(p => [p.id, p]));
-    const projectTint = p => { const c = p?.color || '#7c8cf8'; return { projBg: c + '1f', projFg: c }; };
-    const filteredShoot = i => sourceShoots(i).filter(s => st.shootFilter === '전체' || s.status === st.shootFilter)
+    const projectTint = (p, category) => { const c = category === '방송국' ? '#ef5b6f' : category === '마디영상' ? '#14a6a1' : (p?.color || '#7c8cf8'); return { projBg: c + '1f', projFg: c }; };
+    const filteredShoot = i => sourceShoots(i).filter(s => st.showBroadcast || s.category !== '방송국').filter(s => st.shootFilter === '전체' || s.status === st.shootFilter)
       .map(s => { const p = projectById.get(s.projectId);
         return { ...s, bg: STATUS[s.status].bg, line: '#e7ebf9', badgeBg: STATUS[s.status].bg, badgeFg: STATUS[s.status].fg,
-          crew: s.crew || '', project: p?.name || '미지정', ...projectTint(p),
+          crew: s.crew || '', uploadLabel: s.category === '마디영상' && s.uploadWeek ? `업로드 ${s.uploadWeek}` : '', project: s.category === '방송국' ? '방송국 일정' : s.category === '마디영상' ? '마디영상' : (p?.name || '그 외'), ...projectTint(p, s.category),
           edit: () => s.raw && this.editShoot(s.raw) }; });
 
     const members = memberSource
@@ -2988,7 +3025,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
           {key:'shoot-project',label:'프로젝트 관리',icon:'folder',go:()=>this.setState({shootView:'project'})}]:[])
       ] : n.key === 'ai' ? [
         {...n,suffix:'▾',suffixTurn:st.screen==='ai'?'180deg':'0deg',suffixBg:st.screen==='ai'?'#eef4ff':'transparent',go:()=>this.setState({screen:'ai'})},
-        ...(st.screen==='ai'?[{key:'ai-new',label:'새 분석',icon:'add_circle',go:()=>this.setState({aiView:'new',aiStage:'upload',aiPhase:'idle'})},{key:'ai-results',label:'분석 결과',icon:'history',go:()=>this.setState({aiView:'results'})}]:[])
+        ...(st.screen==='ai'?[{key:'ai-new',label:'새 분석',icon:'add_circle',go:()=>this.setState({aiView:'new',aiStage:'upload',aiPhase:'idle',aiHistoryOpen:false})},{key:'ai-results',label:'분석 결과',icon:'history',go:()=>this.setState({aiView:'results',aiHistoryOpen:false})}]:[])
       ]:[{...n,go:()=>this.setState({screen:n.key})}]).map(n=>{
         const active=n.key==='shoot'?st.screen==='shoot':n.key==='shoot-list'?st.screen==='shoot'&&st.shootView==='list':n.key==='shoot-project'?st.screen==='shoot'&&st.shootView==='project':n.key==='ai'?st.screen==='ai':n.key==='ai-new'?st.screen==='ai'&&st.aiView==='new':n.key==='ai-results'?st.screen==='ai'&&st.aiView==='results':st.screen===n.key;
         return {suffix:'',suffixTurn:'0deg',suffixBg:'transparent',...n,iconClass:active?'ms ms-fill':'ms',iconColor:active?A:'#a1a7c6',weight:active?800:600,color:active?'#2b3560':'#8b93b8',bg:active?'rgba(255,255,255,.95)':'transparent',shadow:active?'0 6px 16px rgba(90,105,180,.12)':'none'};
@@ -2997,7 +3034,10 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
       isWeekly: st.screen === 'weekly', isAI: st.screen === 'ai', isShoot: st.screen === 'shoot',
       isPersonal: st.screen === 'personal', isMembers: st.screen === 'members',
       shootShowProject: st.shootView === 'project', shootMainDisplay: st.shootView === 'project' ? 'none' : 'grid',
-      isSettings: st.screen === 'settings', aiShowHistory: st.aiView === 'results',
+      isSettings: st.screen === 'settings', aiShowHistory: st.aiView === 'results' && st.aiHistoryOpen,
+      aiHistoryButtonVisible: st.aiView === 'results',
+      aiHistoryButtonLabel: st.aiHistoryOpen ? '과거 분석 닫기' : '과거 분석 보기',
+      toggleAiHistory: () => this.setState({ aiHistoryOpen: !st.aiHistoryOpen }),
       aiShowPlan: st.aiStage === 'results' && st.aiView === 'results',
       aiMainDisplay: st.aiView === 'new' ? 'grid' : 'none',
       aiSetupDisplay: ['upload','options'].includes(st.aiStage) ? 'block' : 'none',
@@ -3629,7 +3669,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
         const at = a.updatedAt ? a.updatedAt.slice(0, 16).replace('T', ' ') : '';
         const ok = sceneN > 0;
         return { project: p.name || '이름 없는 프로젝트', name: fname, ext, at, badge: ok ? `씬 ${sceneN}개${a.elapsedMs ? ` · ${Math.round(a.elapsedMs / 1000)}초` : ''}${a.missingScenes ? ` · ${a.missingScenes}개 누락` : ''}` : '분석 기록',
-          badgeBg: ok ? '#e9f8ef' : '#eef1ff', badgeFg: ok ? '#2b8a5b' : '#3b82f6', tint: ok ? '#fdeef0' : '#eef1ff', open:()=>this.loadAiProject(p.id, p, { aiView: 'results' }) };
+          badgeBg: ok ? '#e9f8ef' : '#eef1ff', badgeFg: ok ? '#2b8a5b' : '#3b82f6', tint: ok ? '#fdeef0' : '#eef1ff', open:()=>this.loadAiProject(p.id, p, { aiView: 'results', aiHistoryOpen: false }) };
       }),
       aiRecentEmpty: !((live?.projects || []).some(p => p.aiAnalysis)),
       aiOutcomes: [
@@ -3725,7 +3765,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
           return { lanes, columns: Math.max(1, lanes.length), add: e => {
             // 등록된 일정 위를 눌렀으면 그건 수정이다. 새 창을 덮어쓰지 않는다.
             if (e?.target?.closest?.('[data-shoot-card]')) return;
-            this.setState({ shootDay: di, modalOpen: true, shootEditId: '', shootTitle: '', shootPlace: '', shootNote: '', shootCast: [],
+            this.setState({ shootDay: di, modalOpen: true, shootEditId: '', shootTitle: '', shootPlace: '', shootNote: '', shootCategory: '방송제', shootUploadWeek: '', shootCast: [],
               // 앞서 수정하던 촬영의 기획이 남아 있으면 안 된다. 빈 칸은 '프로젝트 없음' 으로 연다.
               shootProjectId: '',
               shootDate: this.isoOf(dates[di]),
@@ -3871,7 +3911,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
         border: st.shootDay === i ? '1px solid #cfdcf8' : '1px solid #f2f3fb',
         numColor: st.shootDay === i ? '#3b82f6' : '#2b3560',
         pick: () => this.setState({ shootDay: i }),
-        add: () => this.setState({ shootDay: i, modalOpen: true, shootEditId: '', shootTitle: '', shootPlace: '', shootNote: '', shootCast: [], shootProjectId: '', shootDate: this.isoOf(dates[i]) })
+        add: () => this.setState({ shootDay: i, modalOpen: true, shootEditId: '', shootTitle: '', shootPlace: '', shootNote: '', shootCategory: '방송제', shootUploadWeek: '', shootCast: [], shootProjectId: '', shootDate: this.isoOf(dates[i]) })
       })),
       shootDayTitle: this.fmt(dates[st.shootDay]) + ' (' + DOW[st.shootDay] + ') 촬영 일정',
       shootDayCount: filteredShoot(st.shootDay).length + '건',
@@ -3893,6 +3933,8 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
 
       people: memberSource.map(m => m.name),
       person: selectedLive?.name || st.person || '',
+      personChosen: !!selectedLive,
+      personEmpty: !selectedLive,
       changePerson: e => this.setState({ person: e.target.value }),
       personGroups: (() => {
         const cur = selectedLive?.name || st.person;
@@ -4056,10 +4098,10 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
 
       modalOpen: st.modalOpen,
       // 추가로 열 때는 이전 수정 내용을 반드시 비운다.
-      openModal: () => this.setState({ modalOpen: true, shootEditId: '', shootTitle: '', shootPlace: '', shootNote: '', shootCast: [], shootProjectId: '', shootDate: this.isoOf(dates[st.shootDay]) }),
+      openModal: () => this.setState({ modalOpen: true, shootEditId: '', shootTitle: '', shootPlace: '', shootNote: '', shootCategory: '방송제', shootUploadWeek: '', shootCast: [], shootProjectId: '', shootDate: this.isoOf(dates[st.shootDay]) }),
       openAiSchedule: () => {
         if (!aiSelectedCandidate || !aiScene) return window.alert('먼저 씬의 촬영 후보 시간을 선택하세요.');
-        this.setState({ modalOpen: true, shootDay: aiSelectedCandidate.day, shootDate: aiSelectedCandidate.date || this.isoOf(dates[aiSelectedCandidate.day]), shootTitle: aiScene.sceneId || aiScene.title || `S#${aiSceneIndex + 1}`, shootPlace: aiScene.location || '', shootPeople: (aiSceneRow.requiredPeople || []).map(p => p.name).join(', '), shootStart: hourLabel(aiSelectedCandidate.time), shootEnd: hourLabel(aiSelectedCandidate.time + 1), shootProjectId: st.aiProjectId || '' });
+        this.setState({ modalOpen: true, shootDay: aiSelectedCandidate.day, shootDate: aiSelectedCandidate.date || this.isoOf(dates[aiSelectedCandidate.day]), shootTitle: aiScene.sceneId || aiScene.title || `S#${aiSceneIndex + 1}`, shootPlace: aiScene.location || '', shootPeople: (aiSceneRow.requiredPeople || []).map(p => p.name).join(', '), shootStart: hourLabel(aiSelectedCandidate.time), shootEnd: hourLabel(aiSelectedCandidate.time + 1), shootCategory: '방송제', shootUploadWeek: '', shootProjectId: st.aiProjectId || '' });
       },
       closeModal: () => this.setState({ modalOpen: false }),
       stop: e => e.stopPropagation(),
@@ -4122,6 +4164,14 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
       }),
       shootTitle: st.shootTitle, shootPlace: st.shootPlace, shootPeople: st.shootPeople,
       shootStart: st.shootStart, shootEnd: st.shootEnd, shootNote: st.shootNote,
+      shootCategory: st.shootCategory,
+      changeShootCategory: e => this.setState({ shootCategory: e.target.value }),
+      shootIsFestival: st.shootCategory === '방송제',
+      shootIsMadi: st.shootCategory === '마디영상',
+      shootUploadWeek: st.shootUploadWeek,
+      changeShootUploadWeek: e => this.setState({ shootUploadWeek: e.target.value }),
+      showBroadcast: st.showBroadcast,
+      toggleBroadcast: e => this.setState({ showBroadcast: !!e.target.checked }),
       changeShootTitle: e => this.setState({ shootTitle: e.target.value }),
       shootDate: this.shootIso(),
       changeShootDate: e => this.setState({ shootDate: e.target.value }),
@@ -4131,7 +4181,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
       changeShootEnd: e => this.setState({ shootEnd: e.target.value }),
       changeShootNote: e => this.setState({ shootNote: e.target.value }),
       shootProjectId: st.shootProjectId,
-      shootProjects: [{ id: '', name: '프로젝트 없음' }, ...(live?.projects || []).map(p => ({ id: p.id, name: p.name }))],
+      shootProjects: [{ id: '', name: '그 외' }, ...(live?.projects || []).map(p => ({ id: p.id, name: p.name }))],
       changeShootProject: e => this.setState({ shootProjectId: e.target.value }),
       logOpen: st.logOpen,
       closeLog: () => this.setState({ logOpen: false }),

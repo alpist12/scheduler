@@ -27,6 +27,23 @@ assert.match(mobile, /componentDidMount\(\)[\s\S]*?this\.setState\(\{ splash: fa
 assert.match(desktop, /const current = window\.parent\?\.HNUBS_MAINT;/);
 assert.match(index, /firestore\.googleapis\.com\/v1\/projects\/hnubs-2sceduler\/databases\/default\/documents\/settings\/maintenance/);
 assert.match(index, /const state = await readMaintStatus\(\);/);
+assert.match(index, /window\.hnubsToast = message =>/);
+assert.match(index, /aria-live', 'polite'/);
+assert.match(index, /HNUBS_LAST_VISIT/);
+assert.match(index, /class="boot-brand"/);
+assert.doesNotMatch(index, /class="boot-card"/);
+assert.match(index, /document\.body\.classList\.add\('app-ready'\)/);
+assert.match(index, /Number\(item\.createdAt\) > lastVisit/);
+assert.match(source, /createdAt: previous\.createdAt \|\| Date\.now\(\), updatedAt: Date\.now\(\)/);
+for (const ui of [desktop, mobile]) assert.match(ui, /window\.parent\.hnubsToast\(message\)/);
+assert.match(desktop, /const selectedLive = liveMembers\.find\(m => m\.name === st\.person\);/);
+assert.match(mobile, /const selectedMember = liveMembers\.find\(m => m\.name === st\.mPerson\);/);
+assert.match(desktop, /확인할 인원을 선택하세요/);
+assert.match(mobile, /이름을 눌러 일정을 확인하세요/);
+for (const ui of [desktop, mobile]) {
+  assert.match(ui, /과거 분석 보기/);
+  assert.match(ui, /aiHistoryOpen: false/);
+}
 
 
 /* 후보 계산이 같은 질문을 수천 번 되묻던 것들. 하나라도 풀리면 재배치가 다시 10초대로 돌아간다.

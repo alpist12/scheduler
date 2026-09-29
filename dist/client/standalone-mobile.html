@@ -314,6 +314,9 @@
       <div style="animation:screenIn .2s ease-out both">
         <div style="font-size:27px;font-weight:800;color:#1c2549;letter-spacing:-.02em">촬영 일정</div>
         <div style="font-size:13.5px;color:#8b93b8;font-weight:600;margin-top:7px">촬영 일정을 한눈에 확인하세요.</div>
+        <label style="display:flex;align-items:center;gap:8px;width:fit-content;min-height:44px;margin-top:12px;padding:0 13px;border:1px solid #e5e8f7;border-radius:13px;background:#fff;color:#53608e;font-size:12px;font-weight:800">
+          <input type="checkbox" checked="{{ showBroadcast }}" sc-camel-on-change="{{ toggleBroadcast }}" style="width:17px;height:17px;accent-color:#3b82f6"> 방송국 일정 보기
+        </label>
 
         <div style="display:flex;align-items:center;gap:10px;margin-top:16px;background:#fff;border:1px solid #f0f1fb;border-radius:99px;padding:7px 10px;box-shadow:0 10px 20px rgba(122,134,205,.1)">
           <button sc-camel-on-click="{{ prevWeek }}" style="width:32px;height:32px;border-radius:99px;border:0;background:#f4f6fd;color:#5a6595;cursor:pointer;font-size:15px">‹</button>
@@ -464,11 +467,27 @@
         <div style="font-size:27px;font-weight:800;color:#1c2549;letter-spacing:-.02em">개인 일정</div>
         <div style="font-size:13.5px;color:#8b93b8;font-weight:600;margin-top:7px">나의 일정을 시간표로 확인하고 관리하세요.</div>
 
-        <!-- 칩을 부서별로 다 펼치면 화면 절반을 먹는다. 드롭다운 두 개로 줄인다. -->
-        <div style="display:flex;gap:8px;margin-top:14px">
-          <sc-raw-select value="{{ mPersonValue }}" sc-camel-on-change="{{ changeMPersonSelect }}" style="flex:1;min-width:0;padding:13px 14px;border:1px solid #eceefa;border-radius:14px;background:#fff;font-size:13.5px;font-weight:800;color:#2b3560">
-            <sc-for list="{{ mPersonOptions }}" as="o"><option value="{{ o.value }}">{{ o.label }}</option></sc-for>
-          </sc-raw-select>
+        <div style="display:flex;flex-direction:column;gap:9px;margin-top:14px;padding:13px;border:1px solid #eceefa;border-radius:17px;background:#fff">
+          <sc-for list="{{ mPersonGroups }}" as="g" hint-placeholder-count="3">
+            <div>
+              <div style="font-size:10.5px;font-weight:800;color:#b0b6cf;margin-bottom:6px">{{ g.dept }}</div>
+              <div style="display:flex;flex-wrap:wrap;gap:7px">
+                <sc-for list="{{ g.rows }}" as="p" hint-placeholder-count="5">
+                  <button sc-camel-on-click="{{ p.pick }}" style="min-height:38px;padding:8px 13px;border:0;border-radius:11px;background:{{ p.bg }};color:{{ p.color }};font-size:12.5px;font-weight:800;cursor:pointer">{{ p.name }}</button>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{ mPersonEmpty }}" hint-placeholder-val="{{ true }}">
+          <div style="margin-top:14px;padding:34px 18px;border:1px dashed #dfe4f4;border-radius:20px;background:rgba(255,255,255,.72);text-align:center">
+            <div style="font-size:26px">👤</div><div style="margin-top:9px;font-size:14px;font-weight:800;color:#2b3560">이름을 눌러 일정을 확인하세요</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ mPersonChosen }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;justify-content:flex-end;margin-top:10px">
           <sc-raw-select value="{{ personalView }}" sc-camel-on-change="{{ changePersonalView }}" style="flex:0 0 42%;min-width:0;padding:13px 12px;border:1px solid #eceefa;border-radius:14px;background:#fff;font-size:13px;font-weight:800;color:#3a4373">
             <sc-for list="{{ personalViewOptions }}" as="o"><option value="{{ o }}">{{ o }}</option></sc-for>
           </sc-raw-select>
@@ -535,6 +554,7 @@
             </sc-for>
           </div>
         </div>
+        </sc-if>
       </div>
     </sc-if>
 
@@ -544,10 +564,14 @@
         <div style="font-size:27px;font-weight:800;color:#1c2549;letter-spacing:-.02em">AI 분석</div>
         <div style="font-size:13.5px;color:#8b93b8;font-weight:600;margin-top:7px;line-height:1.6">촬영 일정을 더 효율적으로,<br>AI가 도와드릴게요.</div>
 
-        <sc-raw-select value="{{ aiView }}" sc-camel-on-change="{{ changeAiView }}" style="width:100%;margin-top:14px;padding:12px 13px;border:1px solid #e5e8f7;border-radius:13px;background:#fff;color:#2b3560;font-size:13px;font-weight:800">
-          <option value="new">새 분석</option>
-          <option value="results">분석 결과</option>
-        </sc-raw-select>
+        <div style="position:relative;margin-top:14px;padding:4px;border:1px solid #e4e8f7;border-radius:16px;background:linear-gradient(135deg,#f8faff,#f3f1ff);box-shadow:0 8px 20px rgba(95,108,174,.08)">
+          <span class="ms ms-fill" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:19px;color:#5c7df0;pointer-events:none">auto_awesome</span>
+          <sc-raw-select value="{{ aiView }}" sc-camel-on-change="{{ changeAiView }}" style="appearance:none;width:100%;padding:11px 38px 11px 40px;border:0;border-radius:12px;background:#fff;color:#263158;font-size:13.5px;font-weight:800;box-shadow:0 3px 10px rgba(71,84,145,.08);outline:none">
+            <option value="new">새 분석</option>
+            <option value="results">분석 결과</option>
+          </sc-raw-select>
+          <span class="ms" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);font-size:19px;color:#929abb;pointer-events:none">expand_more</span>
+        </div>
 
         <sc-if value="{{ aiShowPlan }}" hint-placeholder-val="{{ false }}">
           <sc-if value="{{ planLoading }}" hint-placeholder-val="{{ false }}">
@@ -938,7 +962,11 @@
           </div>
         </div>
 
-        <div style="display:{{ aiResultsOnlyDisplay }};background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:16px;margin-top:12px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
+        <div style="display:{{ aiResultsOnlyDisplay }};text-align:right;margin-top:12px">
+          <button sc-camel-on-click="{{ toggleAiHistory }}" style="display:inline-flex;align-items:center;gap:6px;min-height:42px;padding:10px 13px;border:1px solid #dfe5f7;border-radius:12px;background:#fff;color:#52608e;font-size:12.5px;font-weight:800;cursor:pointer;box-shadow:0 6px 16px rgba(80,94,153,.08)"><span class="ms" style="font-size:17px">history</span>{{ aiHistoryButtonLabel }}</button>
+        </div>
+        <sc-if value="{{ aiHistoryOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:16px;margin-top:10px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
           <div style="font-size:15px;font-weight:800;color:#222c52">과거 분석 목록</div>
           <div style="font-size:11.5px;color:#9098ba;margin-top:5px">항목을 누르면 저장된 결과를 다시 볼 수 있습니다.</div>
           <div style="display:flex;flex-direction:column;gap:11px;margin-top:13px">
@@ -958,6 +986,7 @@
             </sc-if>
           </div>
         </div>
+        </sc-if>
 
         <div style="display:{{ aiNewOnlyDisplay }};background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:16px;margin-top:12px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
           <div style="font-size:14.5px;font-weight:800;color:#222c52">AI 분석으로 이런 결과를 얻을 수 있어요</div>
@@ -1213,9 +1242,17 @@
           </sc-if>
           <sc-if value="{{ sheetIsShoot }}" hint-placeholder-val="{{ true }}">
             <input value="{{ mfTitle }}" sc-camel-on-change="{{ changeMfTitle }}" placeholder="씬 제목 (예: 4화 3씬)" style="grid-column:span 2;padding:14px;border:1px solid #eceefa;border-radius:14px;background:#fbfcff;font-size:13.5px;color:#3a4373">
-            <sc-raw-select value="{{ mfProjectId }}" sc-camel-on-change="{{ changeMfProject }}" style="grid-column:span 2;padding:14px;border:1px solid #eceefa;border-radius:14px;background:#fbfcff;font-size:13.5px;font-weight:700;color:#3a4373">
-              <sc-for list="{{ mfProjects }}" as="p"><option value="{{ p.id }}">{{ p.name }}</option></sc-for>
+            <sc-raw-select value="{{ mfCategory }}" sc-camel-on-change="{{ changeMfCategory }}" style="grid-column:span 2;padding:14px;border:1px solid #eceefa;border-radius:14px;background:#fbfcff;font-size:13.5px;font-weight:700;color:#3a4373">
+              <option value="방송제">방송제</option><option value="마디영상">마디영상</option><option value="방송국">방송국 일정</option>
             </sc-raw-select>
+            <sc-if value="{{ mfIsFestival }}" hint-placeholder-val="{{ true }}">
+              <div style="grid-column:span 2;animation:screenIn .18s ease-out both"><sc-raw-select value="{{ mfProjectId }}" sc-camel-on-change="{{ changeMfProject }}" style="width:100%;padding:14px;border:1px solid #eceefa;border-radius:14px;background:#fbfcff;font-size:13.5px;font-weight:700;color:#3a4373">
+                <sc-for list="{{ mfProjects }}" as="p"><option value="{{ p.id }}">{{ p.name }}</option></sc-for>
+              </sc-raw-select></div>
+            </sc-if>
+            <sc-if value="{{ mfIsMadi }}" hint-placeholder-val="{{ false }}">
+              <div style="grid-column:span 2;animation:screenIn .18s ease-out both"><input value="{{ mfUploadWeek }}" sc-camel-on-change="{{ changeMfUploadWeek }}" placeholder="업로드 주차 (예: 3주차)" style="width:100%;padding:14px;border:1px solid #eceefa;border-radius:14px;background:#fbfcff;font-size:13.5px;color:#3a4373"></div>
+            </sc-if>
             <input value="{{ mfPlace }}" sc-camel-on-change="{{ changeMfPlace }}" placeholder="장소" style="grid-column:span 2;padding:14px;border:1px solid #eceefa;border-radius:14px;background:#fbfcff;font-size:13.5px;color:#3a4373">
             <div style="grid-column:span 2">
               <div style="font-size:12px;font-weight:800;color:#7b83a8;margin-bottom:8px">출연·참여 인원 <span style="color:#3b82f6">{{ mfCastCount }}</span></div>
@@ -1285,6 +1322,7 @@ const AI_STEPS = ['일정 불러오기','시간 분석','공통 시간 계산','
 const AI_PIPE = ['파일 선택','텍스트 추출 완료','씬·배역 분석 완료','결과 및 촬영 후보 확인'];
 
 const showUiNotice = message => {
+  try { if (window.parent !== window && typeof window.parent.hnubsToast === 'function') return window.parent.hnubsToast(message); } catch (_) {}
   let host=document.getElementById('hnubs-notices');
   if(!host){host=document.createElement('div');host.id='hnubs-notices';host.style.cssText='position:fixed;z-index:200;top:16px;left:50%;transform:translateX(-50%);width:calc(100% - 28px);max-width:440px;display:flex;flex-direction:column;gap:8px;pointer-events:none';document.body.append(host);}
   const card=document.createElement('div');card.style.cssText='padding:13px 15px;border:1px solid #dfe6fb;border-radius:15px;background:rgba(255,255,255,.98);box-shadow:0 14px 34px rgba(56,72,135,.22);color:#27315b;font:750 12.5px/1.5 Pretendard,"Malgun Gothic",sans-serif;white-space:pre-wrap;animation:screenIn .2s ease both';card.textContent=String(message||'완료했습니다.');host.append(card);setTimeout(()=>{card.style.opacity='0';card.style.transform='translateY(-7px)';card.style.transition='.2s ease';setTimeout(()=>card.remove(),220);},3200);
@@ -1433,9 +1471,9 @@ class Component extends DCLogic {
     slots: [], shootDay: 2, shootView: '목록', personalView: '주간 시간표',
     aiPhase: 'idle', aiStage: 'upload', aiPct: 0, aiStartedAt: 0, aiTick: 0, aiToggle: [true, true, false], aiOpts: [true,true,true,true], aiSceneIndex: 0, aiCandidateIndex: 0, planVariant: 0,
     sheetOpen: false, live: null, aiProjectId: '', aiFile: null, mPerson: '',
-    mfTitle: '', mfPlace: '', mfStart: '14:00', mfEnd: '16:00', mfDay: 2, mfStatus: '가능', mfKind: '이번 주 일정',
+    mfTitle: '', mfPlace: '', mfStart: '14:00', mfEnd: '16:00', mfDay: 2, mfStatus: '가능', mfKind: '이번 주 일정', mfCategory: '방송제', mfUploadWeek: '', showBroadcast: false,
     mfEditId: '', mfCast: [], mfNote: '',
-    aiView: 'new', droppedScenes: {}, planPickedSlot: {}, projectEditId: ''
+    aiView: 'new', aiHistoryOpen: false, droppedScenes: {}, planPickedSlot: {}, projectEditId: ''
   };
 
   /** 저장 계열은 한 번에 하나만 돈다. 연타하면 같은 일정이 여러 건 생긴다.
@@ -1821,6 +1859,8 @@ class Component extends DCLogic {
       mfTitle: shoot.title || '',
       mfPlace: shoot.location || '',
       mfNote: shoot.note || '',
+      mfCategory: ['방송제', '마디영상', '방송국'].includes(shoot.category) ? shoot.category : '방송제',
+      mfUploadWeek: shoot.uploadWeek || '',
       mfProjectId: shoot.projectId || '',
       mfStart: pad(shoot.startH), mfEnd: pad(shoot.endH),
       mfCast: (shoot.cast || []).map(x => x.id).filter(Boolean),
@@ -1878,6 +1918,8 @@ class Component extends DCLogic {
           date: isoStr, title: s.mfTitle.trim(),
           startH: start, endH: end,
           location: (s.mfPlace || '').trim(), note: s.mfNote || '', projectId: s.mfProjectId || '',
+          category: s.mfCategory,
+          uploadWeek: s.mfCategory === '마디영상' ? (s.mfUploadWeek || '').trim() : '',
           cast: (s.mfCast || []).map(id => ({ id, name: byId.get(id) || '' })).filter(x => x.name),
         });
         window.alert(s.mfEditId ? '촬영 일정을 수정했습니다.' : '촬영 일정을 등록했습니다.');
@@ -2032,7 +2074,7 @@ class Component extends DCLogic {
     };
     const dateKeyFor = d => `${d.getMonth()+1}월 ${d.getDate()}일 (${this.dowOf(d)})`;
     const liveMembers = live?.members || [];
-    const selectedMember = liveMembers.find(m => m.name === st.mPerson) || liveMembers[0];
+    const selectedMember = liveMembers.find(m => m.name === st.mPerson);
     const rangeEvents = (ranges,l,cat) => (Array.isArray(ranges)?ranges:[]).map(r => ({ t:l, s:Number(r.start), e:Number(r.end), c:cat }));
     // 고정 시간표(수업)는 이미 불가능이다. 같은 시간에 카드가 포개지지 않게 수업 구간을 빼고 그린다.
     const cutFixed = (blocks, fixed) => {
@@ -2146,17 +2188,17 @@ class Component extends DCLogic {
       const end = new Date(p[0], p[1]-1, p[2], Math.ceil(+s.endH||0), 0).getTime();
       return nowT >= end ? '완료' : nowT >= start ? '진행 중' : '예정';
     };
-    const sourceShoots = live ? (live.shoots||[]).filter(s=>s.date===iso(dates[st.shootDay])).map(s=>({
-      id:s.id,title:s.title,time:this.hourLabel(+s.startH)+' - '+this.hourLabel(+s.endH),place:s.location||'',status:shootStatus(s),crew:(s.cast||[]).map(c=>c.name).join(', '),projectId:s.projectId,
+    const sourceShoots = live ? (live.shoots||[]).filter(s=>s.date===iso(dates[st.shootDay]) && (st.showBroadcast || s.category !== '방송국')).map(s=>({
+      id:s.id,title:s.title,time:this.hourLabel(+s.startH)+' - '+this.hourLabel(+s.endH),place:s.location||'',status:shootStatus(s),crew:(s.cast||[]).map(c=>c.name).join(', '),projectId:s.projectId,category:s.category||'방송제',uploadWeek:s.uploadWeek||'',
       raw:s   // 수정 시트가 날짜·출연진 원본을 그대로 써야 한다
     })) : SHOOT[st.shootDay];
     const projectById = new Map((live?.projects || []).map(p => [p.id, p]));
     const epNo = name => { const m = String(name || '').match(/(\d+)/); return m ? +m[1] : 9999; };
-    const shootItems = sourceShoots.map(s => { const pj = projectById.get(s.projectId), c = pj?.color || '#7c8cf8';
-      return { ...s, icon: 'photo_camera', meta: s.time + ' | ' + s.place,
+    const shootItems = sourceShoots.map(s => { const pj = projectById.get(s.projectId), c = s.category === '방송국' ? '#ef5b6f' : s.category === '마디영상' ? '#14a6a1' : (pj?.color || '#7c8cf8');
+      return { ...s, icon: 'photo_camera', meta: s.time + ' | ' + s.place + (s.category === '마디영상' && s.uploadWeek ? ' | 업로드 ' + s.uploadWeek : ''),
         bg: STATUS[s.status].bg, line: STATUS[s.status].fg,
         badgeBg: STATUS[s.status].bg, badgeFg: STATUS[s.status].fg,
-        project: pj?.name || '미지정', projBg: c + '1f', projFg: c,
+        project: s.category === '방송국' ? '방송국 일정' : s.category === '마디영상' ? '마디영상' : (pj?.name || '그 외'), projBg: c + '1f', projFg: c,
         edit: () => s.raw && this.editShoot(s.raw) }; })
       // 시간 순으로 본다. 같은 시간이면 1화가 5화보다 위여야 한다.
       .sort((a, b) => (+a.raw?.startH || 0) - (+b.raw?.startH || 0)
@@ -2512,7 +2554,10 @@ class Component extends DCLogic {
       toggleAutoPlan: () => this.setState({ autoPlanOpen: !st.autoPlanOpen }),
       aiShowMain: true,
       aiView: st.aiView || 'new',
-      changeAiView: e => this.setState({ aiView:e.target.value, aiStage:e.target.value === 'new' ? 'upload' : 'results', aiPhase:e.target.value === 'new' ? 'idle' : st.aiPhase }),
+      changeAiView: e => this.setState({ aiView:e.target.value, aiStage:e.target.value === 'new' ? 'upload' : 'results', aiPhase:e.target.value === 'new' ? 'idle' : st.aiPhase, aiHistoryOpen:false }),
+      aiHistoryOpen: st.aiView === 'results' && st.aiHistoryOpen,
+      aiHistoryButtonLabel: st.aiHistoryOpen ? '과거 분석 닫기' : '과거 분석 보기',
+      toggleAiHistory: () => this.setState({ aiHistoryOpen: !st.aiHistoryOpen }),
       aiNewOnlyDisplay: st.aiStage === 'results' ? 'none' : 'block',
       aiResultsOnlyDisplay: st.aiStage === 'results' ? 'block' : 'none',
       aiSetupDisplay: ['upload','options'].includes(st.aiStage) ? 'block' : 'none',
@@ -2635,7 +2680,7 @@ class Component extends DCLogic {
         ? (st.mfKind === '매주 반복 수업' ? '매주 반복 수업 추가' : '개인 일정 추가')
         : st.mfEditId ? '촬영 일정 수정' : '촬영 일정 추가',
       // 새로 추가할 때는 이전 수정 내용을 반드시 비운다.
-      openSheet: () => this.setState({ sheetOpen: true, mfEditId: '', mfTitle: '', mfPlace: '', mfCast: [] }),
+      openSheet: () => this.setState({ sheetOpen: true, mfEditId: '', mfTitle: '', mfPlace: '', mfCategory: '방송제', mfUploadWeek: '', mfCast: [] }),
       closeSheet: () => this.setState({ sheetOpen: false }),
       /* 시트 안을 눌러도 닫히던 버그. 출연진 칩을 고르면 시트가 사라져
          모바일에서는 인원 배정이 사실상 불가능했다. 배경을 눌렀을 때만 닫는다. */
@@ -2675,8 +2720,16 @@ class Component extends DCLogic {
       changeMfTitle: e => this.setState({ mfTitle: e.target.value }),
       changeMfPlace: e => this.setState({ mfPlace: e.target.value }),
       mfProjectId: st.mfProjectId || '',
-      mfProjects: [{ id: '', name: '프로젝트 없음' }, ...(live?.projects || []).map(p => ({ id: p.id, name: p.name }))],
+      mfProjects: [{ id: '', name: '그 외' }, ...(live?.projects || []).map(p => ({ id: p.id, name: p.name }))],
       changeMfProject: e => this.setState({ mfProjectId: e.target.value }),
+      mfCategory: st.mfCategory,
+      changeMfCategory: e => this.setState({ mfCategory: e.target.value }),
+      mfIsFestival: st.mfCategory === '방송제',
+      mfIsMadi: st.mfCategory === '마디영상',
+      mfUploadWeek: st.mfUploadWeek,
+      changeMfUploadWeek: e => this.setState({ mfUploadWeek: e.target.value }),
+      showBroadcast: st.showBroadcast,
+      toggleBroadcast: e => this.setState({ showBroadcast: !!e.target.checked }),
       changeMfStart: e => this.setState({ mfStart: e.target.value }),
       changeMfEnd: e => this.setState({ mfEnd: e.target.value }),
       changeMfDay: e => this.setState({ mfDay: Number(e.target.value) }),
@@ -2784,11 +2837,11 @@ class Component extends DCLogic {
             if (e?.target?.closest?.('[data-shoot-card]')) return;
             this.setState({ sheetOpen: true, tab: 'shoot', mfEditId: '',
               mfDay: di, mfStart: this.hhmmOf(9 + hi), mfEnd: this.hhmmOf(10 + hi),
-              mfTitle: '', mfPlace: '', mfNote: '', mfProjectId: '', mfCast: [] });
+              mfTitle: '', mfPlace: '', mfNote: '', mfProjectId: '', mfCategory: '방송제', mfUploadWeek: '', mfCast: [] });
           },
           ...(() => {
             const laneEnds = [], lanes = [];
-            const rows = (live ? (live.shoots || []).filter(s => s.date === iso(dates[di]) && Math.floor(+s.startH) === 9 + hi) : [])
+            const rows = (live ? (live.shoots || []).filter(s => s.date === iso(dates[di]) && Math.floor(+s.startH) === 9 + hi && (st.showBroadcast || s.category !== '방송국')) : [])
               .sort((a, b) => (+a.startH - +b.startH) || (+a.endH - +b.endH));
             for (const s of rows) {
               let lane = laneEnds.findIndex(end => end <= +s.startH);
@@ -2799,7 +2852,7 @@ class Component extends DCLogic {
                제목이 '1화 S#1' 처럼 기획명을 달고 있으면 떼되, 떼고 남는 게 없으면 그대로 둔다. */
             const pj = projectById.get(s.projectId);
             const name = pj?.name || '';
-            const color = pj?.color || '';
+            const color = s.category === '방송국' ? '#ef5b6f' : s.category === '마디영상' ? '#14a6a1' : (pj?.color || '');
             const short = name ? (String(s.title).replace(new RegExp(`^${name}\\s*`), '').trim() || s.title) : s.title;
             const time = `${String(s.startH).padStart(2, '0')}:00-${String(s.endH).padStart(2, '0')}:00`;
             // 제목이 기획명과 같으면 '5화 · 5화' 가 된다. 한 번만 적는다. (PC 와 같은 규칙)
@@ -2855,6 +2908,8 @@ class Component extends DCLogic {
       personalList: st.personalView === '목록 보기',
       mPeople: liveMembers.map(m => m.name),
       mPerson: selectedMember?.name || st.mPerson || '',
+      mPersonChosen: !!selectedMember,
+      mPersonEmpty: !selectedMember,
       changeMPerson: e => this.setState({ mPerson: e.target.value }),
       mPersonGroups: (() => {
         const cur = selectedMember?.name || st.mPerson;
@@ -2955,7 +3010,7 @@ class Component extends DCLogic {
         const ext = (fname.split('.').pop() || 'DOC').toUpperCase().slice(0, 4);
         const sceneN = (a.scenes || []).length, ok = sceneN > 0;
         return { project: p.name || '이름 없는 프로젝트', name: fname, ext, at: a.updatedAt ? a.updatedAt.slice(0, 16).replace('T', ' ') : '',
-          badge: ok ? `씬 ${sceneN}개${a.elapsedMs ? ` · ${Math.round(a.elapsedMs / 1000)}초` : ''}${a.missingScenes ? ` · ${a.missingScenes}개 누락` : ''}` : '분석 기록', badgeBg: ok ? '#e9f8ef' : '#eef1ff', badgeFg: ok ? '#2b8a5b' : '#3b82f6', tint: ok ? '#fdeef0' : '#eef1ff', open:()=>{this.engine()?.selectAnalysisProject?.(p.id);this.setState({aiProjectId:p.id,aiFile:fname,aiPhase:'done',aiStage:'results',aiPct:100,aiSceneIndex:0,aiCandidateIndex:0,aiView:'results'});} };
+          badge: ok ? `씬 ${sceneN}개${a.elapsedMs ? ` · ${Math.round(a.elapsedMs / 1000)}초` : ''}${a.missingScenes ? ` · ${a.missingScenes}개 누락` : ''}` : '분석 기록', badgeBg: ok ? '#e9f8ef' : '#eef1ff', badgeFg: ok ? '#2b8a5b' : '#3b82f6', tint: ok ? '#fdeef0' : '#eef1ff', open:()=>{this.engine()?.selectAnalysisProject?.(p.id);this.setState({aiProjectId:p.id,aiFile:fname,aiPhase:'done',aiStage:'results',aiPct:100,aiSceneIndex:0,aiCandidateIndex:0,aiView:'results',aiHistoryOpen:false});} };
       }),
       aiRecentEmpty: !((live?.projects || []).some(p => p.aiAnalysis)),
       aiOutcomes: [
@@ -2985,7 +3040,7 @@ class Component extends DCLogic {
 
       openAiSchedule:()=>{
         if(!aiSelectedCandidate||!aiScene)return window.alert('먼저 씬의 촬영 후보 시간을 선택하세요.');
-        this.setState({sheetOpen:true,tab:'ai',mfEditId:'',mfCast:[],mfDay:aiSelectedCandidate.day,mfTitle:aiScene.sceneId||aiScene.title||`S#${aiSceneIndex+1}`,mfPlace:aiScene.location||'',mfStart:String(aiSelectedCandidate.time).padStart(2,'0')+':00',mfEnd:String(aiSelectedCandidate.time+1).padStart(2,'0')+':00',mfProjectId:st.aiProjectId||''});
+        this.setState({sheetOpen:true,tab:'ai',mfEditId:'',mfCast:[],mfCategory:'방송제',mfUploadWeek:'',mfDay:aiSelectedCandidate.day,mfTitle:aiScene.sceneId||aiScene.title||`S#${aiSceneIndex+1}`,mfPlace:aiScene.location||'',mfStart:String(aiSelectedCandidate.time).padStart(2,'0')+':00',mfEnd:String(aiSelectedCandidate.time+1).padStart(2,'0')+':00',mfProjectId:st.aiProjectId||''});
       },
 
       generalSettings: [

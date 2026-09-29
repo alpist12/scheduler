@@ -1968,6 +1968,7 @@ async function saveRegistration(form) {
     availableRanges: mergeRanges(status === '가능' ? [...explicit.available, chosen] : subtract(explicit.available, [chosen])),
     unavailableRanges: mergeRanges(status === '불가능' ? [...explicit.unavailable, chosen] : subtract(explicit.unavailable, [chosen])),
     memo: String(d.get('memo') || previous?.memo || ''),
+    createdAt: previous?.createdAt || Date.now(), updatedAt: Date.now(),
   };
   // 하루가 문서 하나다. 주 단위로 묶어 쓰면 기간 조회를 못 한다.
   const target = monday(); target.setDate(target.getDate() + day);
@@ -2035,7 +2036,9 @@ async function saveShoot(form) {
   const projectId = String(d.get('projectId') || '') || null;
   // 스태프는 cast 에 넣지 않는다. shootMemberIds 가 역할에서 따로 더해 준다.
   const cast = (Array.isArray(selectedCast) ? selectedCast : []).filter(person => person?.id);
-  await saveDoc(`shoots/${id}`, { date: String(d.get('date')), title, startH: start, endH: end, location: String(d.get('location') || ''), note: String(d.get('note') || ''), cast, castIds: cast.map(person => person.id), projectId });
+  const rawCategory = String(d.get('category') || '방송제');
+  const category = ['방송제', '마디영상', '방송국'].includes(rawCategory) ? rawCategory : '방송제';
+  await saveDoc(`shoots/${id}`, { date: String(d.get('date')), title, category, uploadWeek: String(d.get('uploadWeek') || ''), startH: start, endH: end, location: String(d.get('location') || ''), note: String(d.get('note') || ''), cast, castIds: cast.map(person => person.id), projectId, createdAt: shoots[id]?.createdAt || Date.now(), updatedAt: Date.now() });
   closeModal('appModal'); state.analysisSelected.clear(); toast('촬영 일정을 저장했습니다.');
 }
 async function saveProject(form) {
@@ -2856,9 +2859,11 @@ window.HNUBS_ENGINE = {
       ...previous,
       date: pick('date', ''), title: pick('title', ''), ...gridHours({ startH: rawStart, endH: rawEnd }),
       location: pick('location', ''), note: pick('note', ''), cast, castIds: cast.map(person => person.id),
+      category: ['방송제', '마디영상', '방송국'].includes(pick('category', '방송제')) ? pick('category', '방송제') : '방송제',
+      uploadWeek: pick('uploadWeek', ''),
       // 어떤 씬을 확정했는지. 이게 있어야 재분석에서 확정 씬을 뺀다.
       sceneIds: pick('sceneIds', []),
-      projectId,
+      projectId, createdAt: previous.createdAt || Date.now(), updatedAt: Date.now(),
     });
     return id;
   },
@@ -2893,6 +2898,7 @@ window.HNUBS_ENGINE = {
       availableRanges: mergeRanges(status === '가능' ? [...explicit.available, chosen] : subtract(explicit.available, [chosen])),
       unavailableRanges: mergeRanges(status === '불가능' ? [...explicit.unavailable, chosen] : subtract(explicit.unavailable, [chosen])),
       memo: String(record.memo || previous?.memo || 'Air(에어)에서 등록'),
+      createdAt: previous?.createdAt || Date.now(), updatedAt: Date.now(),
     };
     await saveDoc(`${personalPath(person)}/${iso}`,
       { ...schedule, memberId: memberDocId(person), date: iso, mandatory: !!old.mandatory });

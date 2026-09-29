@@ -1,6 +1,7 @@
 import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { build } from 'esbuild';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = resolve(root, 'dist');
@@ -23,7 +24,14 @@ for (const name of [
 cpSync(resolve(root, 'assets'), resolve(client, 'assets'), { recursive: true });
 
 mkdirSync(resolve(dist, 'server'), { recursive: true });
-cpSync(resolve(root, 'sites/worker.mjs'), resolve(dist, 'server/index.js'));
+await build({
+  entryPoints: [resolve(root, 'sites/worker.mjs')],
+  outfile: resolve(dist, 'server/index.js'),
+  bundle: true,
+  platform: 'node',
+  format: 'esm',
+  target: 'node20',
+});
 mkdirSync(resolve(dist, '.openai'), { recursive: true });
 writeFileSync(resolve(dist, '.openai/hosting.json'), JSON.stringify({
   project_id: 'appgprj_6aa6c36782ac8191811c68e6d71d8ea5',

@@ -446,7 +446,7 @@ export async function runChat({ message, context = {}, history = [], timeoutMs =
     const local = fastLocalResult(message, context, history);
     if (local) return response(200, { ...local, provider:'local', model:'rule-router', timing:{ promptReadyMs:elapsed(), totalMs:elapsed() } });
     const key = String(process.env.NVIDIA_API_KEY || '').trim();
-    if (!key) return response(503, { error: 'Netlify 환경변수 NVIDIA_API_KEY가 설정되지 않았습니다.' });
+    if (!key) return response(503, { error: '서버 환경변수 NVIDIA_API_KEY가 설정되지 않았습니다.' });
 
     const system = `/no_think
 

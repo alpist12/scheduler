@@ -10,5 +10,5 @@ export const handler = async () => response(200, {
   chatModel: CHAT_MODEL,
   apiBase: API_BASE,
   supportedFiles: ['pdf', 'docx', 'txt'],
-  runtime: 'Netlify Functions',
+  runtime: 'Sites Worker',
 });

@@ -1,34 +1,23 @@
 import assert from 'node:assert/strict';
-import worker, { upstreamUrl } from '../sites/worker.mjs';
+import worker from '../sites/worker.mjs';
 
-assert.equal(
-  upstreamUrl('https://hnubs.example/api/analysis/jobs/abc?x=1').href,
-  'https://testserver111.netlify.app/scheduler/api/analysis/jobs/abc?x=1',
-);
-assert.equal(
-  upstreamUrl('https://hnubs.example/api/maintenance').pathname,
-  '/.netlify/functions/maintenance',
-);
-
-let proxied;
-const originalFetch = globalThis.fetch;
-globalThis.fetch = async request => {
-  proxied = request;
-  return new Response('{"ok":true}', { headers: { 'content-type': 'application/json' } });
+const env = {
+  NVIDIA_API_KEY: 'test-key',
+  ASSETS: { fetch: async () => new Response('local', { status: 200 }) },
 };
+const health = await worker.fetch(new Request('https://hnubs.example/api/health'), env, {});
+assert.equal(health.status, 200);
+assert.deepEqual((await health.json()).runtime, 'Sites Worker');
 
-try {
-  const response = await worker.fetch(new Request('https://hnubs.example/api/health'));
-  assert.equal(proxied.url, 'https://testserver111.netlify.app/scheduler/api/health');
-  assert.equal(response.status, 200);
-  assert.equal(response.headers.get('cache-control'), 'no-store');
+const help = await worker.fetch(new Request('https://hnubs.example/api/chat', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ message: '도움말' }),
+}), env, {});
+assert.equal(help.status, 200);
+assert.equal((await help.json()).provider, 'local');
 
-  const local = await worker.fetch(new Request('https://hnubs.example/app.js'), {
-    ASSETS: { fetch: async () => new Response('local', { status: 200 }) },
-  });
-  assert.equal(await local.text(), 'local');
-} finally {
-  globalThis.fetch = originalFetch;
-}
+const local = await worker.fetch(new Request('https://hnubs.example/app.js'), env, {});
+assert.equal(await local.text(), 'local');
 
-console.log('Sites API bridge checks passed.');
+console.log('Sites direct API checks passed.');

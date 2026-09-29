@@ -12,10 +12,14 @@
 <style>
   html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#f2f4fc}
   #design-frame{display:block;width:100%;height:100%;border:0;background:#f2f4fc}
-  .boot{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:#f2f4fc;font-family:"Pretendard Variable",Pretendard,-apple-system,"Malgun Gothic",sans-serif;color:#53608f}
-  .boot[hidden]{display:none}.boot-card{width:min(420px,calc(100% - 40px));box-sizing:border-box;padding:26px;border-radius:24px;background:#fff;box-shadow:0 24px 60px rgba(65,79,145,.14)}
-  .boot-line{height:14px;margin-top:12px;border-radius:99px;background:linear-gradient(90deg,#eef1fb 25%,#f8f9fd 50%,#eef1fb 75%);background-size:200% 100%;animation:boot 1.1s linear infinite}.boot-line:first-child{width:42%;margin-top:0}.boot-line:last-child{width:72%}@keyframes boot{to{background-position:-200% 0}}
-  .ai-pal{position:fixed;right:24px;bottom:24px;z-index:80;font-family:"Pretendard Variable",Pretendard,-apple-system,"Malgun Gothic",sans-serif;color:#20294f}
+  .boot{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:radial-gradient(580px 460px at 0 0,#dce6ff,transparent 68%),radial-gradient(620px 500px at 100% 100%,#e9e1ff,transparent 68%),#f7f8fe;font-family:"Pretendard Variable",Pretendard,-apple-system,"Malgun Gothic",sans-serif;color:#53608f}
+  .boot[hidden]{display:none}.boot-brand{display:flex;flex-direction:column;align-items:center}.boot-bars{height:74px;display:flex;align-items:flex-end;gap:7px}.boot-bars i{width:11px;border-radius:99px;background:linear-gradient(180deg,#9da9dc,#6577b7);transform-origin:bottom;animation:boot-wave 1.4s ease-in-out infinite}.boot-bars i:nth-child(1){height:32px}.boot-bars i:nth-child(2){height:55px;animation-delay:.1s}.boot-bars i:nth-child(3){height:72px;animation-delay:.2s}.boot-bars i:nth-child(4){height:48px;animation-delay:.3s}.boot-bars i:nth-child(5){height:28px;animation-delay:.4s}.boot-brand strong{margin-top:20px;color:#2f3a63;font-size:36px;letter-spacing:.08em}.boot-brand span{margin-top:8px;color:#7b83b4;font-size:14px;font-weight:650}.boot-dots{display:flex;gap:8px;margin-top:28px}.boot-dots i{width:8px;height:8px;border-radius:50%;background:#a9a4ea;animation:boot-dot 1.2s ease-in-out infinite}.boot-dots i:nth-child(2){animation-delay:.15s}.boot-dots i:nth-child(3){animation-delay:.3s}@keyframes boot-wave{50%{transform:scaleY(.68);opacity:.72}}@keyframes boot-dot{50%{transform:translateY(-5px);opacity:.55}}
+  .hnubs-toast-host{position:fixed;left:50%;bottom:28px;z-index:220;width:min(430px,calc(100% - 32px));transform:translateX(-50%);display:flex;flex-direction:column;gap:10px;pointer-events:none;font-family:"Pretendard Variable",Pretendard,-apple-system,"Malgun Gothic",sans-serif}
+  .hnubs-toast{display:grid;grid-template-columns:42px minmax(0,1fr);align-items:center;gap:12px;padding:13px 16px;border:1px solid rgba(221,228,248,.9);border-radius:19px;background:rgba(255,255,255,.96);box-shadow:0 18px 46px rgba(46,62,125,.22);backdrop-filter:blur(18px);animation:toast-in .24s cubic-bezier(.2,.8,.2,1) both}
+  .hnubs-toast-icon{width:42px;height:42px;display:grid;place-items:center;border-radius:14px;background:#eaf8f0;color:#168652;font-size:22px;font-weight:900}.hnubs-toast[data-tone="error"] .hnubs-toast-icon{background:#fff0f2;color:#c43d58}
+  .hnubs-toast strong,.hnubs-toast span{display:block}.hnubs-toast strong{color:#20294f;font-size:14px;line-height:1.25}.hnubs-toast span{margin-top:3px;overflow:hidden;color:#7b83a8;font-size:12.5px;font-weight:650;line-height:1.45;white-space:pre-wrap}
+  .hnubs-toast.is-leaving{opacity:0;transform:translateY(10px) scale(.98);transition:opacity .2s ease,transform .2s ease}@keyframes toast-in{from{opacity:0;transform:translateY(16px) scale(.97)}to{opacity:1;transform:none}}
+  .ai-pal{position:fixed;right:24px;bottom:24px;z-index:80;visibility:hidden;opacity:0;transform:translateY(10px);font-family:"Pretendard Variable",Pretendard,-apple-system,"Malgun Gothic",sans-serif;color:#20294f}.app-ready .ai-pal{visibility:visible;opacity:1;transform:none;transition:opacity .22s ease,transform .22s ease}
   .ai-pal-button{width:76px;height:76px;border:0;border-radius:28px;background:rgba(255,255,255,.92);box-shadow:0 18px 42px rgba(65,91,180,.25);cursor:pointer;padding:8px;transition:transform .2s ease,box-shadow .2s ease}
   .ai-pal-button:hover{transform:translateY(-3px) scale(1.03);box-shadow:0 22px 50px rgba(65,91,180,.32)}
   .ai-pal-button img{display:block;width:100%;height:100%;object-fit:contain}
@@ -39,11 +43,12 @@
   .maint-form{display:flex;gap:8px;margin-top:22px}.maint-form input{min-width:0;flex:1;padding:12px 14px;border:1px solid #e2e6f4;border-radius:13px;font:inherit;font-size:13.5px;outline:none}.maint-form input:focus{border-color:#6c8ff1;box-shadow:0 0 0 3px rgba(108,143,241,.12)}
   .maint-form button{padding:12px 16px;border:0;border-radius:13px;background:linear-gradient(135deg,#4b8df8,#7069ec);color:#fff;font:800 13.5px inherit;cursor:pointer;white-space:nowrap}
   .maint-msg{min-height:18px;margin-top:11px;font-size:12.5px;font-weight:700;color:#b03650}
-  @media(max-width:1100px){.ai-pal{right:14px;bottom:168px}.ai-pal-chat.open ~ .ai-pal-button{opacity:0;pointer-events:none}.ai-pal-button{width:56px;height:56px;border-radius:21px}.ai-pal-chat{position:fixed;left:12px;right:12px;bottom:82px;width:auto;height:min(520px,calc(100vh - 120px))}.ai-pal-bubble{bottom:72px;right:4px}}
+  @media(max-width:1100px){.hnubs-toast-host{bottom:calc(90px + env(safe-area-inset-bottom))}.ai-pal{right:14px;bottom:168px}.ai-pal-chat.open ~ .ai-pal-button{opacity:0;pointer-events:none}.ai-pal-button{width:56px;height:56px;border-radius:21px}.ai-pal-chat{position:fixed;left:12px;right:12px;bottom:82px;width:auto;height:min(520px,calc(100vh - 120px))}.ai-pal-bubble{bottom:72px;right:4px}}
+  @media(prefers-reduced-motion:reduce){.hnubs-toast,.boot-bars i,.boot-dots i{animation:none}.hnubs-toast.is-leaving{transition:none}}
 </style>
 </head>
 <body>
-<div id="bootLoader" class="boot" role="status" aria-live="polite"><div class="boot-card"><div class="boot-line"></div><div class="boot-line"></div><div class="boot-line"></div></div></div>
+<div id="bootLoader" class="boot" role="status" aria-live="polite"><div class="boot-brand"><div class="boot-bars"><i></i><i></i><i></i><i></i><i></i></div><strong>HNUBS</strong><span>방송국 스케줄러</span><div class="boot-dots"><i></i><i></i><i></i></div></div></div>
 <iframe id="design-frame" title="HNUBS 방송국 스케줄러"></iframe>
 <iframe id="engine-frame" data-src="index.integrated.html?engine=1&v=68" title="HNUBS 데이터 엔진" aria-hidden="true" tabindex="-1" style="position:fixed;width:1px;height:1px;left:-9999px;top:-9999px;border:0;opacity:0;pointer-events:none"></iframe>
 <aside class="ai-pal" aria-label="Air(에어) AI 도우미">
@@ -84,6 +89,42 @@
 <script>
   // 점검 상태를 확인하기 전까지는 잠가 둔다. 확인 후 풀거나 게이트를 띄운다.
   window.HNUBS_GATE_BLOCKED = true;
+  window.hnubsToast = message => {
+    const text = String(message || '완료했습니다.');
+    const isError = /(실패|못했|오류|확인해|필요합니다|없습니다|늦어야|먼저)/.test(text);
+    const title = isError ? '확인해 주세요' : /삭제/.test(text) ? '삭제 완료' : /수정/.test(text) ? '수정 완료' : '등록 완료';
+    let host = document.getElementById('hnubs-toast-host');
+    if (!host) {
+      host = document.createElement('div'); host.id = 'hnubs-toast-host'; host.className = 'hnubs-toast-host';
+      host.setAttribute('role', 'status'); host.setAttribute('aria-live', 'polite'); document.body.append(host);
+    }
+    const card = document.createElement('div'); card.className = 'hnubs-toast';
+    if (isError) card.dataset.tone = 'error';
+    const icon = document.createElement('i'); icon.className = 'hnubs-toast-icon'; icon.textContent = isError ? '!' : '✓';
+    const body = document.createElement('div'), heading = document.createElement('strong'), detail = document.createElement('span');
+    heading.textContent = title; detail.textContent = text; body.append(heading, detail); card.append(icon, body); host.append(card);
+    while (host.children.length > 2) host.firstElementChild?.remove();
+    setTimeout(() => { card.classList.add('is-leaving'); setTimeout(() => card.remove(), 220); }, 2800);
+  };
+  const HNUBS_LAST_VISIT = 'hnubs-last-visit-v1';
+  const visitStartedAt = Date.now();
+  let newScheduleCheck;
+  const checkNewSchedules = () => {
+    clearInterval(newScheduleCheck);
+    let tries = 0;
+    newScheduleCheck = setInterval(() => {
+      if (++tries > 60) return clearInterval(newScheduleCheck);
+      let snapshot;
+      try { snapshot = document.getElementById('engine-frame')?.contentWindow?.HNUBS_ENGINE?.snapshot?.(); } catch (_) { return; }
+      if (!snapshot?.ready) return;
+      clearInterval(newScheduleCheck);
+      const lastVisit = Number(localStorage.getItem(HNUBS_LAST_VISIT) || 0);
+      const shoots = (snapshot.shoots || []).filter(item => Number(item.createdAt) > lastVisit).length;
+      const personal = (snapshot.members || []).reduce((count, member) => count + Object.values(member.schedules || {}).filter(item => Number(item?.createdAt) > lastVisit).length, 0);
+      if (lastVisit && shoots + personal) window.hnubsToast(`마지막 접속 이후 새 일정 ${shoots + personal}건이 추가됐어요.`);
+      localStorage.setItem(HNUBS_LAST_VISIT, String(visitStartedAt));
+    }, 500);
+  };
   (() => {
     const frame = document.getElementById('design-frame');
     const engine = document.getElementById('engine-frame');
@@ -92,7 +133,7 @@
     const designUrl = () => mobileQuery.matches ? 'standalone-mobile.html?v=226' : 'standalone-desktop.html?v=223';
     const warm = url => fetch(url, { cache: 'force-cache' }).catch(() => {});
     warm(designUrl()); warm(engine.dataset.src); warm('app.js');
-    frame.addEventListener('load', () => { boot.hidden = true; }, { once: true });
+    frame.addEventListener('load', () => { boot.hidden = true; document.body.classList.add('app-ready'); }, { once: true });
     const showDesign = () => {
       // 점검 중이고 아직 통과 못 했으면 앱을 만들지 않는다. 덮개만 씌우면 뚫린다.
       if (window.HNUBS_GATE_BLOCKED) return;
@@ -103,6 +144,7 @@
       window.HNUBS_GATE_BLOCKED = false;
       if (engine && !engine.src && engine.dataset.src) engine.src = engine.dataset.src;
       showDesign();
+      checkNewSchedules();
     };
     showDesign();
     mobileQuery.addEventListener?.('change', showDesign);

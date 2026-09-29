@@ -137,6 +137,7 @@ export const firebaseSet = (path, value) => writeFields(path, value, true);
 export const firebasePatch = (path, value) => writeFields(path, value, false);
 
 export async function dispatchAnalysis(event, id, indexes = null) {
+  if (typeof event.dispatchAnalysis === 'function') return event.dispatchAnalysis(id, indexes);
   const origin = new URL(event.rawUrl || `https://${event.headers?.host || event.headers?.Host}`).origin;
   const res = await fetch(`${origin}/.netlify/functions/analysis-run-background`, {
     method: 'POST',
@@ -147,6 +148,7 @@ export async function dispatchAnalysis(event, id, indexes = null) {
 }
 
 export async function dispatchChat(event, id) {
+  if (typeof event.dispatchChat === 'function') return event.dispatchChat(id);
   const origin = new URL(event.rawUrl || `https://${event.headers?.host || event.headers?.Host}`).origin;
   const res = await fetch(`${origin}/.netlify/functions/chat-run-background`, {
     method: 'POST',
@@ -291,7 +293,7 @@ function parseNimJson(content) {
 
 export async function callNim(chunk, index, total, precision, crew) {
   const key = String(process.env.NVIDIA_API_KEY || '').trim();
-  if (!key) throw new Error('Netlify Functions 환경변수 NVIDIA_API_KEY가 없습니다.');
+  if (!key) throw new Error('서버 환경변수 NVIDIA_API_KEY가 없습니다.');
   let lastError;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {

@@ -8,7 +8,7 @@
 import { firebaseGet, firebaseSet } from './_shared.mjs';
 
 const PATH = 'scheduler/점검';
-const PASSWORD = String(process.env.SCHEDULER_ADMIN_PASSWORD || '').trim();
+const password = () => String(process.env.SCHEDULER_ADMIN_PASSWORD || '').trim();
 const MAX_FAILURES = 5;
 const LOCK_MS = 10 * 60 * 1000;
 const attempts = new Map();
@@ -73,6 +73,7 @@ export async function handler(event) {
     catch (error) { return json(502, { error: error.message }); }
   }
 
+  const PASSWORD = password();
   if (!PASSWORD) return json(503, { error: '서버에 SCHEDULER_ADMIN_PASSWORD 가 설정되지 않았습니다.' });
   const retryAfter = passwordBlocked(event);
   if (retryAfter) return {

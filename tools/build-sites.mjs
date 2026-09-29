@@ -31,6 +31,7 @@ await build({
   platform: 'node',
   format: 'esm',
   target: 'node20',
+  banner: { js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);' },
 });
 mkdirSync(resolve(dist, '.openai'), { recursive: true });
 writeFileSync(resolve(dist, '.openai/hosting.json'), JSON.stringify({

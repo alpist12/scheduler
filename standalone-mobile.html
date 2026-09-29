@@ -954,9 +954,6 @@
           </div>
         </div>
 
-        <div style="display:{{ aiResultsOnlyDisplay }};text-align:right;margin-top:12px">
-          <button sc-camel-on-click="{{ toggleAiHistory }}" style="display:inline-flex;align-items:center;gap:6px;min-height:42px;padding:10px 13px;border:1px solid #dfe5f7;border-radius:12px;background:#fff;color:#52608e;font-size:12.5px;font-weight:800;cursor:pointer;box-shadow:0 6px 16px rgba(80,94,153,.08)"><span class="ms" style="font-size:17px">history</span>{{ aiHistoryButtonLabel }}</button>
-        </div>
         <sc-if value="{{ aiHistoryOpen }}" hint-placeholder-val="{{ false }}">
         <div style="background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:16px;margin-top:10px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
           <div style="font-size:15px;font-weight:800;color:#222c52">과거 분석 목록</div>
@@ -2577,9 +2574,7 @@ class Component extends DCLogic {
       aiShowMain: true,
       aiView: st.aiView || 'new',
       changeAiView: e => this.setState({ aiView:e.target.value, aiStage:e.target.value === 'new' ? 'upload' : 'results', aiPhase:e.target.value === 'new' ? 'idle' : st.aiPhase, aiHistoryOpen:false }),
-      aiHistoryOpen: st.aiView === 'results' && st.aiHistoryOpen,
-      aiHistoryButtonLabel: st.aiHistoryOpen ? '과거 분석 닫기' : '과거 분석 보기',
-      toggleAiHistory: () => this.setState({ aiHistoryOpen: !st.aiHistoryOpen }),
+      aiHistoryOpen: st.aiView === 'results',
       aiNewOnlyDisplay: st.aiStage === 'results' ? 'none' : 'block',
       aiResultsOnlyDisplay: st.aiStage === 'results' ? 'block' : 'none',
       aiSetupDisplay: ['upload','options'].includes(st.aiStage) ? 'block' : 'none',

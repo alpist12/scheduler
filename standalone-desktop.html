@@ -677,11 +677,6 @@
         </sc-if>
       </sc-if>
 
-      <sc-if value="{{ aiHistoryButtonVisible }}" hint-placeholder-val="{{ false }}">
-        <div style="display:flex;justify-content:flex-end;margin-top:18px">
-          <button sc-camel-on-click="{{ toggleAiHistory }}" style="display:inline-flex;align-items:center;gap:7px;padding:10px 14px;border:1px solid #dfe5f7;border-radius:12px;background:#fff;color:#52608e;font-size:12.5px;font-weight:800;cursor:pointer;box-shadow:0 6px 16px rgba(80,94,153,.08)"><span class="ms" style="font-size:17px">history</span>{{ aiHistoryButtonLabel }}</button>
-        </div>
-      </sc-if>
       <sc-if value="{{ aiShowHistory }}" hint-placeholder-val="{{ false }}">
         <div style="margin-top:22px;background:#fff;border:1px solid #f0f1fb;border-radius:26px;padding:24px;box-shadow:0 20px 38px rgba(122,134,205,.16)">
           <div style="font-size:18px;font-weight:800;color:#222c52">과거 분석 결과</div><div style="font-size:12.5px;color:#9098ba;margin-top:6px">항목을 누르면 저장된 씬·배역·추천 시간을 다시 확인할 수 있습니다.</div>
@@ -3063,10 +3058,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
       isWeekly: st.screen === 'weekly', isAI: st.screen === 'ai', isShoot: st.screen === 'shoot',
       isPersonal: st.screen === 'personal', isMembers: st.screen === 'members',
       shootShowProject: st.shootView === 'project', shootMainDisplay: st.shootView === 'project' ? 'none' : 'grid',
-      isSettings: st.screen === 'settings', aiShowHistory: st.aiView === 'results' && st.aiHistoryOpen,
-      aiHistoryButtonVisible: st.aiView === 'results',
-      aiHistoryButtonLabel: st.aiHistoryOpen ? '과거 분석 닫기' : '과거 분석 보기',
-      toggleAiHistory: () => this.setState({ aiHistoryOpen: !st.aiHistoryOpen }),
+      isSettings: st.screen === 'settings', aiShowHistory: st.aiView === 'results',
       aiShowPlan: st.aiStage === 'results' && st.aiView === 'results',
       aiMainDisplay: st.aiView === 'new' ? 'grid' : 'none',
       aiSetupDisplay: ['upload','options'].includes(st.aiStage) ? 'block' : 'none',

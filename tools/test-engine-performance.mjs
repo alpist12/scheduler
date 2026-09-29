@@ -41,7 +41,8 @@ assert.match(mobile, /const selectedMember = liveMembers\.find\(m => m\.name ===
 assert.match(desktop, /확인할 인원을 선택하세요/);
 assert.match(mobile, /이름을 눌러 일정을 확인하세요/);
 for (const ui of [desktop, mobile]) {
-  assert.match(ui, /과거 분석 보기/);
+  assert.doesNotMatch(ui, /과거 분석 보기/);
+  assert.match(ui, /과거 분석 (?:결과|목록)/);
   assert.match(ui, /aiHistoryOpen: false/);
   assert.match(ui, /비교 인원 조건 설정/);
   assert.match(ui, /t:'2명 이하'/);

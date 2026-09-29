@@ -494,12 +494,6 @@
           <div style="flex:1;text-align:center;font-size:12.5px;font-weight:800;color:#2b3560">{{ weekLabel }}</div>
           <button sc-camel-on-click="{{ nextWeek }}" aria-label="다음 주" style="width:38px;height:38px;border-radius:99px;border:0;background:#f4f6fd;color:#5a6595;font-size:16px">›</button>
         </div>
-        <div style="display:flex;justify-content:flex-end;margin-top:10px">
-          <sc-raw-select value="{{ personalView }}" sc-camel-on-change="{{ changePersonalView }}" style="flex:0 0 42%;min-width:0;padding:13px 12px;border:1px solid #eceefa;border-radius:14px;background:#fff;font-size:13px;font-weight:800;color:#3a4373">
-            <sc-for list="{{ personalViewOptions }}" as="o"><option value="{{ o }}">{{ o }}</option></sc-for>
-          </sc-raw-select>
-        </div>
-
         <sc-if value="{{ personalGrid }}" hint-placeholder-val="{{ true }}">
           <div style="background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:10px;margin-top:14px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
             <div>
@@ -533,21 +527,6 @@
                 </sc-for>
               </div>
             </div>
-          </div>
-        </sc-if>
-
-        <sc-if value="{{ personalList }}" hint-placeholder-val="{{ false }}">
-          <div style="display:flex;flex-direction:column;gap:11px;margin-top:14px">
-            <sc-for list="{{ personalFlat }}" as="e" hint-placeholder-count="6">
-              <div style="display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #f0f1fb;border-radius:18px;padding:14px;box-shadow:0 10px 20px rgba(122,134,205,.1)">
-                <span style="width:8px;height:38px;border-radius:99px;background:{{ e.line }};display:inline-block"></span>
-                <span style="flex:1;min-width:0">
-                  <span style="display:block;font-size:14.5px;font-weight:800;color:#222c52">{{ e.title }}</span>
-                  <span style="display:block;font-size:12.5px;color:#9aa1c2;margin-top:3px;font-weight:600">{{ e.day }} · {{ e.time }}</span>
-                </span>
-                <span style="padding:5px 11px;border-radius:8px;font-size:11.5px;font-weight:800;background:{{ e.bg }};color:{{ e.fg }}">{{ e.cat }}</span>
-              </div>
-            </sc-for>
           </div>
         </sc-if>
 
@@ -1493,7 +1472,7 @@ class Component extends DCLogic {
   state = {
     logOpen: false, roleProject: null, roleKey: 'planning', roleSel: [],
     splash: true, splashOut: false, tab: 'home', weekOffset: 0,
-    slots: [], shootDay: 2, shootView: '목록', personalView: '주간 시간표',
+    slots: [], shootDay: 2, shootView: '목록',
     aiPhase: 'idle', aiStage: 'upload', aiPct: 0, aiStartedAt: 0, aiTick: 0, aiToggle: [true, true, false], aiOpts: [true,true,true,true], aiSceneIndex: 0, aiCandidateIndex: 0, planVariant: 0,
     sheetOpen: false, compareOpen: false, compareSel: [], live: null, aiProjectId: '', aiFile: null, mPerson: '',
     mfTitle: '', mfPlace: '', mfStart: '14:00', mfEnd: '16:00', mfDay: 2, mfStatus: '가능', mfKind: '이번 주 일정', mfCategory: '방송제', mfUploadWeek: '', showBroadcast: false,
@@ -2939,23 +2918,11 @@ class Component extends DCLogic {
       shootList: shootItems,
       shootEmpty: shootItems.length === 0,
 
-      personalViews: ['주간 시간표','목록 보기'].map(l => {
-        const on = st.personalView === l;
-        return { label: l, go: () => this.setState({ personalView: l }),
-          color: on ? '#fff' : '#7b83a8',
-          bg: on ? 'linear-gradient(135deg,#4f8ef7,' + A + ')' : '#fff',
-          line: on ? 'transparent' : '#e5e8f7' };
-      }),
       // 드롭다운용. 이름만 나열하면 누가 어느 부서인지 모르니 부서를 같이 적는다.
       mPersonOptions: (live?.members || []).map(m => ({ value: m.name, label: `${String(m.department || '미지정').replace(/부$/, '')} · ${m.name}` })),
       mPersonValue: (live?.members || []).some(m => m.name === st.mPerson) ? st.mPerson : ((live?.members || [])[0]?.name || ''),
       changeMPersonSelect: e => this.setState({ mPerson: e.target.value }),
-      personalViewOptions: ['주간 시간표', '목록 보기'],
-      personalView: st.personalView,
-      changePersonalView: e => this.setState({ personalView: e.target.value }),
-      // 값이 뭐가 됐든 둘 중 하나는 보여야 한다. 예전엔 이상한 값이 들어오면 표가 통째로 사라졌다.
-      personalGrid: st.personalView !== '목록 보기',
-      personalList: st.personalView === '목록 보기',
+      personalGrid: true,
       mPeople: liveMembers.map(m => m.name),
       mPerson: selectedMember?.name || st.mPerson || '',
       mPersonChosen: !!selectedMember,

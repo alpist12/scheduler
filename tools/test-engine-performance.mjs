@@ -54,6 +54,7 @@ for (const ui of [desktop, mobile]) {
 }
 assert.match(mobile, /aria-label="이전 주"/);
 assert.match(mobile, /aria-label="다음 주"/);
+assert.doesNotMatch(mobile, /personalViewOptions|목록 보기/);
 
 
 /* 후보 계산이 같은 질문을 수천 번 되묻던 것들. 하나라도 풀리면 재배치가 다시 10초대로 돌아간다.

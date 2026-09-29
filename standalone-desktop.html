@@ -235,7 +235,7 @@
     <sc-if value="{{ isWeekly }}" hint-placeholder-val="{{ true }}">
       <div style="margin-top:22px;animation:screenIn .2s ease-out both">
         <div style="display:flex;gap:12px;align-items:stretch">
-          <div style="flex:1;min-width:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px">
+          <div style="flex:1;min-width:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
             <sc-for list="{{ weeklyTools }}" as="t" hint-placeholder-count="4">
               <div sc-camel-on-click="{{ t.click }}" style="display:flex;align-items:center;gap:11px;padding:13px 16px;background:#fff;border:1px solid #eceefa;border-radius:16px;box-shadow:0 6px 18px rgba(90,105,180,.06);cursor:pointer;transition:transform .2s ease,box-shadow .2s ease;animation:cardIn .24s ease-out both;animation-delay:{{ t.delay }}">
                 <span style="width:34px;height:34px;flex:0 0 34px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:15px;background:{{ t.tint }}">{{ t.icon }}</span>
@@ -263,6 +263,7 @@
                   <span style="width:9px;height:9px;border-radius:99px;background:{{ l.c }}"></span>{{ l.t }}
                 </span>
               </sc-for>
+              <button sc-camel-on-click="{{ openComparePicker }}" title="비교할 인원 조건 설정" style="width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center;border:1px solid {{ compareLine }};border-radius:11px;background:{{ compareBg }};color:{{ compareFg }};font-size:20px;cursor:pointer;box-shadow:0 5px 14px rgba(90,105,180,.08);transition:transform .18s ease,background .18s ease" aria-label="비교 인원 조건 설정"><span class="ms">tune</span></button>
             </div>
 
             <sc-if value="{{ weekIsList }}" hint-placeholder-val="{{ false }}">
@@ -2899,7 +2900,7 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
     const compareCount = live?.compareMembers?.length || 0;
     const memberTotal = compareCount || live?.memberCount || 0;
     const cellTone = n => (memberTotal > 0 && n >= memberTotal) ? { bg: '#e6f7ec', fg: '#237a4f' }
-      : (compareCount ? n === 0 : n <= 2) ? { bg: '#fdeaec', fg: '#b03650' }
+      : n <= 2 ? { bg: '#fdeaec', fg: '#b03650' }
       : { bg: '#fdf6e0', fg: '#8a6a1f' };
 
 
@@ -3074,7 +3075,6 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
       days: dates.map(d => ({ dow: this.dowOf(d), md: this.fmtShort(d), dowParen: '(' + this.dowOf(d) + ')' })),
 
       weeklyTools: [
-        { icon: '👥', label: '인원 선택', desc: (live?.compareMembers?.length ? `${live.compareMembers.length}명 비교 중` : '비교할 인원 선택'), tint: '#eef4ff', click: () => this.openPicker('compare') },
         { icon: '👤', label: '필수 인원 설정', desc: (live?.requiredMembers?.length ? `필수 ${live.requiredMembers.length}명` : '반드시 포함할 인원'), tint: '#f2eeff', click: () => this.openPicker('required') },
         { icon: '✨', label: 'AI 대본 분석', desc: '대본 기반 촬영 추천', tint: '#f6eeff', click: () => this.setState({ screen: 'ai' }) },
         { icon: '⧉', label: '결과 복사', desc: '계산된 가능 시간 복사', tint: '#eef1ff', click: this.copyResult }
@@ -3110,7 +3110,11 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
       onlyAvailable: this.setting('weekDefaultView', '전체 보기') === '가능 시간만',
       toggleWeekViewMode: () => this.saveSetting('weekDefaultView', this.setting('weekDefaultView', '전체 보기') === '가능 시간만' ? '전체 보기' : '가능 시간만'),
       weekViewModeLabel: this.setting('weekDefaultView', '전체 보기'),
-      legend: [ {c:'#69c79a',t: compareCount ? `선택 ${compareCount}명 전원 가능` : '전 인원 가능'}, {c:'#f6cf7d',t:'일부 가능'}, {c:'#f0a3b4',t: compareCount ? '모두 불가능' : '2명 이하'}, {c:'#7fa9f5',t:'촬영 일정'} ],
+      legend: [ {c:'#69c79a',t: compareCount ? `선택 ${compareCount}명 전원 가능` : '전 인원 가능'}, {c:'#f6cf7d',t:'일부 가능'}, {c:'#f0a3b4',t:'2명 이하'}, {c:'#7fa9f5',t:'촬영 일정'} ],
+      openComparePicker: () => this.openPicker('compare'),
+      compareBg: compareCount ? '#eef4ff' : '#fff',
+      compareFg: compareCount ? '#3b82f6' : '#7b83a8',
+      compareLine: compareCount ? '#bcd3fb' : '#e5e8f7',
 
       weekRows: HOURS.map((h, hi) => ({
         hour: hourLabel(9 + hi),

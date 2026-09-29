@@ -267,6 +267,8 @@
               <span style="width:9px;height:9px;border-radius:99px;background:{{ l.c }}"></span>{{ l.t }}
             </span>
           </sc-for>
+          <span style="flex:1"></span>
+          <button sc-camel-on-click="{{ openCompare }}" aria-label="비교 인원 조건 설정" style="width:40px;height:40px;border:1px solid {{ compareLine }};border-radius:12px;background:{{ compareBg }};color:{{ compareFg }};display:inline-flex;align-items:center;justify-content:center"><span class="ms">tune</span></button>
         </div>
 
         <div style="background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:14px 12px;margin-top:12px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
@@ -487,6 +489,11 @@
         </sc-if>
 
         <sc-if value="{{ mPersonChosen }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:10px;margin-top:14px;background:#fff;border:1px solid #f0f1fb;border-radius:99px;padding:7px 10px;box-shadow:0 10px 20px rgba(122,134,205,.1)">
+          <button sc-camel-on-click="{{ prevWeek }}" aria-label="이전 주" style="width:38px;height:38px;border-radius:99px;border:0;background:#f4f6fd;color:#5a6595;font-size:16px">‹</button>
+          <div style="flex:1;text-align:center;font-size:12.5px;font-weight:800;color:#2b3560">{{ weekLabel }}</div>
+          <button sc-camel-on-click="{{ nextWeek }}" aria-label="다음 주" style="width:38px;height:38px;border-radius:99px;border:0;background:#f4f6fd;color:#5a6595;font-size:16px">›</button>
+        </div>
         <div style="display:flex;justify-content:flex-end;margin-top:10px">
           <sc-raw-select value="{{ personalView }}" sc-camel-on-change="{{ changePersonalView }}" style="flex:0 0 42%;min-width:0;padding:13px 12px;border:1px solid #eceefa;border-radius:14px;background:#fff;font-size:13px;font-weight:800;color:#3a4373">
             <sc-for list="{{ personalViewOptions }}" as="o"><option value="{{ o }}">{{ o }}</option></sc-for>
@@ -1167,6 +1174,18 @@
     </sc-for>
   </nav>
 
+  <sc-if value="{{ compareOpen }}" hint-placeholder-val="{{ false }}">
+    <div sc-camel-on-click="{{ closeCompare }}" style="position:fixed;inset:0;z-index:60;background:rgba(30,39,73,.38);display:flex;align-items:flex-end">
+      <div sc-camel-on-click="{{ stop }}" style="width:100%;max-width:560px;margin:0 auto;background:#fff;border-radius:24px 24px 0 0;padding:20px 18px 26px;box-shadow:0 -18px 46px rgba(40,50,100,.2);animation:screenIn .2s ease both">
+        <div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:18px;font-weight:800;color:#222c52">비교할 인원 선택</div><div style="font-size:12px;color:#929abd;margin-top:4px">선택한 인원을 기준으로 가능 인원을 계산합니다.</div></div><button sc-camel-on-click="{{ closeCompare }}" style="width:40px;height:40px;border:0;border-radius:99px;background:#f2f4fd;color:#7b83a8;font-size:18px">×</button></div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;max-height:44vh;overflow:auto;margin-top:18px">
+          <sc-for list="{{ comparePeople }}" as="p" hint-placeholder-count="12"><button sc-camel-on-click="{{ p.toggle }}" style="min-height:44px;padding:0 14px;border:1px solid {{ p.line }};border-radius:12px;background:{{ p.bg }};color:{{ p.fg }};font-size:13px;font-weight:800">{{ p.name }}</button></sc-for>
+        </div>
+        <button sc-camel-on-click="{{ applyCompare }}" style="width:100%;min-height:48px;margin-top:18px;border:0;border-radius:14px;background:linear-gradient(135deg,#4f8ef7,#6366f1);color:#fff;font-size:14px;font-weight:800">{{ compareApplyLabel }}</button>
+      </div>
+    </div>
+  </sc-if>
+
   <sc-if value="{{ roleOpen }}" hint-placeholder-val="{{ false }}">
     <div sc-camel-on-click="{{ closeRole }}" style="position:fixed;inset:0;z-index:60;background:rgba(30,39,73,.38);display:flex;align-items:flex-end">
       <div sc-camel-on-click="{{ stop }}" style="width:100%;max-height:82vh;overflow:auto;background:#fff;border-radius:24px 24px 0 0;padding:20px 18px 26px">
@@ -1470,7 +1489,7 @@ class Component extends DCLogic {
     splash: true, splashOut: false, tab: 'home', weekOffset: 0,
     slots: [], shootDay: 2, shootView: '목록', personalView: '주간 시간표',
     aiPhase: 'idle', aiStage: 'upload', aiPct: 0, aiStartedAt: 0, aiTick: 0, aiToggle: [true, true, false], aiOpts: [true,true,true,true], aiSceneIndex: 0, aiCandidateIndex: 0, planVariant: 0,
-    sheetOpen: false, live: null, aiProjectId: '', aiFile: null, mPerson: '',
+    sheetOpen: false, compareOpen: false, compareSel: [], live: null, aiProjectId: '', aiFile: null, mPerson: '',
     mfTitle: '', mfPlace: '', mfStart: '14:00', mfEnd: '16:00', mfDay: 2, mfStatus: '가능', mfKind: '이번 주 일정', mfCategory: '방송제', mfUploadWeek: '', showBroadcast: false,
     mfEditId: '', mfCast: [], mfNote: '',
     aiView: 'new', aiHistoryOpen: false, droppedScenes: {}, planPickedSlot: {}, projectEditId: ''
@@ -2177,7 +2196,7 @@ class Component extends DCLogic {
     const compareCount = live?.compareMembers?.length || 0;
     const memberTotal = compareCount || live?.memberCount || 0;
     const cellTone = n => (memberTotal > 0 && n >= memberTotal) ? { bg: '#e6f7ec', fg: '#237a4f' }
-      : (compareCount ? n === 0 : n <= 2) ? { bg: '#fdeaec', fg: '#b03650' }
+      : n <= 2 ? { bg: '#fdeaec', fg: '#b03650' }
       : { bg: '#fdf6e0', fg: '#8a6a1f' };
 
     const nowT = Date.now();
@@ -2786,7 +2805,14 @@ class Component extends DCLogic {
       prevWeek: () => this.setState(s => { const value=s.weekOffset-1; this.engine()?.setWeekOffset?.(value); return {weekOffset:value}; }),
       nextWeek: () => this.setState(s => { const value=s.weekOffset+1; this.engine()?.setWeekOffset?.(value); return {weekOffset:value}; }),
       days: dates.map((d, i) => ({ dow: this.dowOf(d), day: d.getDate(), color: i === 2 ? A : '#7b83a8' })),
-      legend: [ {c:'#69c79a',t: compareCount ? `선택 ${compareCount}명 전원` : '전 인원 가능'}, {c:'#f6cf7d',t:'일부 가능'}, {c:'#f0a3b4',t: compareCount ? '모두 불가능' : '2명 이하'} ],
+      legend: [ {c:'#69c79a',t: compareCount ? `선택 ${compareCount}명 전원` : '전 인원 가능'}, {c:'#f6cf7d',t:'일부 가능'}, {c:'#f0a3b4',t:'2명 이하'} ],
+      compareOpen: st.compareOpen,
+      openCompare: () => this.setState({ compareOpen: true, compareSel: (live?.compareMembers || []).slice() }),
+      closeCompare: () => this.setState({ compareOpen: false }),
+      comparePeople: (live?.members || []).map(m => { const on = (st.compareSel || []).includes(m.id); return { name:m.name, bg:on?'#eef4ff':'#fff', fg:on?'#3b82f6':'#68729a', line:on?'#bcd3fb':'#e5e8f7', toggle:()=>this.setState({compareSel:on?st.compareSel.filter(id=>id!==m.id):[...(st.compareSel||[]),m.id]}) }; }),
+      compareApplyLabel: (st.compareSel || []).length ? `${st.compareSel.length}명 기준으로 적용` : '전체 인원 기준으로 적용',
+      applyCompare: async () => { this.engine()?.setCompareMembers?.(st.compareSel || []); this.readLive(); this.setState({ compareOpen:false }); },
+      compareBg: compareCount ? '#eef4ff' : '#fff', compareFg: compareCount ? '#3b82f6' : '#7b83a8', compareLine: compareCount ? '#bcd3fb' : '#e5e8f7',
       weekRows: HOURS.map((h, hi) => ({
         hour: this.hourLabel(9 + hi),
         cells: DOW.map((_, di) => {

@@ -43,7 +43,14 @@ assert.match(mobile, /이름을 눌러 일정을 확인하세요/);
 for (const ui of [desktop, mobile]) {
   assert.match(ui, /과거 분석 보기/);
   assert.match(ui, /aiHistoryOpen: false/);
+  assert.match(ui, /비교 인원 조건 설정/);
+  assert.match(ui, /t:'2명 이하'/);
+  assert.match(ui, /category === '마디영상'/);
+  assert.match(ui, /#ef5b6f/);
+  assert.match(ui, /#14a6a1/);
 }
+assert.match(mobile, /aria-label="이전 주"/);
+assert.match(mobile, /aria-label="다음 주"/);
 
 
 /* 후보 계산이 같은 질문을 수천 번 되묻던 것들. 하나라도 풀리면 재배치가 다시 10초대로 돌아간다.

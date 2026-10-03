@@ -270523,7 +270523,7 @@ var require_pdf_parse2 = __commonJS({
 });
 
 // netlify/functions/_shared.mjs
-var MODEL = process.env.NVIDIA_MODEL || "nvidia/nemotron-3-super-120b-a12b";
+var MODEL = process.env.NVIDIA_MODEL || "openai/gpt-oss-20b";
 var CHAT_MODEL = process.env.NVIDIA_CHAT_MODEL || MODEL;
 var API_BASE = (process.env.NVIDIA_API_BASE || "https://integrate.api.nvidia.com").replace(/\/$/, "");
 var ANALYSIS_TIMEOUT_MS = 18e4;
@@ -272062,8 +272062,9 @@ ${String(message).trim()}` }
       if (!upstream.ok) {
         const detail = (await upstream.text()).slice(0, 300);
         const busy = upstream.status === 429 || upstream.status >= 500;
+        const retired = upstream.status === 410 && /(?:end of life|no longer available|\bGone\b)/i.test(detail);
         return response(busy ? 503 : upstream.status, {
-          error: busy ? "AI \uC11C\uBC84\uAC00 \uC7A0\uC2DC \uD63C\uC7A1\uD569\uB2C8\uB2E4. \uC7A0\uC2DC \uD6C4 \uB2E4\uC2DC \uC2DC\uB3C4\uD574 \uC8FC\uC138\uC694." : `AI \uC11C\uBC84\uAC00 \uC694\uCCAD\uC744 \uCC98\uB9AC\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. (${upstream.status})`,
+          error: busy ? "AI \uC11C\uBC84\uAC00 \uC7A0\uC2DC \uD63C\uC7A1\uD569\uB2C8\uB2E4. \uC7A0\uC2DC \uD6C4 \uB2E4\uC2DC \uC2DC\uB3C4\uD574 \uC8FC\uC138\uC694." : retired ? "\uC124\uC815\uB41C AI \uBAA8\uB378\uC758 \uC81C\uACF5\uC774 \uC885\uB8CC\uB418\uC5C8\uC2B5\uB2C8\uB2E4. \uC0C8 \uBAA8\uB378\uB85C \uAD50\uCCB4\uD55C \uBC84\uC804\uC744 \uBC30\uD3EC\uD574\uC57C \uD569\uB2C8\uB2E4." : `AI \uC11C\uBC84\uAC00 \uC694\uCCAD\uC744 \uCC98\uB9AC\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. (${upstream.status})`,
           detail,
           timing: { promptReadyMs, nimMs: elapsed() - promptReadyMs, totalMs: elapsed() }
         });

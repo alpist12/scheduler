@@ -9,7 +9,7 @@ cd "C:\Users\alpis\Downloads\대학신문방송국\scheduler"
 python -m pip install -r requirements.txt
 $env:AI_PROVIDER = "NVIDIA"
 $env:NVIDIA_API_KEY = "발급받은_NVIDIA_API_키"
-$env:NVIDIA_MODEL = "nvidia/nemotron-3-super-120b-a12b"
+$env:NVIDIA_MODEL = "openai/gpt-oss-20b"
 python server.py
 ```
 
@@ -43,7 +43,7 @@ Netlify 사이트에서 다음 순서로 설정합니다.
 
 1. `Project configuration` → `Environment variables`로 이동합니다.
 2. `NVIDIA_API_KEY`를 추가하고 값에는 발급받은 키를 넣습니다. 비밀 키를 `app.js`, Firebase, `netlify.toml`에는 넣지 않습니다.
-3. 필요하면 `NVIDIA_MODEL=nvidia/nemotron-3-super-120b-a12b`도 추가합니다.
+3. 필요하면 `NVIDIA_MODEL=openai/gpt-oss-20b`도 추가합니다.
 4. 환경변수 변경 후 새 배포를 실행합니다.
 5. 배포된 사이트의 `/api/health`에서 `configured: true`, `runtime: Netlify Functions`인지 확인합니다.
 

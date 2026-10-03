@@ -567,9 +567,12 @@ export async function runChat({ message, context = {}, history = [], timeoutMs =
          원문 JSON 을 보여 주지 않고, 화면이 백그라운드 경로로 넘어갈 수 있게 상태를 통일한다. */
       const detail = (await upstream.text()).slice(0, 300);
       const busy = upstream.status === 429 || upstream.status >= 500;
+      const retired = upstream.status === 410 && /(?:end of life|no longer available|\bGone\b)/i.test(detail);
       return response(busy ? 503 : upstream.status, {
         error: busy
           ? 'AI 서버가 잠시 혼잡합니다. 잠시 후 다시 시도해 주세요.'
+          : retired
+            ? '설정된 AI 모델의 제공이 종료되었습니다. 새 모델로 교체한 버전을 배포해야 합니다.'
           : `AI 서버가 요청을 처리하지 못했습니다. (${upstream.status})`,
         detail,
         timing: { promptReadyMs, nimMs: elapsed() - promptReadyMs, totalMs: elapsed() },

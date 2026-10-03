@@ -46,7 +46,7 @@ load_local_env(ROOT / ".env")
 HOST = os.getenv("HNUBS_HOST", "127.0.0.1")
 PORT = int(os.getenv("HNUBS_PORT", "4173"))
 NVIDIA_API_BASE = os.getenv("NVIDIA_API_BASE", "https://integrate.api.nvidia.com").rstrip("/")
-NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "nvidia/nemotron-3-super-120b-a12b")
+NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "openai/gpt-oss-20b")
 NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "").strip()
 AI_PROVIDER = os.getenv("AI_PROVIDER", "NVIDIA").strip().upper()
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024

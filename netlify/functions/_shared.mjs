@@ -1,4 +1,4 @@
-export const MODEL = process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-super-120b-a12b';
+export const MODEL = process.env.NVIDIA_MODEL || 'openai/gpt-oss-20b';
 export const CHAT_MODEL = process.env.NVIDIA_CHAT_MODEL || MODEL;
 export const API_BASE = (process.env.NVIDIA_API_BASE || 'https://integrate.api.nvidia.com').replace(/\/$/, '');
 export const ANALYSIS_TIMEOUT_MS = 180000;

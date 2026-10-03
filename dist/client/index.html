@@ -509,10 +509,10 @@
             if (!await askAirConfirm(`개인 일정 ${items.length}건을 추가할까요?`, `${items[0].memberName}${String.fromCharCode(10)}${lines}`, '전부 추가')) return;
             actionButton.disabled = true; actionButton.textContent = '저장 중…';
             let done = 0; const failed = [];
-            for (const item of items) {
-              try { await engineWindow()?.HNUBS_ENGINE?.addPersonalSchedule?.(item); done += 1; }
-              catch (error) { failed.push(`${item.date} ${error.message}`); }
-            }
+            try {
+              const saved = await engineWindow()?.HNUBS_ENGINE?.addPersonalSchedules?.(items);
+              done = saved?.length || 0;
+            } catch (error) { failed.push(error.message); }
             // 몇 건이 실패했는지 숨기지 않는다.
             actionButton.textContent = failed.length ? `${done}건 저장 · ${failed.length}건 실패` : '저장 완료';
             bubble(failed.length ? `${done}건 저장했고 ${failed.length}건은 실패했어요. ${failed[0]}` : `개인 일정 ${done}건을 저장했어요.`);

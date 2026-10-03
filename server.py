@@ -47,6 +47,7 @@ HOST = os.getenv("HNUBS_HOST", "127.0.0.1")
 PORT = int(os.getenv("HNUBS_PORT", "4173"))
 NVIDIA_API_BASE = os.getenv("NVIDIA_API_BASE", "https://integrate.api.nvidia.com").rstrip("/")
 NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "openai/gpt-oss-20b")
+NVIDIA_FALLBACK_MODEL = os.getenv("NVIDIA_FALLBACK_MODEL", "nvidia/nemotron-3.5-lightning-30b-a3b")
 NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "").strip()
 AI_PROVIDER = os.getenv("AI_PROVIDER", "NVIDIA").strip().upper()
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
@@ -264,6 +265,10 @@ def request_nim_json(payload: dict, timeout: int = 180, retries: bool = True) ->
             with urlopen(req, timeout=timeout) as response:
                 return json.load(response)
         except HTTPError as exc:
+            if exc.code in (404, 410) and payload.get("model") != NVIDIA_FALLBACK_MODEL and attempt < len(delays) - 1:
+                exc.read()
+                payload = {**payload, "model": NVIDIA_FALLBACK_MODEL}
+                continue
             if exc.code in (429, 502, 503, 504) and attempt < len(delays) - 1:
                 exc.read()
                 continue

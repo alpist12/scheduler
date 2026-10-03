@@ -1,4 +1,4 @@
-import { API_BASE, CHAT_MODEL, MODEL, ANALYSIS_TIMEOUT_MS, response } from './_shared.mjs';
+import { API_BASE, CHAT_MODEL, FALLBACK_MODEL, MODEL, ANALYSIS_TIMEOUT_MS, response } from './_shared.mjs';
 
 export const handler = async () => response(200, {
   ok: true,
@@ -8,6 +8,7 @@ export const handler = async () => response(200, {
   configured: Boolean(process.env.NVIDIA_API_KEY),
   model: MODEL,
   chatModel: CHAT_MODEL,
+  fallbackModel: FALLBACK_MODEL,
   apiBase: API_BASE,
   supportedFiles: ['pdf', 'docx', 'txt'],
   runtime: 'Sites Worker',

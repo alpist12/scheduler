@@ -1,5 +1,6 @@
 export const MODEL = process.env.NVIDIA_MODEL || 'openai/gpt-oss-20b';
 export const CHAT_MODEL = process.env.NVIDIA_CHAT_MODEL || MODEL;
+export const FALLBACK_MODEL = process.env.NVIDIA_FALLBACK_MODEL || 'nvidia/nemotron-3.5-lightning-30b-a3b';
 export const API_BASE = (process.env.NVIDIA_API_BASE || 'https://integrate.api.nvidia.com').replace(/\/$/, '');
 export const ANALYSIS_TIMEOUT_MS = 180000;
 
@@ -295,22 +296,27 @@ export async function callNim(chunk, index, total, precision, crew) {
   const key = String(process.env.NVIDIA_API_KEY || '').trim();
   if (!key) throw new Error('서버 환경변수 NVIDIA_API_KEY가 없습니다.');
   let lastError;
+  let activeModel = MODEL;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
       const res = await fetch(`${API_BASE}/v1/chat/completions`, {
         signal: AbortSignal.timeout(ANALYSIS_TIMEOUT_MS),
         method: 'POST',
         headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ model: MODEL, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: `대본 묶음 ${index}/${total}${crewPrompt(crew)}\n[원문 씬 목록: ${countHeadings(chunk)}개]\n${sceneHeadings(chunk).map((h,i) => `${i + 1}. ${h.trim()}`).join('\n')}\n위 목록이 있으면 각 항목을 순서대로 하나씩 반환하세요. 중복 번호도 별도 씬입니다.\n\n${chunk}` }], response_format: { type: 'json_object' }, chat_template_kwargs: { enable_thinking: false }, temperature: precisionOf(precision).temperature, top_p: 0.8, max_tokens: 8192, stream: false }),
+        body: JSON.stringify({ model: activeModel, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: `대본 묶음 ${index}/${total}${crewPrompt(crew)}\n[원문 씬 목록: ${countHeadings(chunk)}개]\n${sceneHeadings(chunk).map((h,i) => `${i + 1}. ${h.trim()}`).join('\n')}\n위 목록이 있으면 각 항목을 순서대로 하나씩 반환하세요. 중복 번호도 별도 씬입니다.\n\n${chunk}` }], response_format: { type: 'json_object' }, chat_template_kwargs: { enable_thinking: false }, temperature: precisionOf(precision).temperature, top_p: 0.8, max_tokens: 8192, stream: false }),
       });
       if (!res.ok) {
         const detail = (await res.text()).slice(0, 500);
+        if ([404, 410].includes(res.status) && activeModel !== FALLBACK_MODEL) {
+          activeModel = FALLBACK_MODEL;
+          continue;
+        }
         const error = new Error(`NIM HTTP ${res.status}: ${detail}`);
         error.retryable = res.status === 429 || res.status >= 500;
         throw error;
       }
       const result = await res.json();
-      return parseNimJson(result?.choices?.[0]?.message?.content);
+      return { ...parseNimJson(result?.choices?.[0]?.message?.content), model: activeModel };
     } catch (error) {
       if (error.name === 'TimeoutError' || error.name === 'AbortError') {
         throw new Error('AI 분석 요청이 180초를 초과했습니다. 완료된 결과는 유지되며 실패한 묶음만 다시 시도할 수 있습니다.');
@@ -388,7 +394,7 @@ export async function persistProjectAnalysis(job) {
   if (!previous.activeJobId || previous.activeJobId === job.id) {
     Object.assign(patch, { activeJobId: job.id, job: safe, scenes: job.scenes || [],
       castMappings: job.castMappings || [], updatedAt: job.updatedAt,
-      provider: 'NVIDIA NIM', model: MODEL, elapsedMs: job.elapsedMs || 0,
+      provider: 'NVIDIA NIM', model: job.model || MODEL, elapsedMs: job.elapsedMs || 0,
       missingScenes: job.missingScenes || 0 });
   }
   await firebasePatch(path, patch);
@@ -401,13 +407,13 @@ async function analyzeChunk(job, chunk, index, total, depth = 0) {
   const analyzed = await callNim(chunk, index + 1, total, job.precision, crew);
   const scenes = analyzed.scenes;
   const expected = countHeadings(chunk);
-  if (expected <= scenes.length || depth >= 2) return { scenes, castMappings: analyzed.castMappings, expected };
+  if (expected <= scenes.length || depth >= 2) return { scenes, castMappings: analyzed.castMappings, expected, model: analyzed.model };
 
   // 출력이 잘려 씬이 빠졌다. 더 잘게 나누면 한 번에 만들 JSON 이 짧아져 잘리지 않는다.
   log(job, `묶음 ${index + 1}: 씬 ${expected}개 중 ${scenes.length}개만 나옴 · 더 잘게 나눠 재시도`, 'warn');
   await saveProgress(job);
   const halves = splitScenes(chunk, Math.max(1500, Math.ceil(chunk.length / 2)));
-  if (halves.length < 2) return { scenes, castMappings: analyzed.castMappings, expected };
+  if (halves.length < 2) return { scenes, castMappings: analyzed.castMappings, expected, model: analyzed.model };
   const merged = [], castMappings = [...analyzed.castMappings];
   for (const half of halves) {
     try {
@@ -418,7 +424,7 @@ async function analyzeChunk(job, chunk, index, total, depth = 0) {
       log(job, `묶음 ${index + 1} 재시도 일부 실패 · ${error.message}`, 'warn');
     }
   }
-  return { scenes: merged.length > scenes.length ? merged : scenes, castMappings, expected };
+  return { scenes: merged.length > scenes.length ? merged : scenes, castMappings, expected, model: analyzed.model };
 }
 
 export async function analyzeJob(job, indexes = null) {
@@ -431,7 +437,8 @@ export async function analyzeJob(job, indexes = null) {
     log(job, `대본 묶음 ${index + 1}/${job.sourceChunks.length} 분석 시작 · ${job.sourceChunks[index].length.toLocaleString()}자`);
     await saveProgress(job);   // 시작 사실을 바로 보여준다
     try {
-      const { scenes, castMappings, expected } = await analyzeChunk(job, job.sourceChunks[index], index, job.sourceChunks.length);
+      const { scenes, castMappings, expected, model } = await analyzeChunk(job, job.sourceChunks[index], index, job.sourceChunks.length);
+      job.model = model || job.model || MODEL;
       item.scenes = scenes.map((scene, offset) => ({ ...scene, sceneId: scene.sceneId || `S#${index + 1}-${offset + 1}`, sourceChunk: index }));
       item.castMappings = castMappings || [];
       item.expected = expected;

@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { API_BASE, CHAT_MODEL, dispatchChat, firebaseSet, parseBody, response } from './_shared.mjs';
+import { API_BASE, CHAT_MODEL, FALLBACK_MODEL, dispatchChat, firebaseSet, parseBody, response } from './_shared.mjs';
 import { TOOLS, runTool } from './_tools.mjs';
 
 const DOW = ['월', '화', '수', '목', '금', '토', '일'];
@@ -401,10 +401,101 @@ function parsedTimes(text) {
   });
 }
 
+const personalDayKey = iso => DAY_KEY[new Date(`${iso}T12:00:00`).getDay()];
+
+function dateFromParts(month, day, context) {
+  const year = Number(String(context.currentDate || new Date().getFullYear()).slice(0, 4));
+  const iso = `${year}-${String(+month).padStart(2, '0')}-${String(+day).padStart(2, '0')}`;
+  return isDate(iso) ? iso : '';
+}
+
+function datesThrough(from, to) {
+  const out = [], cursor = new Date(`${from}T12:00:00`), end = new Date(`${to}T12:00:00`);
+  while (cursor <= end && out.length < 31) {
+    out.push(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return out;
+}
+
+function koreanHour(value) {
+  let hour = Number(value);
+  // 방송국 일정 입력에서 1~8시는 별도 표기가 없으면 오후로 본다.
+  if (hour >= 1 && hour <= 8) hour += 12;
+  return hour;
+}
+
+/** 이름 한 줄 + 날짜별 가능/불가 목록은 모델에게 맡기지 않고 정확히 변환한다.
+ *  '회의 이후'와 '수업 제외'는 그 사람의 등록된 반복 일정 시간을 기준으로 삼는다. */
+function bulkPersonalResult(text, context, members) {
+  const lines = String(text).split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  if (lines.length < 3) return null;
+  const member = members.find(m => lines[0] === m.name) || members.find(m => lines[0].includes(m.name));
+  if (!member) return null;
+  const items = [];
+  const missing = [];
+  let parsedLines = 0;
+  for (const line of lines.slice(1)) {
+    const match = line.match(/^(\d{1,2})\s*[/.월]\s*(\d{1,2})일?(?:\s*~\s*(?:(\d{1,2})\s*[/.월]\s*)?(\d{1,2})일?)?\s+(.+)$/);
+    if (!match) return null;
+    const from = dateFromParts(match[1], match[2], context);
+    const to = dateFromParts(match[3] || match[1], match[4] || match[2], context);
+    if (!from || !to || to < from) return null;
+    parsedLines += 1;
+    for (const date of datesThrough(from, to)) {
+      const note = match[5].trim();
+      const add = (status, start, end, memo = note) => {
+        if (end > start) items.push({ memberName: member.name, date, status, start, end, memo });
+      };
+      if (/불가|불가능/.test(note)) { add('불가능', 9, 23); continue; }
+      if (/^가능$/.test(note)) { add('가능', 9, 23); continue; }
+      const window = note.match(/(\d{1,2})시\s*이후\s*(\d{1,2})시\s*이전/);
+      if (window) {
+        const start = koreanHour(window[1]), end = koreanHour(window[2]);
+        if (!(end > start)) return null;
+        add('불가능', 9, start, `${note} · 가능 시간 외`);
+        add('가능', start, end, note);
+        add('불가능', end, 23, `${note} · 가능 시간 외`);
+        continue;
+      }
+      if (/회의\s*이후/.test(note)) {
+        const meetings = (member.fixedSchedule?.[personalDayKey(date)] || []).filter(x => /회의/.test(x.label || ''));
+        if (!meetings.length) { missing.push(`${fmtDate(date)} 회의 종료 시각`); continue; }
+        const end = Math.max(...meetings.map(x => Number(x.end)).filter(Number.isFinite));
+        if (!(end > 9 && end < 23)) return null;
+        add('불가능', 9, end, note);
+        add('가능', end, 23, note);
+        continue;
+      }
+      if (/수업\s*제외/.test(note)) {
+        const classes = (member.fixedSchedule?.[personalDayKey(date)] || [])
+          .filter(x => !/회의|방송/.test(x.label || ''));
+        if (!classes.length) { add('가능', 9, 23, note); continue; }
+        classes.forEach(x => add('불가능', Math.max(9, +x.start), Math.min(23, +x.end), note));
+        continue;
+      }
+      return null;
+    }
+  }
+  if (missing.length) return {
+    route: 'local-personal-bulk-needs', action: null,
+    reply: `${member.name}은 등록 인원에서 확인했고, 수업 시간표도 읽었습니다.\n${[...new Set(missing)].join(', ')}만 알려 주세요. 나머지 날짜는 그대로 이어서 준비할게요.`,
+  };
+  if (parsedLines < 2 || !items.length) return null;
+  const action = validAction({ type: 'personal_schedules', items });
+  if (!action) return null;
+  return {
+    route: 'local-personal-bulk', action,
+    reply: `${member.name} 개인 일정 ${action.items.length}개 구간을 준비했어요.\n등록된 회의·수업 시간표를 반영했습니다. 아래 버튼에서 확인한 뒤 저장해 주세요.`,
+  };
+}
+
 export function fastLocalResult(message, context = {}, history = []) {
   const text = String(message || '').trim();
   if (isHelpRequest(text)) return { route:'local-help', reply:HELP_TEXT, action:null };
   const members = (context.members || []).filter(m => m && typeof m === 'object');
+  const bulk = bulkPersonalResult(text, context, members);
+  if (bulk) return bulk;
   const name = members.map(m => m.name).filter(Boolean).sort((a,b) => b.length-a.length).find(n => text.includes(n));
   const date = parsedDate(text, context), times = parsedTimes(text);
   if (name && date && times.length === 2 && /(가능|불가능).*(등록|추가|넣어)|(?:등록|추가|넣어).*(가능|불가능)/.test(text)) {
@@ -513,6 +604,7 @@ export async function runChat({ message, context = {}, history = [], timeoutMs =
     let lastFail = null;
     let result = null;
     let message0 = null;
+    let activeModel = CHAT_MODEL;
 
     /* Netlify 동기 함수는 30초에 잘린다. 남은 시간이 모자라면 도구를 더 주지 않고
        지금까지 얻은 결과만으로 문장을 만들게 한다. 그래야 빈손으로 끊기지 않는다. */
@@ -533,7 +625,7 @@ export async function runChat({ message, context = {}, history = [], timeoutMs =
       method: 'POST',
       headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: CHAT_MODEL,
+        model: activeModel,
         messages,
         ...(noTools ? {} : { tools: TOOLS, tool_choice: 'auto' }),
         // 이 모델은 켜 두면 영어 사고 과정을 답변에 그대로 흘린다. 분석 경로와 같이 꺼 둔다.
@@ -552,6 +644,11 @@ export async function runChat({ message, context = {}, history = [], timeoutMs =
       }
       if (upstream.ok || ![429, 500, 502, 503, 504].includes(upstream.status)) break;
       lastFail = null;
+    }
+    if (upstream && [404, 410].includes(upstream.status) && activeModel !== FALLBACK_MODEL) {
+      activeModel = FALLBACK_MODEL;
+      round -= 1;
+      continue;
     }
     if (!upstream) {
       const timedOut = lastFail?.name === 'TimeoutError' || lastFail?.name === 'AbortError';
@@ -665,7 +762,7 @@ ${bulletList(action.items, x => `· ${fmtDate(x.date)} ${String(x.startH).padSta
       }
     }
 
-    return response(200, { reply: content, action, provider: 'NVIDIA NIM', model: CHAT_MODEL,
+    return response(200, { reply: content, action, provider: 'NVIDIA NIM', model: activeModel,
       tools: toolTrace.length ? toolTrace : undefined,
       timing: { promptReadyMs, nimMs, totalMs: elapsed() } });
   }

@@ -2877,6 +2877,14 @@ window.HNUBS_ENGINE = {
     await dropDoc(`shoots/${key}`);
   },
   async addPersonalSchedule(record = {}) {
+    const saved = await this.addPersonalSchedules([record]);
+    return saved[0];
+  },
+  /** 같은 날짜에 여러 구간을 넣을 때 Firestore 갱신을 기다리며 한 건씩 쓰면
+   *  마지막 구간이 앞 구간을 덮을 수 있다. 날짜별로 합쳐 한 번만 저장한다. */
+  async addPersonalSchedules(records = []) {
+    const groups = new Map();
+    for (const record of records) {
     const name = String(record.memberName || '').trim();
     const memberEntry = Object.entries(base).find(([, person]) => person.name === name);
     if (!memberEntry) throw new Error(`등록 인원에서 ${name || '해당 이름'}을 찾지 못했습니다.`);
@@ -2890,22 +2898,39 @@ window.HNUBS_ENGINE = {
     const real = /^\d{4}-\d{2}-\d{2}$/.test(asked) && isoOf(date) === asked;
     if (Number.isNaN(date.getTime()) || !real || !status || !(start >= 0 && end <= 24 && end > start)) throw new Error('이름, 날짜, 시간 또는 가능 여부를 확인해 주세요.');
     const iso = isoOf(date);
+      const key = `${id}\u0000${iso}`;
+      if (!groups.has(key)) groups.set(key, { id, person, iso, date, records: [] });
+      groups.get(key).records.push({ record, status, start, end });
+    }
+    const saved = [];
+    for (const { id, person, iso, date, records: dayRecords } of groups.values()) {
     const dayLabel = dayLabelOf(date);
     const targetWeekKey = weekKeyFromLabel(dayLabelOf(weekStartOf(iso)));
     const old = allWeeks[targetWeekKey]?.[id] || {};
     const previous = old.schedules?.[dayLabel];
-    const explicit = personalRanges(previous);
-    const chosen = { start, end };
+      const explicit = personalRanges(previous);
+      let available = [...explicit.available], unavailable = [...explicit.unavailable];
+      for (const { status, start, end } of dayRecords) {
+        const chosen = { start, end };
+        if (status === '가능') {
+          available = mergeRanges([...available, chosen]);
+          unavailable = subtract(unavailable, [chosen]);
+        } else {
+          unavailable = mergeRanges([...unavailable, chosen]);
+          available = subtract(available, [chosen]);
+        }
+      }
     const schedule = {
       status: '시간별 설정', entryMode: 'exceptions',
-      availableRanges: mergeRanges(status === '가능' ? [...explicit.available, chosen] : subtract(explicit.available, [chosen])),
-      unavailableRanges: mergeRanges(status === '불가능' ? [...explicit.unavailable, chosen] : subtract(explicit.unavailable, [chosen])),
-      memo: String(record.memo || previous?.memo || 'Air(에어)에서 등록'),
+        availableRanges: mergeRanges(available), unavailableRanges: mergeRanges(unavailable),
+        memo: String(dayRecords.map(x => x.record.memo).filter(Boolean).join(' · ') || previous?.memo || 'Air(에어)에서 등록'),
       createdAt: previous?.createdAt || Date.now(), updatedAt: Date.now(),
     };
     await saveDoc(`${personalPath(person)}/${iso}`,
       { ...schedule, memberId: memberDocId(person), date: iso, mandatory: !!old.mandatory });
-    return { memberName: person.name, date: dayLabel, status, start, end };
+      saved.push(...dayRecords.map(({ status, start, end }) => ({ memberName: person.name, date: dayLabel, status, start, end })));
+    }
+    return saved;
   },
   async deletePersonalScheduleDay(record = {}) {
     const name = String(record.memberName || '').trim();

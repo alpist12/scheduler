@@ -270525,6 +270525,7 @@ var require_pdf_parse2 = __commonJS({
 // netlify/functions/_shared.mjs
 var MODEL = process.env.NVIDIA_MODEL || "openai/gpt-oss-20b";
 var CHAT_MODEL = process.env.NVIDIA_CHAT_MODEL || MODEL;
+var FALLBACK_MODEL = process.env.NVIDIA_FALLBACK_MODEL || "nvidia/nemotron-3.5-lightning-30b-a3b";
 var API_BASE = (process.env.NVIDIA_API_BASE || "https://integrate.api.nvidia.com").replace(/\/$/, "");
 var ANALYSIS_TIMEOUT_MS = 18e4;
 var response = (statusCode, value) => ({
@@ -270791,13 +270792,14 @@ async function callNim(chunk2, index, total, precision, crew) {
   const key = String(process.env.NVIDIA_API_KEY || "").trim();
   if (!key) throw new Error("\uC11C\uBC84 \uD658\uACBD\uBCC0\uC218 NVIDIA_API_KEY\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.");
   let lastError;
+  let activeModel = MODEL;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
       const res = await fetch(`${API_BASE}/v1/chat/completions`, {
         signal: AbortSignal.timeout(ANALYSIS_TIMEOUT_MS),
         method: "POST",
         headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
-        body: JSON.stringify({ model: MODEL, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: `\uB300\uBCF8 \uBB36\uC74C ${index}/${total}${crewPrompt(crew)}
+        body: JSON.stringify({ model: activeModel, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: `\uB300\uBCF8 \uBB36\uC74C ${index}/${total}${crewPrompt(crew)}
 [\uC6D0\uBB38 \uC52C \uBAA9\uB85D: ${countHeadings(chunk2)}\uAC1C]
 ${sceneHeadings(chunk2).map((h, i) => `${i + 1}. ${h.trim()}`).join("\n")}
 \uC704 \uBAA9\uB85D\uC774 \uC788\uC73C\uBA74 \uAC01 \uD56D\uBAA9\uC744 \uC21C\uC11C\uB300\uB85C \uD558\uB098\uC529 \uBC18\uD658\uD558\uC138\uC694. \uC911\uBCF5 \uBC88\uD638\uB3C4 \uBCC4\uB3C4 \uC52C\uC785\uB2C8\uB2E4.
@@ -270806,12 +270808,16 @@ ${chunk2}` }], response_format: { type: "json_object" }, chat_template_kwargs: {
       });
       if (!res.ok) {
         const detail = (await res.text()).slice(0, 500);
+        if ([404, 410].includes(res.status) && activeModel !== FALLBACK_MODEL) {
+          activeModel = FALLBACK_MODEL;
+          continue;
+        }
         const error = new Error(`NIM HTTP ${res.status}: ${detail}`);
         error.retryable = res.status === 429 || res.status >= 500;
         throw error;
       }
       const result2 = await res.json();
-      return parseNimJson(result2?.choices?.[0]?.message?.content);
+      return { ...parseNimJson(result2?.choices?.[0]?.message?.content), model: activeModel };
     } catch (error) {
       if (error.name === "TimeoutError" || error.name === "AbortError") {
         throw new Error("AI \uBD84\uC11D \uC694\uCCAD\uC774 180\uCD08\uB97C \uCD08\uACFC\uD588\uC2B5\uB2C8\uB2E4. \uC644\uB8CC\uB41C \uACB0\uACFC\uB294 \uC720\uC9C0\uB418\uBA70 \uC2E4\uD328\uD55C \uBB36\uC74C\uB9CC \uB2E4\uC2DC \uC2DC\uB3C4\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.");
@@ -270886,7 +270892,7 @@ async function persistProjectAnalysis(job) {
       castMappings: job.castMappings || [],
       updatedAt: job.updatedAt,
       provider: "NVIDIA NIM",
-      model: MODEL,
+      model: job.model || MODEL,
       elapsedMs: job.elapsedMs || 0,
       missingScenes: job.missingScenes || 0
     });
@@ -270899,11 +270905,11 @@ async function analyzeChunk(job, chunk2, index, total, depth = 0) {
   const analyzed = await callNim(chunk2, index + 1, total, job.precision, crew);
   const scenes = analyzed.scenes;
   const expected = countHeadings(chunk2);
-  if (expected <= scenes.length || depth >= 2) return { scenes, castMappings: analyzed.castMappings, expected };
+  if (expected <= scenes.length || depth >= 2) return { scenes, castMappings: analyzed.castMappings, expected, model: analyzed.model };
   log(job, `\uBB36\uC74C ${index + 1}: \uC52C ${expected}\uAC1C \uC911 ${scenes.length}\uAC1C\uB9CC \uB098\uC634 \xB7 \uB354 \uC798\uAC8C \uB098\uB220 \uC7AC\uC2DC\uB3C4`, "warn");
   await saveProgress(job);
   const halves = splitScenes(chunk2, Math.max(1500, Math.ceil(chunk2.length / 2)));
-  if (halves.length < 2) return { scenes, castMappings: analyzed.castMappings, expected };
+  if (halves.length < 2) return { scenes, castMappings: analyzed.castMappings, expected, model: analyzed.model };
   const merged = [], castMappings = [...analyzed.castMappings];
   for (const half of halves) {
     try {
@@ -270914,7 +270920,7 @@ async function analyzeChunk(job, chunk2, index, total, depth = 0) {
       log(job, `\uBB36\uC74C ${index + 1} \uC7AC\uC2DC\uB3C4 \uC77C\uBD80 \uC2E4\uD328 \xB7 ${error.message}`, "warn");
     }
   }
-  return { scenes: merged.length > scenes.length ? merged : scenes, castMappings, expected };
+  return { scenes: merged.length > scenes.length ? merged : scenes, castMappings, expected, model: analyzed.model };
 }
 async function analyzeJob(job, indexes = null) {
   const jobStartedAt = Date.now();
@@ -270928,7 +270934,8 @@ async function analyzeJob(job, indexes = null) {
     log(job, `\uB300\uBCF8 \uBB36\uC74C ${index + 1}/${job.sourceChunks.length} \uBD84\uC11D \uC2DC\uC791 \xB7 ${job.sourceChunks[index].length.toLocaleString()}\uC790`);
     await saveProgress(job);
     try {
-      const { scenes, castMappings, expected } = await analyzeChunk(job, job.sourceChunks[index], index, job.sourceChunks.length);
+      const { scenes, castMappings, expected, model } = await analyzeChunk(job, job.sourceChunks[index], index, job.sourceChunks.length);
+      job.model = model || job.model || MODEL;
       item.scenes = scenes.map((scene, offset) => ({ ...scene, sceneId: scene.sceneId || `S#${index + 1}-${offset + 1}`, sourceChunk: index }));
       item.castMappings = castMappings || [];
       item.expected = expected;
@@ -271081,6 +271088,7 @@ var handler2 = async () => response(200, {
   configured: Boolean(process.env.NVIDIA_API_KEY),
   model: MODEL,
   chatModel: CHAT_MODEL,
+  fallbackModel: FALLBACK_MODEL,
   apiBase: API_BASE,
   supportedFiles: ["pdf", "docx", "txt"],
   runtime: "Sites Worker"
@@ -271914,10 +271922,108 @@ function parsedTimes(text) {
     return h + (+m[3] || 0) / 60;
   });
 }
+var personalDayKey = (iso) => DAY_KEY[(/* @__PURE__ */ new Date(`${iso}T12:00:00`)).getDay()];
+function dateFromParts(month, day, context) {
+  const year = Number(String(context.currentDate || (/* @__PURE__ */ new Date()).getFullYear()).slice(0, 4));
+  const iso = `${year}-${String(+month).padStart(2, "0")}-${String(+day).padStart(2, "0")}`;
+  return isDate(iso) ? iso : "";
+}
+function datesThrough(from, to) {
+  const out = [], cursor = /* @__PURE__ */ new Date(`${from}T12:00:00`), end = /* @__PURE__ */ new Date(`${to}T12:00:00`);
+  while (cursor <= end && out.length < 31) {
+    out.push(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return out;
+}
+function koreanHour(value) {
+  let hour2 = Number(value);
+  if (hour2 >= 1 && hour2 <= 8) hour2 += 12;
+  return hour2;
+}
+function bulkPersonalResult(text, context, members) {
+  const lines = String(text).split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+  if (lines.length < 3) return null;
+  const member = members.find((m) => lines[0] === m.name) || members.find((m) => lines[0].includes(m.name));
+  if (!member) return null;
+  const items = [];
+  const missing = [];
+  let parsedLines = 0;
+  for (const line of lines.slice(1)) {
+    const match = line.match(/^(\d{1,2})\s*[/.월]\s*(\d{1,2})일?(?:\s*~\s*(?:(\d{1,2})\s*[/.월]\s*)?(\d{1,2})일?)?\s+(.+)$/);
+    if (!match) return null;
+    const from = dateFromParts(match[1], match[2], context);
+    const to = dateFromParts(match[3] || match[1], match[4] || match[2], context);
+    if (!from || !to || to < from) return null;
+    parsedLines += 1;
+    for (const date of datesThrough(from, to)) {
+      const note = match[5].trim();
+      const add = (status, start, end, memo = note) => {
+        if (end > start) items.push({ memberName: member.name, date, status, start, end, memo });
+      };
+      if (/불가|불가능/.test(note)) {
+        add("\uBD88\uAC00\uB2A5", 9, 23);
+        continue;
+      }
+      if (/^가능$/.test(note)) {
+        add("\uAC00\uB2A5", 9, 23);
+        continue;
+      }
+      const window2 = note.match(/(\d{1,2})시\s*이후\s*(\d{1,2})시\s*이전/);
+      if (window2) {
+        const start = koreanHour(window2[1]), end = koreanHour(window2[2]);
+        if (!(end > start)) return null;
+        add("\uBD88\uAC00\uB2A5", 9, start, `${note} \xB7 \uAC00\uB2A5 \uC2DC\uAC04 \uC678`);
+        add("\uAC00\uB2A5", start, end, note);
+        add("\uBD88\uAC00\uB2A5", end, 23, `${note} \xB7 \uAC00\uB2A5 \uC2DC\uAC04 \uC678`);
+        continue;
+      }
+      if (/회의\s*이후/.test(note)) {
+        const meetings = (member.fixedSchedule?.[personalDayKey(date)] || []).filter((x) => /회의/.test(x.label || ""));
+        if (!meetings.length) {
+          missing.push(`${fmtDate2(date)} \uD68C\uC758 \uC885\uB8CC \uC2DC\uAC01`);
+          continue;
+        }
+        const end = Math.max(...meetings.map((x) => Number(x.end)).filter(Number.isFinite));
+        if (!(end > 9 && end < 23)) return null;
+        add("\uBD88\uAC00\uB2A5", 9, end, note);
+        add("\uAC00\uB2A5", end, 23, note);
+        continue;
+      }
+      if (/수업\s*제외/.test(note)) {
+        const classes = (member.fixedSchedule?.[personalDayKey(date)] || []).filter((x) => !/회의|방송/.test(x.label || ""));
+        if (!classes.length) {
+          add("\uAC00\uB2A5", 9, 23, note);
+          continue;
+        }
+        classes.forEach((x) => add("\uBD88\uAC00\uB2A5", Math.max(9, +x.start), Math.min(23, +x.end), note));
+        continue;
+      }
+      return null;
+    }
+  }
+  if (missing.length) return {
+    route: "local-personal-bulk-needs",
+    action: null,
+    reply: `${member.name}\uC740 \uB4F1\uB85D \uC778\uC6D0\uC5D0\uC11C \uD655\uC778\uD588\uACE0, \uC218\uC5C5 \uC2DC\uAC04\uD45C\uB3C4 \uC77D\uC5C8\uC2B5\uB2C8\uB2E4.
+${[...new Set(missing)].join(", ")}\uB9CC \uC54C\uB824 \uC8FC\uC138\uC694. \uB098\uBA38\uC9C0 \uB0A0\uC9DC\uB294 \uADF8\uB300\uB85C \uC774\uC5B4\uC11C \uC900\uBE44\uD560\uAC8C\uC694.`
+  };
+  if (parsedLines < 2 || !items.length) return null;
+  const action = validAction({ type: "personal_schedules", items });
+  if (!action) return null;
+  return {
+    route: "local-personal-bulk",
+    action,
+    reply: `${member.name} \uAC1C\uC778 \uC77C\uC815 ${action.items.length}\uAC1C \uAD6C\uAC04\uC744 \uC900\uBE44\uD588\uC5B4\uC694.
+\uB4F1\uB85D\uB41C \uD68C\uC758\xB7\uC218\uC5C5 \uC2DC\uAC04\uD45C\uB97C \uBC18\uC601\uD588\uC2B5\uB2C8\uB2E4. \uC544\uB798 \uBC84\uD2BC\uC5D0\uC11C \uD655\uC778\uD55C \uB4A4 \uC800\uC7A5\uD574 \uC8FC\uC138\uC694.`
+  };
+}
 function fastLocalResult(message, context = {}, history2 = []) {
   const text = String(message || "").trim();
   if (isHelpRequest(text)) return { route: "local-help", reply: HELP_TEXT, action: null };
   const members = (context.members || []).filter((m) => m && typeof m === "object");
+  const bulk = bulkPersonalResult(text, context, members);
+  if (bulk) return bulk;
   const name = members.map((m) => m.name).filter(Boolean).sort((a, b) => b.length - a.length).find((n) => text.includes(n));
   const date = parsedDate(text, context), times2 = parsedTimes(text);
   if (name && date && times2.length === 2 && /(가능|불가능).*(등록|추가|넣어)|(?:등록|추가|넣어).*(가능|불가능)/.test(text)) {
@@ -272018,6 +272124,7 @@ ${String(message).trim()}` }
     let lastFail = null;
     let result2 = null;
     let message0 = null;
+    let activeModel = CHAT_MODEL;
     const deadlineMs = shortCall ? 17e3 : 0;
     for (let round = 0; round < maxRounds; round += 1) {
       const noTools = deadlineMs > 0 && elapsed() > deadlineMs || round === maxRounds - 1;
@@ -272032,7 +272139,7 @@ ${String(message).trim()}` }
             method: "POST",
             headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
             body: JSON.stringify({
-              model: CHAT_MODEL,
+              model: activeModel,
               messages,
               ...noTools ? {} : { tools: TOOLS, tool_choice: "auto" },
               // 이 모델은 켜 두면 영어 사고 과정을 답변에 그대로 흘린다. 분석 경로와 같이 꺼 둔다.
@@ -272051,6 +272158,11 @@ ${String(message).trim()}` }
         }
         if (upstream.ok || ![429, 500, 502, 503, 504].includes(upstream.status)) break;
         lastFail = null;
+      }
+      if (upstream && [404, 410].includes(upstream.status) && activeModel !== FALLBACK_MODEL) {
+        activeModel = FALLBACK_MODEL;
+        round -= 1;
+        continue;
       }
       if (!upstream) {
         const timedOut = lastFail?.name === "TimeoutError" || lastFail?.name === "AbortError";
@@ -272148,7 +272260,7 @@ ${bulletList(action.items, (x) => `\xB7 ${fmtDate2(x.date)} ${String(x.startH).p
       reply: content,
       action,
       provider: "NVIDIA NIM",
-      model: CHAT_MODEL,
+      model: activeModel,
       tools: toolTrace.length ? toolTrace : void 0,
       timing: { promptReadyMs, nimMs, totalMs: elapsed() }
     });

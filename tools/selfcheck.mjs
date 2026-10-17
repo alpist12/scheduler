@@ -1,7 +1,15 @@
 /* 에어/분석이 조용히 깨지는 자리를 잡아 둔다. node tools/selfcheck.mjs */
 import assert from 'node:assert';
+import { readFileSync } from 'node:fs';
 import { pathParts, sceneHeadings, splitScenes, countHeadings } from '../netlify/functions/_shared.mjs';
 import { fastLocalResult } from '../netlify/functions/chat.mjs';
+
+// 공개 클라이언트가 Firestore를 직접 쓰는 동안 규칙 만료를 배포 전에 잡는다.
+const rules = readFileSync('firestore.rules', 'utf8');
+const expiry = rules.match(/timestamp\.date\((\d{4}),\s*(\d{1,2}),\s*(\d{1,2})\)/);
+assert.ok(expiry, 'Firestore 규칙 만료일이 없습니다.');
+const expiresAt = Date.UTC(+expiry[1], +expiry[2] - 1, +expiry[3]);
+assert.ok(expiresAt - Date.now() > 90 * 24 * 60 * 60 * 1000, 'Firestore 규칙 만료가 90일 이내입니다.');
 
 // 1. 리다이렉트를 거친 실제 요청 모양. 예전에 여기서 '작업 ID가 없습니다' 가 났다.
 assert.deepStrictEqual(

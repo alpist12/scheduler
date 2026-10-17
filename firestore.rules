@@ -5,7 +5,7 @@ service cloud.firestore {
     // Firebase 콘솔에 현재 배포된 규칙을 그대로 버전 관리한다.
     // 앱이 아직 익명 클라이언트 쓰기에 의존하므로 인증 도입 전에는 좁힐 수 없다.
     match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2026, 10, 10);
+      allow read, write: if request.time < timestamp.date(2027, 12, 31);
     }
   }
 }

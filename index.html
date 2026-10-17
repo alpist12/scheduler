@@ -7,6 +7,7 @@
 <meta name="theme-color" content="#f6f7fd">
 <style>:root{color-scheme:light only}html,body{background:#f6f7fd;color:#2b3560}@media (prefers-color-scheme:dark){:root{color-scheme:light only}}img,svg{forced-color-adjust:none}</style>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
 <title>HNUBS 방송국 스케줄러</title>
 <link rel="icon" href="assets/hnubs-favicon-black.png">
 <style>
@@ -54,7 +55,7 @@
 <aside class="ai-pal" aria-label="Air(에어) AI 도우미">
   <div id="aiPalBubble" class="ai-pal-bubble" role="status">무엇을 도와드릴까요?</div>
   <section id="aiPalChat" class="ai-pal-chat" aria-label="AI 대화창">
-    <header class="ai-pal-head"><img src="assets/ai-assistant.gif" alt=""><span><b>Air(에어)</b><small id="aiPalStatus">NVIDIA 연결 확인 중</small></span><button id="aiPalClose" class="ai-pal-close" aria-label="닫기">×</button></header>
+    <header class="ai-pal-head"><img src="assets/ai-assistant.gif" alt=""><span><b>Air(에어)</b><small id="aiPalStatus">NVIDIA 연결 확인 중</small></span><button id="hnubsShareLink" type="button" title="초대 링크 복사" style="border:0;background:#eef3ff;color:#4361ee;padding:6px 10px;border-radius:10px;font:700 11.5px inherit;cursor:pointer;margin-right:6px">🔗 링크 복사</button><button id="aiPalClose" class="ai-pal-close" aria-label="닫기">×</button></header>
     <div id="aiPalMessages" class="ai-pal-messages"><div class="ai-pal-msg bot">안녕하세요! Air입니다. 이렇게 물어보세요 👇
 
 📅 <b>다음주 촬영일정 알려줘</b>
@@ -149,10 +150,21 @@
     showDesign();
     mobileQuery.addEventListener?.('change', showDesign);
 
+    document.getElementById('hnubsShareLink')?.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const currentUrl = window.location.href.split('#')[0].split('?')[0];
+      navigator.clipboard?.writeText(currentUrl).then(() => {
+        window.hnubsToast('스케줄러 접속 링크가 복사되었습니다!');
+      }).catch(() => {
+        prompt('아래 링크 주소를 복사하세요:', currentUrl);
+      });
+    });
+
     /* ---------------- 점검 모드 ----------------
        비밀번호 확인은 서버에서만 한다. 여기서 비교하면 개발자 도구로 뚫린다.
        통과 기록은 탭을 닫으면 사라지는 sessionStorage 에만 둔다. */
-    const apiBase = () => (location.pathname.startsWith('/scheduler') ? '/scheduler' : '');
+    const apiBase = () => (location.hostname.endsWith('github.io') ? 'https://hnubs.netlify.app' : (location.pathname.startsWith('/scheduler') ? '/scheduler' : ''));
     const MAINTENANCE_STATUS_URL = 'https://firestore.googleapis.com/v1/projects/hnubs-2sceduler/databases/default/documents/settings/maintenance?key=AIzaSyDXmeiQpRSZshFA1_BgZ2z_8AKLy6_Nc8M';
     const BYPASS = 'hnubs-maint-ok';
     const gate = document.getElementById('maintGate');
@@ -327,7 +339,7 @@
     }
 
     async function fetchAirReply(payload) {
-      const url = `${location.pathname.startsWith('/scheduler') ? '/scheduler' : ''}/api/chat`;
+      const url = `${apiBase()}/api/chat`;
       const startedAt = performance.now();
       // 재시도하지 않는다. 타임아웃에 재시도하면 사용자가 두 배로 기다린 뒤 실패한다.
       let response;

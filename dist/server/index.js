@@ -270530,7 +270530,13 @@ var API_BASE = (process.env.NVIDIA_API_BASE || "https://integrate.api.nvidia.com
 var ANALYSIS_TIMEOUT_MS = 18e4;
 var response = (statusCode, value) => ({
   statusCode,
-  headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+  headers: {
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store",
+    "access-control-allow-origin": "*",
+    "access-control-allow-headers": "*",
+    "access-control-allow-methods": "GET, POST, OPTIONS"
+  },
   body: JSON.stringify(value)
 });
 var parseBody = (event) => {

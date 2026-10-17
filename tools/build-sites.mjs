@@ -20,6 +20,7 @@ for (const name of [
   'refresh.css',
   'standalone-desktop.html',
   'standalone-mobile.html',
+  'robots.txt',
 ]) cpSync(resolve(root, name), resolve(client, name));
 cpSync(resolve(root, 'assets'), resolve(client, 'assets'), { recursive: true });
 

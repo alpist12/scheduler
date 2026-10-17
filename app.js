@@ -2058,7 +2058,7 @@ async function saveProject(form) {
 }
 
 async function apiJson(path, options = {}) {
-  const base = location.pathname === '/scheduler' || location.pathname.startsWith('/scheduler/') ? '/scheduler' : '';
+  const base = location.hostname.endsWith('github.io') ? 'https://hnubs.netlify.app' : (location.pathname === '/scheduler' || location.pathname.startsWith('/scheduler/') ? '/scheduler' : '');
   const response = await fetch(`${base}${path}`, { ...options, headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } });
   const raw = await response.text();
   let value;

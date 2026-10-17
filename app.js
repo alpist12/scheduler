@@ -89,6 +89,9 @@ const aiState = {
   file: null,
   extractedText: '',
   extracting: false,
+  previewUrl: '',
+  pdfPage: 1,
+  pdfPages: 0,
   job: null,
   mappings: {},
   pollTimer: null,
@@ -948,16 +951,15 @@ function renderMobileAI(){
   const projectOpts=Object.entries(projects).sort(([,a],[,b])=>(a.createdAt||0)-(b.createdAt||0)).map(([id,p])=>`<option value="${esc(id)}" ${id===pid?'selected':''}>${esc(p.name)}</option>`).join('');
   const candidateRows=candidates.items.slice(0,5).map((slot,i)=>`<button data-act="ai-candidate" data-day="${slot.day}" data-time="${slot.time}"><i>${i+1}</i><span><b>${DAYS[slot.day]}요일 ${String(slot.time).padStart(2,'0')}:00–${String(slot.time+1).padStart(2,'0')}:00</b><small>${scene?.sceneId?`${esc(scene.sceneId)} · `:''}${slot.yes.map(x=>esc(base[x]?.name||'')).filter(Boolean).slice(0,3).join(', ')||'가능 인원 없음'}</small></span><em>${slot.yes.length}명 가능</em><i class="fa-solid fa-chevron-right"></i></button>`).join('');
   const sceneRows=scenes.slice(0,6).map((item,i)=>`<button data-act="ai-scene" data-i="${i}" class="${i===state.aiSceneIndex?'is-active':''}"><span><b>${esc(item.sceneId||`S#${i+1}`)}</b><small>${esc(item.location||item.title||'장소 미정')}</small></span><i class="fa-solid fa-chevron-right"></i></button>`).join('');
-  const running=['queued','running','partial'].includes(job?.status), completed=job?.status==='completed';
+  const running=['queued','running'].includes(job?.status), completed=job?.status==='completed';
+  const phase=running?'running':scenes.length&&['completed','partial'].includes(job?.status)?'done':'setup';
+  const pdfViewer=aiPdfViewer(job,true);
   return `<main class="mobile-screen mobile-ai-screen" data-mobile-view="ai">
     ${mobileHead('AI 분석','대본을 분석하고 촬영 후보를 추천합니다.')}
-    <section class="mobile-ai-command"><div><i class="fa-solid fa-wand-magic-sparkles"></i><span><b>${scene?`${esc(scene.sceneId||'선택한 씬')} 촬영 가능한 시간 알려줘`:'대본을 선택해 촬영 가능한 시간을 찾아보세요'}</b><small>씬·장소·등장 배역과 실제 일정을 함께 분석합니다.</small></span></div><button data-act="ai-file" aria-label="대본 선택"><i class="fa-solid fa-arrow-right"></i></button></section>
-    <div class="mobile-ai-shortcuts"><button data-act="tab" data-tab="analysis"><i class="fa-regular fa-calendar-check"></i><span><b>공통 가능 시간</b><small>여러 명의 시간을 비교</small></span></button><button data-act="quick" data-quick="filter"><i class="fa-solid fa-user-group"></i><span><b>촬영 인원 추천</b><small>씬에 맞는 인원 확인</small></span></button><button data-act="tab" data-tab="week"><i class="fa-solid fa-chart-column"></i><span><b>일정 최적화</b><small>이번 주 시간표 분석</small></span></button><button data-act="ai-file"><i class="fa-solid fa-file-lines"></i><span><b>대본 분석</b><small>씬과 등장 배역 분류</small></span></button></div>
-    <section class="mobile-screen-card mobile-ai-upload"><header><div><h2>대본 분석</h2><p>PDF · DOCX · TXT, 최대 20MB</p></div><button data-act="ai-reset" ${!job?'disabled':''}>초기화</button></header><label>프로젝트<select data-act="ai-project">${projectOpts||'<option value="">프로젝트 없음</option>'}</select></label><button class="mobile-ai-file" data-act="ai-file"><i class="fa-solid fa-cloud-arrow-up"></i><span><b>${aiState.file?esc(aiState.file.name):'대본 파일을 선택하세요'}</b><small>${aiState.extractedText?`${aiState.extractedText.length.toLocaleString()}자 추출 완료`:'파일 선택 또는 드래그 앤 드롭'}</small></span></button><button class="mobile-ai-start" data-act="ai-start" ${!pid||!aiState.extractedText||!connected||running?'disabled':''}><i class="fa-solid fa-play"></i> 분석 시작하기</button></section>
-    <section class="mobile-screen-card mobile-ai-progress ${running?'is-running':''}"><header><span><i class="fa-solid ${completed?'fa-circle-check':'fa-wand-magic-sparkles'}"></i><b>${completed?'분석이 완료되었어요!':running?'AI가 분석 중이에요…':'분석 진행 상황'}</b></span><strong>${progress}%</strong></header><div class="mobile-ai-progressbar"><i style="width:${progress}%"></i></div><div class="mobile-ai-steps"><span class="${progress>0?'done':''}">파일 읽기</span><span class="${progress>=35?'done':''}">씬 분석</span><span class="${progress>=70?'done':''}">일정 계산</span><span class="${progress===100?'done':''}">결과 정리</span></div></section>
-    <section class="mobile-screen-card mobile-ai-server-log"><header><h2>서버 로그</h2><small>실시간 업데이트</small></header><ul aria-live="polite">${serverLogs.map(entry=>`<li><time>${esc(entry.time||'--:--:--')}</time><span class="${esc(entry.level||'info')}">${esc(entry.level||'info')}</span><b>${esc(entry.message||'')}</b></li>`).join('')||'<li class="is-empty">분석을 시작하면 서버 로그가 표시됩니다.</li>'}</ul></section>
-    ${scenes.length?`<section class="mobile-screen-card mobile-ai-scenes"><header><h2>분석된 씬</h2><small>${scenes.length}개</small></header><div>${sceneRows}</div></section>`:''}
-    <section class="mobile-screen-card mobile-ai-candidates"><header><h2>추천 촬영 가능 시간</h2><button data-act="tab" data-tab="analysis">전체 보기 <i class="fa-solid fa-chevron-right"></i></button></header><div>${candidateRows||'<p>분석할 씬을 선택하면 실제 시간표 기준 후보가 표시됩니다.</p>'}</div></section>
+    <input id="aiFileInput" type="file" accept=".pdf,.docx,.txt" hidden>
+    ${phase==='setup'?`<section class="mobile-ai-command"><div><i class="fa-solid fa-wand-magic-sparkles"></i><span><b>대본을 선택해 촬영 가능한 시간을 찾아보세요</b><small>PDF는 페이지를 넘기며 먼저 확인할 수 있습니다.</small></span></div><button data-act="ai-file" aria-label="대본 선택"><i class="fa-solid fa-arrow-right"></i></button></section><section class="mobile-screen-card mobile-ai-upload"><header><div><h2>대본 분석</h2><p>PDF · DOCX · TXT, 최대 20MB</p></div><button data-act="ai-reset" ${!job?'disabled':''}>초기화</button></header><label>프로젝트<select data-act="ai-project">${projectOpts||'<option value="">프로젝트 없음</option>'}</select></label><button class="mobile-ai-file" data-act="ai-file"><i class="fa-solid fa-cloud-arrow-up"></i><span><b>${aiState.file?esc(aiState.file.name):'대본 파일을 선택하세요'}</b><small>${aiState.extractedText?`${aiState.extractedText.length.toLocaleString()}자 추출 완료`:'파일 선택 또는 드래그 앤 드롭'}</small></span></button><button class="mobile-ai-start" data-act="ai-start" ${!pid||!aiState.extractedText||!connected?'disabled':''}><i class="fa-solid fa-play"></i> 분석 시작하기</button></section>${pdfViewer}`:''}
+    ${phase==='running'?(pdfViewer||`<section class="mobile-screen-card mobile-ai-progress is-running"><header><span><i class="fa-solid fa-wand-magic-sparkles"></i><b>AI가 분석 중이에요…</b></span><strong>${progress}%</strong></header><div class="mobile-ai-progressbar"><i style="width:${progress}%"></i></div></section>`):''}
+    ${phase==='done'?`${scenes.length?`<section class="mobile-screen-card mobile-ai-scenes"><header><h2>분석된 씬</h2><small>${scenes.length}개</small></header><div>${sceneRows}</div></section>`:''}<section class="mobile-screen-card mobile-ai-candidates"><header><h2>추천 촬영 가능 시간</h2><button data-act="tab" data-tab="analysis">전체 보기 <i class="fa-solid fa-chevron-right"></i></button></header><div>${candidateRows||'<p>분석할 씬을 선택하면 실제 시간표 기준 후보가 표시됩니다.</p>'}</div></section><button class="mobile-wide-action" data-act="ai-reset">다른 대본 분석하기</button>`:''}
   </main>`;
 }
 function renderMobileSettings(){const groups=Object.entries(sortedPeople().reduce((o,p)=>{const d=p[1].department||'미지정';(o[d]??=[]).push(p);return o},{}));return `<main class="mobile-screen" data-mobile-view="settings">${mobileHead('설정','인원·고정 시간표·방송 관리')}<section class="mobile-screen-card mobile-settings-actions"><button data-act="member-add"><i class="fa-solid fa-user-plus"></i> 인원 추가</button><button data-act="radio-open"><i class="fa-solid fa-microphone-lines"></i> 라디오 방송 담당</button></section><section class="mobile-screen-card">${groups.map(([d,its])=>`<div class="mobile-member-group"><h2>${esc(d)}</h2>${its.map(([id,m])=>`<article class="mobile-member-card"><b>${esc(m.name)}</b><small>${fixedItems(id,m).length}개 고정 일정</small><button data-act="fixed-open" data-id="${esc(id)}">관리</button></article>`).join('')}</div>`).join('')}</section></main>`}
@@ -974,6 +976,21 @@ function aiCurrentJob() {
   if (aiState.job?.projectId === pid) return aiState.job;
   const saved = projects[pid]?.aiAnalysis || {};
   return saved.job || saved.analysisJobs?.[saved.activeJobId] || null;
+}
+
+function aiPdfViewer(job, mobile = false) {
+  if (!aiState.previewUrl) return '';
+  const page = Math.max(1, Math.min(aiState.pdfPage, aiState.pdfPages || aiState.pdfPage || 1));
+  const src = `${aiState.previewUrl}#page=${page}&zoom=page-width&toolbar=0&navpanes=0`;
+  const running = ['queued', 'running'].includes(job?.status);
+  const items = job?.items || [];
+  const progress = job?.progress || 0;
+  const activeItem = items.find(item => item.status === 'running');
+  const latestLog = (job?.logs || []).at(-1);
+  return `<article class="ai-card ai-pdf-card ${mobile ? 'is-mobile' : ''}">
+    <header class="ai-pdf-toolbar"><div><i class="fa-regular fa-file-pdf"></i><span><b>${esc(aiState.file?.name || 'PDF 대본')}</b><small>원본 대본 미리보기</small></span></div><nav aria-label="PDF 페이지"><button data-act="ai-pdf-prev" aria-label="이전 페이지" ${page <= 1 ? 'disabled' : ''}><i class="fa-solid fa-chevron-left"></i></button><b>${page} / ${aiState.pdfPages || '?'}</b><button data-act="ai-pdf-next" aria-label="다음 페이지" ${aiState.pdfPages && page >= aiState.pdfPages ? 'disabled' : ''}><i class="fa-solid fa-chevron-right"></i></button></nav></header>
+    <div class="ai-pdf-stage"><iframe id="aiPdfFrame" data-src="${esc(src)}" src="${esc(src)}" title="${esc(aiState.file?.name || 'PDF 대본')} 미리보기"></iframe>${running ? `<div class="ai-pdf-analysis-overlay" role="status" aria-live="polite"><div class="ai-pdf-overlay-panel"><div class="ai-pdf-overlay-head"><span><i class="fa-solid fa-wand-magic-sparkles"></i> 대본 분석 중</span><strong>${progress}%</strong></div><b>${activeItem ? `장면 묶음 ${activeItem.index + 1} / ${items.length} 처리 중` : '대본을 읽고 분석을 준비하고 있습니다.'}</b><div class="ai-progress-bar"><i style="width:${progress}%"></i></div>${latestLog ? `<small>${esc(latestLog.message || '')}</small>` : '<small>씬·장소·등장 배역을 순서대로 찾고 있습니다.</small>'}</div></div>` : ''}</div>
+  </article>`;
 }
 
 /* AI가 모르는 장소를 UNKNOWN/N/A로 채워도 화면과 추천 로직에서는 빈 장소로 본다. */
@@ -1718,13 +1735,15 @@ function renderAI() {
   const recent = Object.values(saved.analysisJobs || {}).filter(Boolean).sort((a,b)=>String(b.updatedAt||b.createdAt||'').localeCompare(String(a.updatedAt||a.createdAt||''))).slice(0,4);
   const serverLogs = (job?.logs || []).slice(-100).reverse();
   const serverLogRows = serverLogs.map(entry => `<li><time>${esc(entry.time || '--:--:--')}</time><em class="${esc(entry.level || 'info')}">${esc(entry.level || 'info')}</em><span>${esc(entry.message || '')}</span></li>`).join('');
+  const phase = ['queued', 'running'].includes(job?.status) ? 'running' : scenes.length && ['completed', 'partial'].includes(job?.status) ? 'done' : 'setup';
+  const pdfViewer = aiPdfViewer(job);
 
-  return `<main class="view ai-view">
+  return `<main class="view ai-view ai-phase-${phase}">
     <header class="view-head"><div class="view-title-row"><div><h1>AI 분석</h1><p class="sub">대본에서 씬·장소·등장 배역을 찾고 실제 시간표로 촬영 후보를 계산합니다.</p></div></div></header>
     <section class="ai-stepper">${[['fa-file-arrow-up','대본 선택'],['fa-sliders','분석 설정'],['fa-wand-magic-sparkles','AI 분석'],['fa-calendar-check','일정 후보']].map(([icon,label],i)=>`<span class="${i<=stage?'is-active':''}"><i class="fa-solid ${icon}"></i><b>${label}</b></span>${i<3?'<em></em>':''}`).join('')}</section>
     <section class="ai-top-grid">
       <article class="ai-card ai-upload-card"><div class="ai-card-title"><h3>대본 업로드</h3><span>PDF · DOCX · TXT, 최대 20MB</span></div><div class="ai-project-row"><label>프로젝트<select data-act="ai-project">${projectOpts || '<option value="">프로젝트 없음</option>'}</select></label><button data-act="project-open"><i class="fa-solid fa-plus"></i> 프로젝트</button><button class="ai-reset" data-act="ai-reset" ${!job ? 'disabled' : ''}><i class="fa-solid fa-rotate-left"></i> 분석 초기화</button></div><input id="aiFileInput" type="file" accept=".pdf,.docx,.txt" hidden><button class="ai-drop" data-act="ai-file"><i class="fa-solid fa-cloud-arrow-up"></i><span>${aiState.extracting ? '텍스트 추출 중…' : aiState.file ? esc(aiState.file.name) : '파일을 선택하거나 이곳에 놓으세요'}</span><small>${aiState.extractedText ? `${aiState.extractedText.length.toLocaleString()}자 추출 완료` : '원본 파일은 Firebase에 저장하지 않습니다.'}</small></button><div class="ai-option-row">${[['scenes','씬·장소'],['cast','등장 배역'],['locations','소품·장비'],['schedule','시간표 후보']].map(([key,label])=>`<label><input type="checkbox" data-ai-option="${key}" ${aiState.options[key]?'checked':''}><span>${label}</span></label>`).join('')}</div><button class="ai-start" data-act="ai-start" ${!pid || !aiState.extractedText || !connected || job?.status === 'running' ? 'disabled' : ''}><i class="fa-solid fa-play"></i> 분석 시작</button></article>
-      <article class="ai-card ai-progress-card ${['queued','running'].includes(job?.status) ? 'is-running' : ''}"><div class="ai-progress-main"><div class="ai-ring" style="--progress:${progress}"><strong>${progress}%</strong></div><div class="ai-progress-copy"><span>${progressTitle}</span><b>${activeItem ? `장면 묶음 ${activeItem.index + 1} / ${items.length} 처리 중` : job?.status === 'completed' ? `${scenes.length}개 장면 분석 완료` : '대본을 선택하면 분석을 시작할 수 있습니다.'}</b><div class="ai-progress-bar"><i style="width:${progress}%"></i></div><div class="ai-counts"><span><small>완료</small><b>${success}</b></span><span class="bad"><small>실패</small><b>${failed}</b></span><span><small>대기</small><b>${pending}</b></span></div></div></div>${failedRows}</article>
+      ${pdfViewer || `<article class="ai-card ai-progress-card ${['queued','running'].includes(job?.status) ? 'is-running' : ''}"><div class="ai-progress-main"><div class="ai-ring" style="--progress:${progress}"><strong>${progress}%</strong></div><div class="ai-progress-copy"><span>${progressTitle}</span><b>${activeItem ? `장면 묶음 ${activeItem.index + 1} / ${items.length} 처리 중` : job?.status === 'completed' ? `${scenes.length}개 장면 분석 완료` : 'PDF 대본을 선택하면 페이지를 보며 분석할 수 있습니다.'}</b><div class="ai-progress-bar"><i style="width:${progress}%"></i></div><div class="ai-counts"><span><small>완료</small><b>${success}</b></span><span class="bad"><small>실패</small><b>${failed}</b></span><span><small>대기</small><b>${pending}</b></span></div></div></div>${failedRows}</article>`}
     </section>
     <section class="ai-card ai-log-card"><div class="ai-card-title"><h3>서버 로그</h3><span>${serverLogs.length ? '실시간 업데이트' : '대기 중'}</span></div><ul aria-live="polite">${serverLogRows || '<li class="is-empty">분석을 시작하면 백그라운드 서버 로그가 표시됩니다.</li>'}</ul></section>
     <section class="ai-work-grid">
@@ -1778,7 +1797,12 @@ function render() {
   if (ENGINE_ONLY) return;
   const mobile = window.matchMedia('(max-width: 760px)').matches;
   const renderer = mobile ? (MOBILE_VIEWS[state.view] || renderMobileHome) : (VIEWS[state.view] || renderWeek);
+  const preservedPdf = document.getElementById('aiPdfFrame');
+  const preservedPdfSrc = preservedPdf?.dataset.src;
+  preservedPdf?.remove();
   $app().innerHTML = renderSidebar() + renderer() + renderMobileBottomNav() + renderDataWarning();
+  const nextPdf = document.getElementById('aiPdfFrame');
+  if (preservedPdf && nextPdf && preservedPdfSrc === nextPdf.dataset.src) nextPdf.replaceWith(preservedPdf);
   const stage = document.getElementById('tmStage');
   if (stage) stage.addEventListener('wheel', e => {
     e.preventDefault();
@@ -2095,11 +2119,15 @@ async function extractAiFile(file) {
   if (!file) return;
   if (!/\.(pdf|docx|txt)$/i.test(file.name)) { toast('PDF, DOCX, TXT 파일만 선택할 수 있습니다.'); return; }
   if (file.size > 20 * 1024 * 1024) { toast('파일은 20MB 이하만 업로드할 수 있습니다.'); return; }
-  aiState.file = file; aiState.extracting = true; aiState.extractedText = ''; render();
+  if (aiState.previewUrl) URL.revokeObjectURL(aiState.previewUrl);
+  aiState.file = file; aiState.extracting = true; aiState.extractedText = '';
+  aiState.previewUrl = /\.pdf$/i.test(file.name) ? URL.createObjectURL(file) : '';
+  aiState.pdfPage = 1; aiState.pdfPages = 0; render();
   try {
     const dataBase64 = await fileToBase64(file);
     const result = await apiJson('/api/extract', { method: 'POST', body: JSON.stringify({ filename: file.name, dataBase64 }) });
     aiState.extractedText = result.text;
+    aiState.pdfPages = Number(result.pages) || 0;
     toast(`${result.characters.toLocaleString()}자 추출을 완료했습니다.`);
   } catch (error) { reportError('대본 텍스트 추출', error); }
   finally { aiState.extracting = false; render(); }
@@ -2155,6 +2183,10 @@ async function resetAiProject() {
   aiState.file = null;
   aiState.extractedText = '';
   aiState.extracting = false;
+  if (aiState.previewUrl) URL.revokeObjectURL(aiState.previewUrl);
+  aiState.previewUrl = '';
+  aiState.pdfPage = 1;
+  aiState.pdfPages = 0;
   aiState.job = null;
   aiState.mappings = {};
   state.aiSceneIndex = 0;
@@ -2374,6 +2406,8 @@ document.addEventListener('click', e => {
 
     /* AI script analysis */
     case 'ai-file': document.getElementById('aiFileInput')?.click(); return;
+    case 'ai-pdf-prev': aiState.pdfPage = Math.max(1, aiState.pdfPage - 1); render(); return;
+    case 'ai-pdf-next': aiState.pdfPage = Math.min(aiState.pdfPages || aiState.pdfPage + 1, aiState.pdfPage + 1); render(); return;
     case 'ai-health': checkAiHealth(); return;
     case 'ai-start': startAiAnalysis(); return;
     case 'ai-reset': {
@@ -2877,14 +2911,6 @@ window.HNUBS_ENGINE = {
     await dropDoc(`shoots/${key}`);
   },
   async addPersonalSchedule(record = {}) {
-    const saved = await this.addPersonalSchedules([record]);
-    return saved[0];
-  },
-  /** 같은 날짜에 여러 구간을 넣을 때 Firestore 갱신을 기다리며 한 건씩 쓰면
-   *  마지막 구간이 앞 구간을 덮을 수 있다. 날짜별로 합쳐 한 번만 저장한다. */
-  async addPersonalSchedules(records = []) {
-    const groups = new Map();
-    for (const record of records) {
     const name = String(record.memberName || '').trim();
     const memberEntry = Object.entries(base).find(([, person]) => person.name === name);
     if (!memberEntry) throw new Error(`등록 인원에서 ${name || '해당 이름'}을 찾지 못했습니다.`);
@@ -2898,39 +2924,22 @@ window.HNUBS_ENGINE = {
     const real = /^\d{4}-\d{2}-\d{2}$/.test(asked) && isoOf(date) === asked;
     if (Number.isNaN(date.getTime()) || !real || !status || !(start >= 0 && end <= 24 && end > start)) throw new Error('이름, 날짜, 시간 또는 가능 여부를 확인해 주세요.');
     const iso = isoOf(date);
-      const key = `${id}\u0000${iso}`;
-      if (!groups.has(key)) groups.set(key, { id, person, iso, date, records: [] });
-      groups.get(key).records.push({ record, status, start, end });
-    }
-    const saved = [];
-    for (const { id, person, iso, date, records: dayRecords } of groups.values()) {
     const dayLabel = dayLabelOf(date);
     const targetWeekKey = weekKeyFromLabel(dayLabelOf(weekStartOf(iso)));
     const old = allWeeks[targetWeekKey]?.[id] || {};
     const previous = old.schedules?.[dayLabel];
-      const explicit = personalRanges(previous);
-      let available = [...explicit.available], unavailable = [...explicit.unavailable];
-      for (const { status, start, end } of dayRecords) {
-        const chosen = { start, end };
-        if (status === '가능') {
-          available = mergeRanges([...available, chosen]);
-          unavailable = subtract(unavailable, [chosen]);
-        } else {
-          unavailable = mergeRanges([...unavailable, chosen]);
-          available = subtract(available, [chosen]);
-        }
-      }
+    const explicit = personalRanges(previous);
+    const chosen = { start, end };
     const schedule = {
       status: '시간별 설정', entryMode: 'exceptions',
-        availableRanges: mergeRanges(available), unavailableRanges: mergeRanges(unavailable),
-        memo: String(dayRecords.map(x => x.record.memo).filter(Boolean).join(' · ') || previous?.memo || 'Air(에어)에서 등록'),
+      availableRanges: mergeRanges(status === '가능' ? [...explicit.available, chosen] : subtract(explicit.available, [chosen])),
+      unavailableRanges: mergeRanges(status === '불가능' ? [...explicit.unavailable, chosen] : subtract(explicit.unavailable, [chosen])),
+      memo: String(record.memo || previous?.memo || 'Air(에어)에서 등록'),
       createdAt: previous?.createdAt || Date.now(), updatedAt: Date.now(),
     };
     await saveDoc(`${personalPath(person)}/${iso}`,
       { ...schedule, memberId: memberDocId(person), date: iso, mandatory: !!old.mandatory });
-      saved.push(...dayRecords.map(({ status, start, end }) => ({ memberName: person.name, date: dayLabel, status, start, end })));
-    }
-    return saved;
+    return { memberName: person.name, date: dayLabel, status, start, end };
   },
   async deletePersonalScheduleDay(record = {}) {
     const name = String(record.memberName || '').trim();
@@ -3067,6 +3076,7 @@ window.HNUBS_ENGINE = {
     if (projectId) state.aiProjectId = projectId;
     await extractAiFile(file);
     if (!aiState.extractedText) throw new Error('텍스트를 추출하지 못했습니다. 파일과 서버 연결을 확인해 주세요.');
+    return { pages: aiState.pdfPages };
   },
   async startAnalysis(projectId, options) {
     // 호출자가 프로젝트를 명시해야 한다. aiProjectId() 는 첫 프로젝트로 자동 대체하므로 여기서 쓰지 않는다.

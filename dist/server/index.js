@@ -271109,14 +271109,17 @@ var handler3 = async (event) => {
     const body = parseBody(event), filename = String(body.filename || ""), raw = Buffer.from(String(body.dataBase64 || ""), "base64");
     if (!raw.length || raw.length > MAX) return response(400, { error: "\uD30C\uC77C\uC740 20MB \uC774\uD558\uB9CC \uC5C5\uB85C\uB4DC\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." });
     const ext = filename.toLowerCase().split(".").pop();
-    let text = "";
+    let text = "", pages = 0;
     if (ext === "txt") text = raw.toString("utf8").replace(/^\uFEFF/, "");
     else if (ext === "docx") text = (await import_mammoth.default.extractRawText({ buffer: raw })).value;
-    else if (ext === "pdf") text = (await (0, import_pdf_parse.default)(raw)).text;
-    else return response(400, { error: "PDF, DOCX, TXT \uD30C\uC77C\uB9CC \uC9C0\uC6D0\uD569\uB2C8\uB2E4." });
+    else if (ext === "pdf") {
+      const parsed = await (0, import_pdf_parse.default)(raw);
+      text = parsed.text;
+      pages = parsed.numpages || 0;
+    } else return response(400, { error: "PDF, DOCX, TXT \uD30C\uC77C\uB9CC \uC9C0\uC6D0\uD569\uB2C8\uB2E4." });
     text = text.trim();
     if (!text) return response(400, { error: "\uD30C\uC77C\uC5D0\uC11C \uD14D\uC2A4\uD2B8\uB97C \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4." });
-    return response(200, { filename, text, characters: text.length });
+    return response(200, { filename, text, characters: text.length, pages });
   } catch (error) {
     return response(500, { error: error.message });
   }

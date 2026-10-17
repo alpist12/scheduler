@@ -46,8 +46,7 @@ load_local_env(ROOT / ".env")
 HOST = os.getenv("HNUBS_HOST", "127.0.0.1")
 PORT = int(os.getenv("HNUBS_PORT", "4173"))
 NVIDIA_API_BASE = os.getenv("NVIDIA_API_BASE", "https://integrate.api.nvidia.com").rstrip("/")
-NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "openai/gpt-oss-20b")
-NVIDIA_FALLBACK_MODEL = os.getenv("NVIDIA_FALLBACK_MODEL", "nvidia/nemotron-3.5-lightning-30b-a3b")
+NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "nvidia/nemotron-3-ultra-550b-a55b")
 NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "").strip()
 AI_PROVIDER = os.getenv("AI_PROVIDER", "NVIDIA").strip().upper()
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
@@ -74,26 +73,26 @@ def extract_docx(raw: bytes) -> str:
     return "\n".join(paragraphs)
 
 
-def extract_pdf(raw: bytes) -> str:
+def extract_pdf(raw: bytes) -> tuple[str, int]:
     try:
         from pypdf import PdfReader
     except ImportError as exc:
         raise RuntimeError("PDF 분석 모듈이 없습니다. pip install -r requirements.txt 를 실행해 주세요.") from exc
     reader = PdfReader(io.BytesIO(raw))
-    return "\n\n".join((page.extract_text() or "").strip() for page in reader.pages).strip()
+    return "\n\n".join((page.extract_text() or "").strip() for page in reader.pages).strip(), len(reader.pages)
 
 
-def extract_text(filename: str, raw: bytes) -> str:
+def extract_text(filename: str, raw: bytes) -> tuple[str, int]:
     suffix = Path(filename).suffix.lower()
     if suffix == ".txt":
         for encoding in ("utf-8-sig", "cp949", "utf-16"):
             try:
-                return raw.decode(encoding)
+                return raw.decode(encoding), 0
             except UnicodeDecodeError:
                 pass
-        return raw.decode("utf-8", errors="replace")
+        return raw.decode("utf-8", errors="replace"), 0
     if suffix == ".docx":
-        return extract_docx(raw)
+        return extract_docx(raw), 0
     if suffix == ".pdf":
         return extract_pdf(raw)
     raise ValueError("PDF, DOCX, TXT 파일만 지원합니다.")
@@ -265,10 +264,6 @@ def request_nim_json(payload: dict, timeout: int = 180, retries: bool = True) ->
             with urlopen(req, timeout=timeout) as response:
                 return json.load(response)
         except HTTPError as exc:
-            if exc.code in (404, 410) and payload.get("model") != NVIDIA_FALLBACK_MODEL and attempt < len(delays) - 1:
-                exc.read()
-                payload = {**payload, "model": NVIDIA_FALLBACK_MODEL}
-                continue
             if exc.code in (429, 502, 503, 504) and attempt < len(delays) - 1:
                 exc.read()
                 continue
@@ -893,10 +888,11 @@ class Handler(SimpleHTTPRequestHandler):
                 raw = base64.b64decode(payload.get("dataBase64", ""), validate=True)
                 if len(raw) > MAX_UPLOAD_BYTES:
                     raise ValueError("파일은 20MB 이하만 업로드할 수 있습니다.")
-                text = extract_text(filename, raw).strip()
+                text, pages = extract_text(filename, raw)
+                text = text.strip()
                 if not text:
                     raise ValueError("파일에서 텍스트를 찾지 못했습니다.")
-                return self.json_response({"filename": filename, "text": text, "characters": len(text)})
+                return self.json_response({"filename": filename, "text": text, "characters": len(text), "pages": pages})
             if route == "/api/analysis/jobs":
                 text = str(payload.get("text", "")).strip()
                 precision = str(payload.get("precision") or "균형 (추천)")

@@ -798,6 +798,17 @@
             </div>
           </div>
 
+          <div style="display:{{ aiPdfDisplay }};overflow:hidden;background:#fff;border:1px solid #dbe5f7;border-radius:26px;box-shadow:0 20px 38px rgba(122,134,205,.16)">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid #edf0f8">
+              <span style="min-width:0;display:flex;align-items:center;gap:10px"><span class="ms" style="width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;border-radius:11px;background:#fff0f1;color:#d94d67">picture_as_pdf</span><span style="min-width:0"><b style="display:block;overflow:hidden;color:#222c52;font-size:13px;text-overflow:ellipsis;white-space:nowrap">{{ aiFileName }}</b><small style="display:block;margin-top:2px;color:#9aa1c2;font-size:11px;font-weight:600">원본 대본 미리보기</small></span></span>
+              <span style="display:flex;align-items:center;gap:8px"><button sc-camel-on-click="{{ prevAiPdfPage }}" disabled="{{ aiPdfPrevDisabled }}" aria-label="이전 페이지" style="width:34px;height:34px;border:1px solid #e1e6f4;border-radius:10px;background:#fff;color:#5b6ee0;cursor:pointer">‹</button><b style="min-width:58px;text-align:center;color:#5a6595;font-size:12px">{{ aiPdfPageLabel }}</b><button sc-camel-on-click="{{ nextAiPdfPage }}" disabled="{{ aiPdfNextDisabled }}" aria-label="다음 페이지" style="width:34px;height:34px;border:1px solid #e1e6f4;border-radius:10px;background:#fff;color:#5b6ee0;cursor:pointer">›</button></span>
+            </div>
+            <div style="position:relative;height:min(690px,calc(100vh - 250px));min-height:520px;background:#e9edf3">
+              <iframe src="about:blank" sc-camel-on-load="{{ loadAiPdf }}" title="PDF 대본 미리보기" style="display:block;width:100%;height:100%;border:0"></iframe>
+              <sc-if value="{{ aiRunning }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(24,35,70,.34);backdrop-filter:blur(1.5px);pointer-events:none"><div style="width:min(460px,88%);padding:22px;border:1px solid #cddcff;border-radius:18px;background:rgba(255,255,255,.94);box-shadow:0 20px 55px rgba(35,48,98,.3)"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><b style="color:#3b65dc;font-size:14px">✦ 대본 분석 중</b><strong style="color:#5b6ee0;font-size:24px">{{ aiProgressLabel }}</strong></div><div style="margin-top:9px;color:#222c52;font-size:17px;font-weight:800">보이는 대본 위에서 씬과 등장인물을 찾고 있어요</div><div style="height:8px;margin-top:16px;overflow:hidden;border-radius:99px;background:#e7ebf8"><div style="height:100%;width:{{ aiBarWidth }};border-radius:99px;background:linear-gradient(90deg,#5b8def,#7b6ef0);animation:{{ aiBarAnim }}"></div></div><small style="display:block;margin-top:10px;color:#7b83a8;font-size:11px;font-weight:700">{{ aiElapsedText }}</small></div></div></sc-if>
+            </div>
+          </div>
+
           <sc-if value="{{ aiDone }}" hint-placeholder-val="{{ false }}">
             <div style="background:#fff;border:1px solid #f0f1fb;border-radius:26px;padding:24px;box-shadow:0 20px 38px rgba(122,134,205,.16),inset 0 2px 3px rgba(255,255,255,.95),inset 0 -7px 14px rgba(150,162,215,.13)">
               <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:18px">
@@ -1772,7 +1783,7 @@ class Component extends DCLogic {
   state = {
     splash: true, screen: 'weekly', weekOffset: 0,
     slots: [], shootDay: 2, shootDate: '', person: '', shootProjectId: '', logOpen: false, shootView: 'list', pickerProject: null, pickerRole: 'planning',
-    aiPhase: 'idle', aiStage: 'upload', aiPct: 0, aiStartedAt: 0, aiTick: 0, aiFile: null, aiOpts: null, aiExtra: [true, true, false], aiSceneIndex: 0, aiCandidateIndex: 0, aiView: 'new', aiCategory: '마디영상', aiHistoryOpen: false, planVariant: 0, groupKey: '', groupSlotKey: '',
+    aiPhase: 'idle', aiStage: 'upload', aiPct: 0, aiStartedAt: 0, aiTick: 0, aiFile: null, aiPreviewUrl: '', aiPdfPage: 1, aiPdfPages: 0, aiOpts: null, aiExtra: [true, true, false], aiSceneIndex: 0, aiCandidateIndex: 0, aiView: 'new', aiCategory: '마디영상', aiHistoryOpen: false, planVariant: 0, groupKey: '', groupSlotKey: '',
     aiPrompt: '이번 주에 촬영 가능한 시간 알려줘',
     weekView: '주', shootFilter: '전체', shootLayout: '주간 보드', settingsTab: '일반 설정', dept: '전체', query: '',
     formType: '가능', formTitle: '', formStart: '09:00', formEnd: '10:00', formDay: 0, formRepeat: false, formRepeatWeeks: 8,
@@ -1987,14 +1998,16 @@ class Component extends DCLogic {
   pickAiFile = async event => {
     const file = event.target.files?.[0];
     if (!file) return;
-    this.setState({ aiFile: file.name, aiPhase: 'idle', aiStage: 'upload', aiPct: 0 });
+    if (this.state.aiPreviewUrl) URL.revokeObjectURL(this.state.aiPreviewUrl);
+    const previewUrl = /\.pdf$/i.test(file.name) ? URL.createObjectURL(file) : '';
+    this.setState({ aiFile: file.name, aiPreviewUrl: previewUrl, aiPdfPage: 1, aiPdfPages: 0, aiPhase: 'idle', aiStage: 'upload', aiPct: 0 });
     try {
       const engine = this.engine();
       if (!engine) throw new Error('데이터 연결을 준비 중입니다.');
-      await engine.prepareFile(file, this.state.aiProjectId);
-      this.setState({ aiStage: 'options' });
+      const prepared = await engine.prepareFile(file, this.state.aiProjectId);
+      this.setState({ aiStage: 'options', aiPdfPages: Number(prepared?.pages) || 0 });
       this.readLive();
-    } catch (error) { this.setState({ aiFile: null }); window.alert(error.message); }
+    } catch (error) { if (previewUrl) URL.revokeObjectURL(previewUrl); this.setState({ aiFile: null, aiPreviewUrl: '', aiPdfPage: 1, aiPdfPages: 0 }); window.alert(error.message); }
   };
 
   registerShoot = async () => {
@@ -2729,7 +2742,8 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
       if (!window.confirm(`되돌릴 수 없습니다. 정말 지울까요?${nl}${nl}${what}`)) return;
       await engine.resetAnalysis(st.aiProjectId);
       this.readLive();
-      this.setState({ aiFile: null, aiPhase: 'idle', aiStage: 'upload', aiPct: 0 });
+      if (st.aiPreviewUrl) URL.revokeObjectURL(st.aiPreviewUrl);
+      this.setState({ aiFile: null, aiPreviewUrl: '', aiPdfPage: 1, aiPdfPages: 0, aiPhase: 'idle', aiStage: 'upload', aiPct: 0 });
     } catch (error) { window.alert('초기화하지 못했습니다: ' + error.message); }
   };
 
@@ -3068,9 +3082,9 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
       aiUploadDisplay: (st.aiStage === 'upload' && st.aiProjectId) ? 'block' : 'none',
       aiOptionsDisplay: st.aiStage === 'options' ? 'block' : 'none',
       aiSetupColumns: 'minmax(0,1fr)',
-      aiMainLeftDisplay: st.aiStage === 'running' ? 'none' : 'flex',
+      aiMainLeftDisplay: 'flex',
       aiMainColumns: 'minmax(0,1fr)',
-      aiSidebarDisplay: st.aiStage === 'running' ? 'flex' : 'none',
+      aiSidebarDisplay: st.aiStage === 'running' && !st.aiPreviewUrl ? 'flex' : 'none',
       aiResultDisplay: st.aiStage === 'results' ? 'block' : 'none',
       aiBackVisible: st.aiStage !== 'upload',
       aiBackLabel: st.aiStage === 'results' ? '분석 조건으로 돌아가기' : st.aiStage === 'running' ? '옵션으로 돌아가기' : '대본 선택으로 돌아가기',
@@ -3652,6 +3666,13 @@ ${this.fmt(date)} (${this.dowOf(date)}) ${this.hourLabel(slot.time)} - ${this.ho
       resetAnalysis: this.resetAnalysis,
 
       aiFileName: st.aiFile, aiHasFile: !!st.aiFile, aiNoFile: !st.aiFile,
+      aiPdfDisplay: st.aiPreviewUrl && ['options','running'].includes(st.aiStage) ? 'block' : 'none',
+      loadAiPdf: e => { const src=st.aiPreviewUrl ? `${st.aiPreviewUrl}#page=${Math.max(1,st.aiPdfPage||1)}&zoom=page-width&toolbar=0&navpanes=0` : 'about:blank'; if(e.target.src!==src)e.target.src=src; },
+      aiPdfPageLabel: `${Math.max(1, st.aiPdfPage || 1)} / ${st.aiPdfPages || '?'}`,
+      aiPdfPrevDisabled: (st.aiPdfPage || 1) <= 1,
+      aiPdfNextDisabled: !!st.aiPdfPages && (st.aiPdfPage || 1) >= st.aiPdfPages,
+      prevAiPdfPage: () => this.setState({ aiPdfPage: Math.max(1, (st.aiPdfPage || 1) - 1) }),
+      nextAiPdfPage: () => this.setState({ aiPdfPage: Math.min(st.aiPdfPages || (st.aiPdfPage || 1) + 1, (st.aiPdfPage || 1) + 1) }),
       aiStartDisabled: st.aiPhase === 'running' || live?.ai?.extracting || !(st.aiProjectId && live?.ai?.hasScript),
       aiStartBg: (st.aiProjectId && live?.ai?.hasScript) ? 'linear-gradient(135deg,#5b8def,#7b6ef0)' : '#eceefa',
       aiStartFg: (st.aiProjectId && live?.ai?.hasScript) ? '#fff' : '#b0b6d1',

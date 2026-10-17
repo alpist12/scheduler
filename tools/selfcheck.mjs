@@ -84,3 +84,29 @@ console.log('bullet list OK');
 }
 
 console.log('bulk personal schedule OK');
+
+// 5. 여러 사람의 일정 묶음도 서로 섞지 않고 하나의 확인 액션으로 준비한다.
+{
+  const result = fastLocalResult(`강주형
+10/19 가능
+10/20 4시 이후 6시 이전
+
+김기주
+10/19 불가능
+10/20 수업 제외`, {
+    currentDate: '2026-10-17',
+    members: [
+      { name: '강주형', fixedSchedule: {} },
+      { name: '김기주', fixedSchedule: { tue: [{ start: 10, end: 12, label: '수업' }] } },
+    ],
+  });
+  assert.strictEqual(result.route, 'local-personal-bulk');
+  assert.strictEqual(result.action.type, 'personal_schedules');
+  assert.deepStrictEqual([...new Set(result.action.items.map(x => x.memberName))], ['강주형', '김기주']);
+  assert.deepStrictEqual(result.action.items.filter(x => x.memberName === '강주형' && x.date === '2026-10-19')
+    .map(x => [x.status, x.start, x.end]), [['가능', 9, 23]]);
+  assert.deepStrictEqual(result.action.items.filter(x => x.memberName === '김기주' && x.date === '2026-10-20')
+    .map(x => [x.status, x.start, x.end]), [['불가능', 10, 12]]);
+}
+
+console.log('multi-member personal schedule OK');

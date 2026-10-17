@@ -271944,12 +271944,25 @@ function koreanHour(value) {
 function bulkPersonalResult(text, context, members) {
   const lines = String(text).split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
   if (lines.length < 3) return null;
-  const member = members.find((m) => lines[0] === m.name) || members.find((m) => lines[0].includes(m.name));
-  if (!member) return null;
+  const findMember = (line) => members.find((m) => line === m.name) || members.find((m) => line.includes(m.name));
+  const blocks = [];
+  let block = null;
+  for (const line of lines) {
+    const member = findMember(line);
+    if (member && (line === member.name || !block)) {
+      block = { member, lines: [] };
+      blocks.push(block);
+    } else if (block) {
+      block.lines.push(line);
+    } else {
+      return null;
+    }
+  }
+  if (!blocks.length || blocks.some((x) => !x.lines.length)) return null;
   const items = [];
   const missing = [];
   let parsedLines = 0;
-  for (const line of lines.slice(1)) {
+  for (const { member, lines: scheduleLines } of blocks) for (const line of scheduleLines) {
     const match = line.match(/^(\d{1,2})\s*[/.월]\s*(\d{1,2})일?(?:\s*~\s*(?:(\d{1,2})\s*[/.월]\s*)?(\d{1,2})일?)?\s+(.+)$/);
     if (!match) return null;
     const from = dateFromParts(match[1], match[2], context);
@@ -272005,7 +272018,7 @@ function bulkPersonalResult(text, context, members) {
   if (missing.length) return {
     route: "local-personal-bulk-needs",
     action: null,
-    reply: `${member.name}\uC740 \uB4F1\uB85D \uC778\uC6D0\uC5D0\uC11C \uD655\uC778\uD588\uACE0, \uC218\uC5C5 \uC2DC\uAC04\uD45C\uB3C4 \uC77D\uC5C8\uC2B5\uB2C8\uB2E4.
+    reply: `${blocks.map((x) => x.member.name).join(", ")}\uC740 \uB4F1\uB85D \uC778\uC6D0\uC5D0\uC11C \uD655\uC778\uD588\uACE0, \uC218\uC5C5 \uC2DC\uAC04\uD45C\uB3C4 \uC77D\uC5C8\uC2B5\uB2C8\uB2E4.
 ${[...new Set(missing)].join(", ")}\uB9CC \uC54C\uB824 \uC8FC\uC138\uC694. \uB098\uBA38\uC9C0 \uB0A0\uC9DC\uB294 \uADF8\uB300\uB85C \uC774\uC5B4\uC11C \uC900\uBE44\uD560\uAC8C\uC694.`
   };
   if (parsedLines < 2 || !items.length) return null;
@@ -272014,7 +272027,7 @@ ${[...new Set(missing)].join(", ")}\uB9CC \uC54C\uB824 \uC8FC\uC138\uC694. \uB09
   return {
     route: "local-personal-bulk",
     action,
-    reply: `${member.name} \uAC1C\uC778 \uC77C\uC815 ${action.items.length}\uAC1C \uAD6C\uAC04\uC744 \uC900\uBE44\uD588\uC5B4\uC694.
+    reply: `${blocks.map((x) => x.member.name).join(", ")} \uAC1C\uC778 \uC77C\uC815 ${action.items.length}\uAC1C \uAD6C\uAC04\uC744 \uC900\uBE44\uD588\uC5B4\uC694.
 \uB4F1\uB85D\uB41C \uD68C\uC758\xB7\uC218\uC5C5 \uC2DC\uAC04\uD45C\uB97C \uBC18\uC601\uD588\uC2B5\uB2C8\uB2E4. \uC544\uB798 \uBC84\uD2BC\uC5D0\uC11C \uD655\uC778\uD55C \uB4A4 \uC800\uC7A5\uD574 \uC8FC\uC138\uC694.`
   };
 }

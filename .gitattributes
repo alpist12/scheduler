@@ -1,0 +1,3 @@
+* text=auto
+assets/vendor/*.js text eol=lf
+dist/client/assets/vendor/*.js text eol=lf

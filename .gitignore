@@ -3,5 +3,3 @@
 node_modules/
 __pycache__/
 test-results/
-assets/vendor/
-dist/client/assets/vendor/

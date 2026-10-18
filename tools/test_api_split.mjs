@@ -51,4 +51,29 @@ import fs from 'node:fs';
       `${f} 에 비밀키로 보이는 값이 있다`);
   }
 }
+// ── 4) 빌드 산출물(Pages 가 실제로 올리는 것)에 설정이 들어갔는지
+{
+  const built = 'dist/client/';
+  for (const f of ['api-config.js', 'index.html', 'index.integrated.html']) {
+    assert(fs.existsSync(built + f), `빌드 결과에 ${f} 가 없다`);
+  }
+  for (const f of ['index.html', 'index.integrated.html']) {
+    assert(fs.readFileSync(built + f, 'utf8').includes('api-config.js'),
+      `빌드된 ${f} 가 설정을 안 읽는다 — Pages 에서 AI 기능이 죽는다`);
+  }
+  assert(fs.readFileSync('tools/build-sites.mjs', 'utf8').includes("'api-config.js'"),
+    '빌드 목록에 api-config.js 가 빠졌다');
+
+  // 호스트별로 어느 주소를 고르는지
+  const cfg = fs.readFileSync('api-config.js', 'utf8');
+  const pick = host => {
+    const win = {}, location = { hostname: host };
+    new Function('window', 'location', cfg)(win, location);
+    return win.HNUBS_API;
+  };
+  assert.equal(pick('127.0.0.1'), '', '로컬에서 외부 주소를 부른다');
+  assert.equal(pick('localhost'), '', '로컬에서 외부 주소를 부른다');
+  assert(/^https:\/\//.test(pick('alpist12.github.io')),
+    'GitHub Pages 에서 상대경로를 부른다 — 같은 출처에 API 가 없어 404 가 난다');
+}
 console.log('api split OK');

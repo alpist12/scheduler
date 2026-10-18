@@ -45,7 +45,7 @@ import fs from 'node:fs';
 
 // ── 3) 비밀값이 레포에 들어오지 않았는지
 {
-  for (const f of ['wrangler.toml', 'api-config.js']) {
+  for (const f of ['netlify.toml', 'api-config.js']) {
     const t = fs.readFileSync(f, 'utf8');
     assert(!/nvapi-|AIza[0-9A-Za-z_-]{30,}/.test(t.replace(/AIzaSyDXmeiQpRSZshFA1_BgZ2z_8AKLy6_Nc8M/g, '')),
       `${f} 에 비밀키로 보이는 값이 있다`);
@@ -99,5 +99,26 @@ import fs from 'node:fs';
   }
   assert(fs.readFileSync('tools/build-sites.mjs', 'utf8').includes("'extract-client.js'"),
     '빌드 목록에 extract-client.js 가 빠졌다');
+}
+// ── 6) 화면과 API 가 다른 출처다. CORS 와 CSP 가 빠지면 AI 기능만 조용히 죽는다.
+{
+  const shared = fs.readFileSync('api/_shared.mjs', 'utf8');
+  assert(/access-control-allow-origin/.test(shared),
+    '서버 응답에 CORS 가 없다 — GitHub Pages 에서 호출이 전부 차단된다');
+
+  const toml = fs.readFileSync('netlify.toml', 'utf8');
+  assert(/directory = "api"/.test(toml), 'Netlify 가 함수 폴더를 못 찾는다');
+  assert(!/api\/extract/.test(toml), '없앤 extract 라우트가 남아 있다');
+
+  const csp = toml.match(/Content-Security-Policy = "([^"]+)"/)?.[1] || '';
+  const scriptSrc = csp.match(/script-src ([^;]+)/)?.[1] || '';
+  assert(/cdnjs\.cloudflare\.com/.test(scriptSrc),
+    'CSP script-src 에 cdnjs 가 없다 — 대본 추출(pdf.js)이 막힌다');
+  assert(/worker-src/.test(csp), 'CSP 에 worker-src 가 없다 — pdf.js 워커가 막힌다');
+
+  // 모든 /api 경로에 리다이렉트가 있는지 (앱이 부르는 것과 맞는지)
+  for (const p of ['/api/health', '/api/chat', '/api/maintenance', '/api/analysis/jobs']) {
+    assert(toml.includes(`from = "${p}"`), `netlify.toml 에 ${p} 라우트가 없다`);
+  }
 }
 console.log('api split OK');

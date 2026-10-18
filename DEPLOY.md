@@ -1,84 +1,95 @@
 # 배포
 
-화면과 API 서버가 **서로 다른 곳**에 올라간다. 둘을 잇는 설정이 `api-config.js` 한 줄이다.
+두 곳에 올라간다. **둘 다 올려야** 전부 동작한다.
 
 ```
-GitHub Pages            Cloudflare Workers              Firebase
-화면·정적 파일     →    /api/* (NVIDIA 키, 관리자 비번)  →  Firestore (일정 데이터)
-무료                    무료 10만 요청/일                  기존 그대로
+GitHub Pages                  Netlify                      Firebase
+화면·정적 파일          →     /api/* (NVIDIA 키, 관리자 비번)  →  Firestore (일정)
+alpist12.github.io/scheduler   hnubs.netlify.app               기존 그대로
 ```
 
-## 왜 이렇게 나눴나
+## 왜 서버가 아직 필요한가
 
-GitHub Pages 는 정적 파일만 내보내고 **서버 코드를 실행하지 않는다.** 그래서 NVIDIA 키를
-JS 파일이든 Firestore 든 어디에 넣어도 결국 브라우저까지 내려가고, 내려간 값은 누구나
-개발자 도구로 꺼낼 수 있다. 관리자 비밀번호도 같다 — 화면에서 비교하면 뚫린다.
+GitHub Pages 는 정적 파일만 내보내고 **서버 코드를 실행하지 않는다.** NVIDIA 키를
+JS 파일이든 Firestore 든 어디에 넣어도 브라우저까지 내려가고, 내려간 값은 누구나
+개발자 도구로 꺼낼 수 있다. 관리자 비밀번호도 같다.
 
-그래서 **비밀값이 필요한 것만** Workers 에 남기고 나머지는 전부 정적으로 보낸다.
-일정·인원·촬영·자동배치는 Firebase SDK 로 Firestore 에 직접 붙으므로 서버가 필요 없다.
+그래서 **비밀값이 필요한 것만** Netlify 에 남는다:
 
-## 1. API 서버 (Cloudflare Workers)
+| 경로 | 왜 서버인가 |
+|---|---|
+| `/api/chat` | NVIDIA 키 |
+| `/api/analysis/*` | NVIDIA 키 |
+| `/api/maintenance` | 관리자 비밀번호 검증 |
+
+나머지는 전부 브라우저에서 한다. 일정·인원·촬영·자동배치는 Firebase SDK 로
+Firestore 에 직접 붙고, 대본 추출(PDF·DOCX)도 브라우저에서 푼다.
+
+## 1. 화면 (GitHub Pages)
+
+`main` 에 푸시하면 `.github/workflows/deploy.yml` 이 `npm run build` 를 돌리고
+**`dist/client`** 를 올린다. 레포 루트가 아니라 빌드 결과를 올린다는 점이 중요하다.
+
+> 정적 파일을 새로 추가했다면 `tools/build-sites.mjs` 의 복사 목록에도 넣어야 한다.
+> 빠뜨리면 로컬에서는 되는데 배포본에서만 404 가 난다.
+
+## 2. API (Netlify)
+
+**화면만 올리고 끝내면 안 된다.** Netlify 는 따로 배포해야 반영된다.
+
+배포본이 최신인지 확인:
 
 ```bash
-npm i -D wrangler
-npx wrangler login
-
-# 비밀값은 레포에 적지 않는다. Cloudflare 에만 저장된다.
-npx wrangler secret put NVIDIA_API_KEY
-npx wrangler secret put SCHEDULER_ADMIN_PASSWORD
-
-npx wrangler deploy
+curl -s https://hnubs.netlify.app/api/health
 ```
 
-배포하면 `https://hnubs-scheduler-api.<계정>.workers.dev` 주소가 나온다.
+`runtime` 이 `Sites Worker` 가 아니라 `Netlify Functions` 로 나오거나 `fallbackModel`
+필드가 없으면 구버전이다.
 
-확인:
+**실제로 이것 때문에 한 번 깨졌다.** CORS 헤더를 코드에 넣고 Netlify 를 재배포하지
+않아서, GitHub Pages 에서 호출이 전부 차단되고 **화면은 멀쩡한데 AI 기능만 죽어
+있었다.** 화면과 API 를 따로 배포한다는 걸 잊기 쉽다.
 
-```bash
-curl https://hnubs-scheduler-api.<계정>.workers.dev/api/health
-```
+비밀값은 Netlify 환경변수에 둔다 (레포에 넣지 않는다):
 
-## 2. 화면 (GitHub Pages)
+- `NVIDIA_API_KEY`
+- `SCHEDULER_ADMIN_PASSWORD`
 
-1. GitHub 에 레포를 만들고 이 폴더를 푸시한다.
-2. Settings → Pages → Source 를 **Deploy from a branch**, 브랜치 `main` / `(root)` 로.
-3. `https://<계정>.github.io/<레포>/` 가 열린다.
+## 3. 둘을 잇는 설정
 
-> **Pages 는 공개 레포에서만 무료다.** 비공개로 두려면 GitHub Pro 가 필요하다.
-> 소스가 공개돼도 비밀값은 Workers 에 있으므로 노출되지 않는다. 다만 일정 데이터는
-> Firestore 규칙이 지키므로, 규칙을 느슨하게 두면 안 된다 (아래 참고).
-
-## 3. 둘을 잇기
-
-`api-config.js` 의 한 줄을 1번에서 받은 주소로 바꾼다.
+`api-config.js` 한 줄이 화면이 어느 API 를 부를지 정한다.
 
 ```js
-window.HNUBS_API = 'https://hnubs-scheduler-api.<계정>.workers.dev';
+window.HNUBS_API = location.hostname.endsWith('github.io') ? 'https://hnubs.netlify.app' : '';
 ```
 
-그리고 `wrangler.toml` 의 `ALLOWED_ORIGINS` 를 Pages 주소로 바꾸고 다시 배포한다.
-이게 어긋나면 브라우저가 응답을 버려서 **AI 기능만 조용히 안 된다** (화면은 멀쩡하다).
+로컬에서는 빈 문자열 → 같은 출처. GitHub Pages 에서는 Netlify 절대주소.
+서버를 옮기면 **이 줄만** 고치면 된다.
 
-```toml
-ALLOWED_ORIGINS = "https://<계정>.github.io"
-```
+출처가 다르므로 **CORS 가 필수**다. `api/_shared.mjs` 의 `response()` 가 헤더를
+붙인다. 이게 빠지면 브라우저가 응답을 버려서 AI 기능만 조용히 죽는다.
 
-확인: 사이트를 열고 개발자 도구 → Network 에서 `/api/health` 가 200 이면 연결된 것이다.
+CSP 도 마찬가지다. `netlify.toml` 의 `script-src` 에 `cdnjs.cloudflare.com` 이 있어야
+대본 추출(pdf.js, mammoth)이 로드된다.
 
-## 로컬에서 돌릴 때
-
-`api-config.js` 를 `''` 로 두면 같은 출처에서 `/api/*` 를 찾는다.
+## 로컬에서
 
 ```bash
-npx wrangler dev      # http://localhost:8787 — 화면과 API 를 한 번에
+npm run build
+cd dist/client && python -m http.server 4321
 ```
 
-점검 게이트는 `/api` 가 없으면 사이트를 잠그지만, `localhost` 는 예외로 열어 둔다.
+`api-config.js` 가 빈 문자열이 되어 같은 출처에서 `/api/*` 를 찾는다. 정적 서버에는
+API 가 없으므로 AI 기능은 안 되지만, 일정 관리는 Firestore 에 직접 붙어 동작한다.
+점검 게이트는 `/api` 가 없으면 사이트를 잠그지만 `localhost` 는 예외로 열어 둔다.
 
-## Firestore 규칙 — 확인 필요
+## Firestore 규칙
 
-`firestore.rules` 에 적힌 만료일이 **이미 지났다**. 이 파일을 그대로 배포하면
-모든 읽기·쓰기가 차단된다. 실제 콘솔에 배포된 규칙과도 다르다.
+`firestore.rules` 는 현재 날짜 제한만 걸린 전면 허용이다.
 
-콘솔(Firebase → Firestore → 규칙)의 원문을 이 파일에 복사해 맞춘 뒤에 배포할 것.
-맞추기 전에는 `firebase deploy --only firestore:rules` 를 실행하지 않는다.
+```
+allow read, write: if request.time < timestamp.date(2027, 12, 31);
+```
+
+인증을 도입하기 전까지는 좁힐 수 없는 구조다(앱이 익명 쓰기에 의존). 레포가
+공개이므로, 데이터를 지키는 건 사실상 문서 ID 가 UUID 라는 점뿐이다.

@@ -140,7 +140,7 @@ export const firebasePatch = (path, value) => writeFields(path, value, false);
 export async function dispatchAnalysis(event, id, indexes = null) {
   if (typeof event.dispatchAnalysis === 'function') return event.dispatchAnalysis(id, indexes);
   const origin = new URL(event.rawUrl || `https://${event.headers?.host || event.headers?.Host}`).origin;
-  const res = await fetch(`${origin}/.netlify/functions/analysis-run-background`, {
+  const res = await fetch(`${origin}/.api/analysis-run-background`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ id, indexes }),
@@ -151,7 +151,7 @@ export async function dispatchAnalysis(event, id, indexes = null) {
 export async function dispatchChat(event, id) {
   if (typeof event.dispatchChat === 'function') return event.dispatchChat(id);
   const origin = new URL(event.rawUrl || `https://${event.headers?.host || event.headers?.Host}`).origin;
-  const res = await fetch(`${origin}/.netlify/functions/chat-run-background`, {
+  const res = await fetch(`${origin}/.api/chat-run-background`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ id }),

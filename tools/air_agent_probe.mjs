@@ -8,7 +8,7 @@ for (const line of fs.readFileSync('.env', 'utf8').split('\n')) {
   const [k, v] = s.split(/=(.*)/s);
   process.env[k.trim()] = v.trim();
 }
-const { runChat } = await import('../netlify/functions/chat.mjs');
+const { runChat } = await import('../api/chat.mjs');
 
 const hours = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
 const dateIsos = ['2026-09-14', '2026-09-15', '2026-09-16', '2026-09-17', '2026-09-18', '2026-09-19', '2026-09-20'];

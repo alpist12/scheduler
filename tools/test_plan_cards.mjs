@@ -98,8 +98,11 @@ console.log('plan cards OK');
   assert(/Array\.isArray\(item\.castNames\)\?item\.castNames:null/.test(html), '안 넘어온 출연진을 구분하지 않는다');
 
   // 점검 상태를 못 읽으면 열어 주지 않는다.
-  const gate = html.slice(html.indexOf("maintApi({ action: 'status' })"), html.indexOf('hnubsStartApp?.();') + 40);
+  // 점검 상태를 못 읽었을 때 열어 주면 안 된다 (localhost 는 예외).
+  const gate = html.slice(html.indexOf('MAINTENANCE_STATUS_URL'), html.indexOf('hnubsStartApp?.();') + 40);
+  assert(gate.length > 100, '점검 게이트를 못 찾았다 — 구조가 바뀌었는지 확인할 것');
   assert(/showGate\(/.test(gate), '점검 상태 확인 실패 시 그냥 열어 준다 (fail-open)');
+  assert(/localhost/.test(gate), 'localhost 예외가 없어 로컬 개발이 막힌다');
 }
 console.log('backend guards OK');
 

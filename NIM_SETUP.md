@@ -38,7 +38,7 @@ scheduler/프로젝트/{projectId}/aiAnalysis/
 
 ## Netlify 배포
 
-이 프로젝트에는 `netlify/functions` 아래에 배포용 API 함수가 포함되어 있습니다. 단순 정적 폴더 업로드 대신 Git 저장소 연결 또는 Netlify CLI 배포를 사용해야 함수도 함께 배포됩니다.
+이 프로젝트에는 `api` 아래에 배포용 API 함수가 포함되어 있습니다. 단순 정적 폴더 업로드 대신 Git 저장소 연결 또는 Netlify CLI 배포를 사용해야 함수도 함께 배포됩니다.
 
 Netlify 사이트에서 다음 순서로 설정합니다.
 

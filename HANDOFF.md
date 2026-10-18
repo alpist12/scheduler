@@ -64,7 +64,7 @@ const yes = all.filter(([id, member]) => {
 | `hnubs.netlify.app` | 구버전 | ✅ API 포함 완전 동작 |
 
 ### ⚠️ 새 호스트의 문제 (미해결)
-`.openai/hosting.json`이 `static.directory: "dist"` — 정적 파일만 올라가고 `netlify/functions/`가 없다.
+`.openai/hosting.json`이 `static.directory: "dist"` — 정적 파일만 올라가고 `api/`가 없다.
 
 - 에어 (`/api/chat`) ❌
 - 대본 분석 (`/api/extract`, `/api/analysis/jobs`) ❌

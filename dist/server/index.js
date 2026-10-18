@@ -270522,7 +270522,7 @@ var require_pdf_parse2 = __commonJS({
   }
 });
 
-// netlify/functions/_shared.mjs
+// api/_shared.mjs
 var MODEL = process.env.NVIDIA_MODEL || "openai/gpt-oss-20b";
 var CHAT_MODEL = process.env.NVIDIA_CHAT_MODEL || MODEL;
 var FALLBACK_MODEL = process.env.NVIDIA_FALLBACK_MODEL || "nvidia/nemotron-3.5-lightning-30b-a3b";
@@ -270630,7 +270630,7 @@ var firebasePatch = (path, value) => writeFields(path, value, false);
 async function dispatchAnalysis(event, id, indexes = null) {
   if (typeof event.dispatchAnalysis === "function") return event.dispatchAnalysis(id, indexes);
   const origin = new URL(event.rawUrl || `https://${event.headers?.host || event.headers?.Host}`).origin;
-  const res = await fetch(`${origin}/.netlify/functions/analysis-run-background`, {
+  const res = await fetch(`${origin}/.api/analysis-run-background`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ id, indexes })
@@ -270640,7 +270640,7 @@ async function dispatchAnalysis(event, id, indexes = null) {
 async function dispatchChat(event, id) {
   if (typeof event.dispatchChat === "function") return event.dispatchChat(id);
   const origin = new URL(event.rawUrl || `https://${event.headers?.host || event.headers?.Host}`).origin;
-  const res = await fetch(`${origin}/.netlify/functions/chat-run-background`, {
+  const res = await fetch(`${origin}/.api/chat-run-background`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ id })
@@ -270976,7 +270976,7 @@ async function analyzeJob(job, indexes = null) {
   return job;
 }
 
-// netlify/functions/maintenance.mjs
+// api/maintenance.mjs
 var PATH = "scheduler/\uC810\uAC80";
 var password = () => String(process.env.SCHEDULER_ADMIN_PASSWORD || "").trim();
 var MAX_FAILURES = 5;
@@ -271079,7 +271079,7 @@ async function handler(event) {
   }
 }
 
-// netlify/functions/health.mjs
+// api/health.mjs
 var handler2 = async () => response(200, {
   ok: true,
   version: "20260913-agent",
@@ -271094,7 +271094,7 @@ var handler2 = async () => response(200, {
   runtime: "Sites Worker"
 });
 
-// netlify/functions/extract.mjs
+// api/extract.mjs
 var import_mammoth = __toESM(require_lib6(), 1);
 var import_pdf_parse = __toESM(require_pdf_parse2(), 1);
 var MAX = 20 * 1024 * 1024;
@@ -271116,10 +271116,10 @@ var handler3 = async (event) => {
   }
 };
 
-// netlify/functions/chat.mjs
+// api/chat.mjs
 import crypto from "node:crypto";
 
-// netlify/functions/_tools.mjs
+// api/_tools.mjs
 var DOW = ["\uC6D4", "\uD654", "\uC218", "\uBAA9", "\uAE08", "\uD1A0", "\uC77C"];
 var pad = (n) => String(n).padStart(2, "0");
 var isoOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -271706,7 +271706,7 @@ function runTool(name, args, context) {
   }
 }
 
-// netlify/functions/chat.mjs
+// api/chat.mjs
 var DOW2 = ["\uC6D4", "\uD654", "\uC218", "\uBAA9", "\uAE08", "\uD1A0", "\uC77C"];
 function fmtDate2(iso) {
   const d = /* @__PURE__ */ new Date(`${String(iso).slice(0, 10)}T12:00:00`);
@@ -272289,7 +272289,7 @@ async function handler4(event) {
   }
 }
 
-// netlify/functions/chat-job.mjs
+// api/chat-job.mjs
 var handler5 = async (event) => {
   try {
     const id = String(event.queryStringParameters?.id || "").trim() || pathParts(event, "chat-job")[0];
@@ -272302,7 +272302,7 @@ var handler5 = async (event) => {
   }
 };
 
-// netlify/functions/chat-run-background.mjs
+// api/chat-run-background.mjs
 var handler6 = async (event) => {
   const { id } = JSON.parse(event.body || "{}");
   if (!id) throw new Error("\uC791\uC5C5 ID\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.");
@@ -272327,7 +272327,7 @@ var handler6 = async (event) => {
   });
 };
 
-// netlify/functions/analysis-start.mjs
+// api/analysis-start.mjs
 import crypto2 from "node:crypto";
 var handler7 = async (event) => {
   try {
@@ -272357,7 +272357,7 @@ var handler7 = async (event) => {
   }
 };
 
-// netlify/functions/analysis-job.mjs
+// api/analysis-job.mjs
 var handler8 = async (event) => {
   try {
     const id = event.queryStringParameters?.id || pathParts(event, "analysis-job")[0];
@@ -272369,7 +272369,7 @@ var handler8 = async (event) => {
   }
 };
 
-// netlify/functions/analysis-retry.mjs
+// api/analysis-retry.mjs
 var handler9 = async (event) => {
   try {
     const [pathId, pathIndex] = pathParts(event, "analysis-retry");
@@ -272390,7 +272390,7 @@ var handler9 = async (event) => {
   }
 };
 
-// netlify/functions/analysis-run-background.mjs
+// api/analysis-run-background.mjs
 var now2 = () => (/* @__PURE__ */ new Date()).toLocaleTimeString("ko-KR", { hour12: false, timeZone: "Asia/Seoul" });
 var handler10 = async (event) => {
   const body = JSON.parse(event.body || "{}");
@@ -272414,10 +272414,28 @@ var handler10 = async (event) => {
 };
 
 // sites/worker.mjs
-function response2(result2) {
+function allowOrigin(request) {
+  const origin = request.headers.get("origin") || "";
+  if (!origin) return "";
+  const allowed = String(process.env.ALLOWED_ORIGINS || "").split(",").map((x) => x.trim().replace(/\/$/, "")).filter(Boolean);
+  return allowed.includes(origin.replace(/\/$/, "")) ? origin : "";
+}
+function corsHeaders(origin) {
+  return origin ? {
+    "access-control-allow-origin": origin,
+    "access-control-allow-headers": "content-type",
+    "access-control-allow-methods": "GET,POST,OPTIONS",
+    "access-control-max-age": "86400",
+    vary: "origin"
+  } : {};
+}
+function response2(result2, origin = "") {
   return new Response(result2?.body || "", {
     status: result2?.statusCode || 200,
-    headers: result2?.headers || { "content-type": "application/json; charset=utf-8" }
+    headers: {
+      ...result2?.headers || { "content-type": "application/json; charset=utf-8" },
+      ...corsHeaders(origin)
+    }
   });
 }
 async function eventOf(request, context) {
@@ -272455,8 +272473,12 @@ var worker_default = {
   async fetch(request, env2, context) {
     Object.assign(process.env, env2 || {});
     const url = new URL(request.url);
+    const origin = allowOrigin(request);
+    if (request.method === "OPTIONS" && url.pathname.startsWith("/api/")) {
+      return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    }
     const handler11 = route(url.pathname, request.method);
-    if (handler11) return response2(await handler11(await eventOf(request, context)));
+    if (handler11) return response2(await handler11(await eventOf(request, context)), origin);
     if (env2?.ASSETS?.fetch) {
       const local = await env2.ASSETS.fetch(request);
       if (local.status !== 404) return local;

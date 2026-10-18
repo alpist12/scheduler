@@ -1,6 +1,6 @@
 /* 에어 도구는 화면이 준 데이터만 읽어야 한다. 지어내면 그게 곧 사고다. */
 import assert from 'node:assert';
-import { runTool, TOOLS } from '../netlify/functions/_tools.mjs';
+import { runTool, TOOLS } from '../api/_tools.mjs';
 
 const hours = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
 const dateIsos = ['2026-09-14', '2026-09-15', '2026-09-16', '2026-09-17', '2026-09-18', '2026-09-19', '2026-09-20'];

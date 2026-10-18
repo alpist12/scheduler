@@ -114,6 +114,6 @@ export async function handler(event) {
 
 /* Netlify의 분산 제한도 함께 둔다. 코드 제한은 실패만 세고, 이 제한은 우회 경로까지 막는다. */
 export const config = {
-  path: ['/api/maintenance', '/.netlify/functions/maintenance'],
+  path: ['/api/maintenance', '/.api/maintenance'],
   rateLimit: { windowLimit: 20, windowSize: 60, aggregateBy: ['ip', 'domain'] },
 };

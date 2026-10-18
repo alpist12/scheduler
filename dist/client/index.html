@@ -86,6 +86,7 @@
     <div class="air-confirm-actions"><button id="airConfirmCancel" class="air-confirm-cancel">취소</button><button id="airConfirmOk" class="air-confirm-ok">일정 추가</button></div>
   </section>
 </div>
+<script src="api-config.js?v=1"></script>
 <script>
   // 점검 상태를 확인하기 전까지는 잠가 둔다. 확인 후 풀거나 게이트를 띄운다.
   window.HNUBS_GATE_BLOCKED = true;
@@ -152,7 +153,9 @@
     /* ---------------- 점검 모드 ----------------
        비밀번호 확인은 서버에서만 한다. 여기서 비교하면 개발자 도구로 뚫린다.
        통과 기록은 탭을 닫으면 사라지는 sessionStorage 에만 둔다. */
-    const apiBase = () => (location.pathname.startsWith('/scheduler') ? '/scheduler' : '');
+    /* api-config.js 가 정해 준 주소. 비어 있으면 예전처럼 같은 출처에서 찾는다. */
+    const apiBase = () => window.HNUBS_API
+      || (location.pathname.startsWith('/scheduler') ? '/scheduler' : '');
     const MAINTENANCE_STATUS_URL = 'https://firestore.googleapis.com/v1/projects/hnubs-2sceduler/databases/default/documents/settings/maintenance?key=AIzaSyDXmeiQpRSZshFA1_BgZ2z_8AKLy6_Nc8M';
     const BYPASS = 'hnubs-maint-ok';
     const gate = document.getElementById('maintGate');
@@ -327,7 +330,7 @@
     }
 
     async function fetchAirReply(payload) {
-      const url = `${location.pathname.startsWith('/scheduler') ? '/scheduler' : ''}/api/chat`;
+      const url = `${apiBase()}/api/chat`;
       const startedAt = performance.now();
       // 재시도하지 않는다. 타임아웃에 재시도하면 사용자가 두 배로 기다린 뒤 실패한다.
       let response;

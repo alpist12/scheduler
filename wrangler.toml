@@ -1,0 +1,26 @@
+# Cloudflare Workers — 스케줄러의 API 서버.
+#
+# 화면(index.html, app.js 등)은 GitHub Pages 가 내보내고, 여기는 /api/* 만 받는다.
+# 비밀값은 레포에 적지 않는다. 아래 명령으로 Cloudflare 에만 저장한다:
+#
+#   npx wrangler secret put NVIDIA_API_KEY
+#   npx wrangler secret put SCHEDULER_ADMIN_PASSWORD
+#   npx wrangler secret put FIREBASE_API_KEY          # 기본값이 코드에 있어 생략 가능
+#
+# 배포:  npx wrangler deploy
+# 로컬:  npx wrangler dev          (http://localhost:8787/api/health 로 확인)
+
+name = "hnubs-scheduler-api"
+main = "sites/worker.mjs"
+compatibility_date = "2026-09-15"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# 이 주소에서 오는 요청만 받는다. GitHub Pages 주소로 바꿔 넣는다.
+# 비밀값이 아니므로 여기 적어도 된다. 쉼표로 여러 개.
+ALLOWED_ORIGINS = "https://alpist07.github.io"
+
+# 분석/대화 모델 설정. 키가 아니라 이름이므로 공개해도 된다.
+NVIDIA_MODEL = "nvidia/nemotron-3-super-120b-a12b"
+FIREBASE_PROJECT_ID = "hnubs-2sceduler"
+FIREBASE_FIRESTORE_DB = "default"

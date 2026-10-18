@@ -43,7 +43,7 @@ globalThis.fetch = async (url, options = {}) => {
   return { ok: true, status: 200, text: async () => '' };
 };
 
-const { firebaseGet, firebasePatch, firebaseSet, normalizeCast, persistProjectAnalysis } = await import('../netlify/functions/_shared.mjs');
+const { firebaseGet, firebasePatch, firebaseSet, normalizeCast, persistProjectAnalysis } = await import('../api/_shared.mjs');
 
 const sample = {
   id: 'job-1', count: 3, ratio: 0.5, ready: true, empty: null,

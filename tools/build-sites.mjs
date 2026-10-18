@@ -14,12 +14,14 @@ for (const name of [
   'index.html',
   'index.integrated.html',
   'app.js',
+  'api-config.js',
   'schedule-rules.mjs',
   'app.css',
   'claude-handoff.css',
   'refresh.css',
   'standalone-desktop.html',
   'standalone-mobile.html',
+  'robots.txt',
 ]) cpSync(resolve(root, name), resolve(client, name));
 cpSync(resolve(root, 'assets'), resolve(client, 'assets'), { recursive: true });
 

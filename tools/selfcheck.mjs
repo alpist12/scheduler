@@ -1,7 +1,15 @@
 /* 에어/분석이 조용히 깨지는 자리를 잡아 둔다. node tools/selfcheck.mjs */
 import assert from 'node:assert';
+import { readFileSync } from 'node:fs';
 import { pathParts, sceneHeadings, splitScenes, countHeadings } from '../api/_shared.mjs';
 import { fastLocalResult } from '../api/chat.mjs';
+
+// 공개 클라이언트가 Firestore를 직접 쓰는 동안 규칙 만료를 배포 전에 잡는다.
+const rules = readFileSync('firestore.rules', 'utf8');
+const expiry = rules.match(/timestamp\.date\((\d{4}),\s*(\d{1,2}),\s*(\d{1,2})\)/);
+assert.ok(expiry, 'Firestore 규칙 만료일이 없습니다.');
+const expiresAt = Date.UTC(+expiry[1], +expiry[2] - 1, +expiry[3]);
+assert.ok(expiresAt - Date.now() > 90 * 24 * 60 * 60 * 1000, 'Firestore 규칙 만료가 90일 이내입니다.');
 
 // 1. 리다이렉트를 거친 실제 요청 모양. 예전에 여기서 '작업 ID가 없습니다' 가 났다.
 assert.deepStrictEqual(
@@ -76,3 +84,29 @@ console.log('bullet list OK');
 }
 
 console.log('bulk personal schedule OK');
+
+// 5. 여러 사람의 일정 묶음도 서로 섞지 않고 하나의 확인 액션으로 준비한다.
+{
+  const result = fastLocalResult(`강주형
+10/19 가능
+10/20 4시 이후 6시 이전
+
+김기주
+10/19 불가능
+10/20 수업 제외`, {
+    currentDate: '2026-10-17',
+    members: [
+      { name: '강주형', fixedSchedule: {} },
+      { name: '김기주', fixedSchedule: { tue: [{ start: 10, end: 12, label: '수업' }] } },
+    ],
+  });
+  assert.strictEqual(result.route, 'local-personal-bulk');
+  assert.strictEqual(result.action.type, 'personal_schedules');
+  assert.deepStrictEqual([...new Set(result.action.items.map(x => x.memberName))], ['강주형', '김기주']);
+  assert.deepStrictEqual(result.action.items.filter(x => x.memberName === '강주형' && x.date === '2026-10-19')
+    .map(x => [x.status, x.start, x.end]), [['가능', 9, 23]]);
+  assert.deepStrictEqual(result.action.items.filter(x => x.memberName === '김기주' && x.date === '2026-10-20')
+    .map(x => [x.status, x.start, x.end]), [['불가능', 10, 12]]);
+}
+
+console.log('multi-member personal schedule OK');

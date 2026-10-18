@@ -4,6 +4,7 @@
 <meta name="color-scheme" content="light">
 <style>:root{color-scheme:light only}@media (prefers-color-scheme:dark){:root{color-scheme:light only}}</style>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
 <script src="assets/standalone/c0c568d7-3a3d-4322-a962-0337b5a03c8f.js?v=106"></script>
 </head>
 <body>
@@ -917,6 +918,14 @@
           </div>
         </div>
 
+        <div style="display:{{ aiPdfDisplay }};overflow:hidden;background:#fff;border:1px solid #dbe5f7;border-radius:22px;margin-top:12px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid #edf0f8">
+            <span style="min-width:0;display:flex;align-items:center;gap:8px"><span class="ms" style="width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;background:#fff0f1;color:#d94d67">picture_as_pdf</span><b style="max-width:145px;overflow:hidden;color:#222c52;font-size:11.5px;text-overflow:ellipsis;white-space:nowrap">{{ aiFileName }}</b></span>
+            <span style="display:flex;align-items:center;gap:5px"><button sc-camel-on-click="{{ prevAiPdfPage }}" disabled="{{ aiPdfPrevDisabled }}" aria-label="이전 페이지" style="width:30px;height:30px;border:1px solid #e1e6f4;border-radius:9px;background:#fff;color:#5b6ee0">‹</button><b style="min-width:48px;text-align:center;color:#5a6595;font-size:10.5px">{{ aiPdfPageLabel }}</b><button sc-camel-on-click="{{ nextAiPdfPage }}" disabled="{{ aiPdfNextDisabled }}" aria-label="다음 페이지" style="width:30px;height:30px;border:1px solid #e1e6f4;border-radius:9px;background:#fff;color:#5b6ee0">›</button></span>
+          </div>
+          <div style="position:relative;height:560px;background:#e9edf3"><iframe src="about:blank" sc-camel-on-load="{{ loadAiPdf }}" title="PDF 대본 미리보기" style="display:block;width:100%;height:100%;border:0"></iframe><sc-if value="{{ aiRunning }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:14px;background:rgba(24,35,70,.34);backdrop-filter:blur(1.5px);pointer-events:none"><div style="width:100%;padding:16px;border:1px solid #cddcff;border-radius:16px;background:rgba(255,255,255,.94);box-shadow:0 18px 42px rgba(35,48,98,.28)"><div style="display:flex;justify-content:space-between;gap:8px"><b style="color:#3b65dc;font-size:12px">✦ 대본 분석 중</b><strong style="color:#5b6ee0;font-size:18px">{{ aiProgressLabel }}</strong></div><div style="margin-top:8px;color:#222c52;font-size:14px;font-weight:800;line-height:1.4">보이는 대본 위에서 씬과 등장인물을 찾고 있어요</div><div style="height:7px;margin-top:13px;overflow:hidden;border-radius:99px;background:#e7ebf8"><div style="height:100%;width:{{ aiBarWidth }};border-radius:99px;background:linear-gradient(90deg,#5b8def,#7b6ef0);animation:{{ aiBarAnim }}"></div></div><small style="display:block;margin-top:8px;color:#7b83a8;font-size:10px;font-weight:700">{{ aiElapsedText }}</small></div></div></sc-if></div>
+        </div>
+
         <div style="display:{{ aiSupportDisplay }};background:#fff;border:1px solid #f0f1fb;border-radius:22px;padding:16px;margin-top:12px;box-shadow:0 14px 28px rgba(122,134,205,.13)">
           <div style="display:flex;align-items:baseline;justify-content:space-between">
             <span style="font-size:15px;font-weight:800;color:#222c52">분석 진행 상황</span>
@@ -1471,7 +1480,7 @@ class Component extends DCLogic {
     splash: true, splashOut: false, tab: 'home', weekOffset: 0,
     slots: [], shootDay: 2, shootView: '목록',
     aiPhase: 'idle', aiStage: 'upload', aiPct: 0, aiStartedAt: 0, aiTick: 0, aiToggle: [true, true, false], aiOpts: [true,true,true,true], aiSceneIndex: 0, aiCandidateIndex: 0, planVariant: 0,
-    sheetOpen: false, compareOpen: false, compareSel: [], live: null, aiProjectId: '', aiFile: null, mPerson: '',
+    sheetOpen: false, compareOpen: false, compareSel: [], live: null, aiProjectId: '', aiFile: null, aiPreviewUrl: '', aiPdfPage: 1, aiPdfPages: 0, mPerson: '',
     mfTitle: '', mfPlace: '', mfStart: '14:00', mfEnd: '16:00', mfDay: 2, mfStatus: '가능', mfKind: '이번 주 일정', mfCategory: '방송제', mfUploadWeek: '', showBroadcast: false,
     mfEditId: '', mfCast: [], mfNote: '',
     aiView: 'new', aiCategory: '마디영상', aiHistoryOpen: false, droppedScenes: {}, planPickedSlot: {}, projectEditId: ''
@@ -1665,9 +1674,11 @@ class Component extends DCLogic {
 
   pickAiFile = async event => {
     const file=event.target.files?.[0]; if(!file)return;
-    this.setState({tab:'ai',aiFile:file.name,aiPhase:'idle',aiStage:'upload',aiPct:0});
-    try { const engine=this.engine(); if(!engine) throw new Error('데이터 연결을 준비 중입니다.'); await engine.prepareFile(file,this.state.aiProjectId); this.setState({aiStage:'options'}); this.readLive(); }
-    catch(error){this.setState({aiFile:null});window.alert(error.message);}
+    if(this.state.aiPreviewUrl) URL.revokeObjectURL(this.state.aiPreviewUrl);
+    const previewUrl=/\.pdf$/i.test(file.name)?URL.createObjectURL(file):'';
+    this.setState({tab:'ai',aiFile:file.name,aiPreviewUrl:previewUrl,aiPdfPage:1,aiPdfPages:0,aiPhase:'idle',aiStage:'upload',aiPct:0});
+    try { const engine=this.engine(); if(!engine) throw new Error('데이터 연결을 준비 중입니다.'); const prepared=await engine.prepareFile(file,this.state.aiProjectId); this.setState({aiStage:'options',aiPdfPages:Number(prepared?.pages)||0}); this.readLive(); }
+    catch(error){if(previewUrl)URL.revokeObjectURL(previewUrl);this.setState({aiFile:null,aiPreviewUrl:'',aiPdfPage:1,aiPdfPages:0});window.alert(error.message);}
   };
 
   /** 인원 목록을 부서별로 묶는다. */
@@ -2583,7 +2594,7 @@ class Component extends DCLogic {
       aiNoProject: st.aiStage === 'upload' && !st.aiProjectId,
       aiUploadDisplay: (st.aiStage === 'upload' && st.aiProjectId) ? 'block' : 'none',
       aiOptionsDisplay: st.aiStage === 'options' ? 'block' : 'none',
-      aiSupportDisplay: st.aiStage === 'running' ? 'block' : 'none',
+      aiSupportDisplay: st.aiStage === 'running' && !st.aiPreviewUrl ? 'block' : 'none',
       aiBackVisible: st.aiStage !== 'upload',
       aiBackLabel: st.aiStage === 'results' ? '분석 조건으로 돌아가기' : st.aiStage === 'running' ? '옵션으로 돌아가기' : '대본 선택으로 돌아가기',
       /* 판정은 엔진(copilotForDate)이 한다. PC와 같은 답이 나와야 한다.
@@ -2954,8 +2965,15 @@ class Component extends DCLogic {
       editAiConditions: this.editAiConditions,
       backAiStage: this.backAiStage,
       pickAiFile: this.pickAiFile,
-      resetAnalysis: async () => { if (st.aiProjectId) { await this.engine()?.resetAnalysis?.(st.aiProjectId); this.setState({ aiFile:null, aiPhase:'idle', aiPct:0 }); } },
+      resetAnalysis: async () => { if (st.aiProjectId) { await this.engine()?.resetAnalysis?.(st.aiProjectId); if(st.aiPreviewUrl)URL.revokeObjectURL(st.aiPreviewUrl); this.setState({ aiFile:null, aiPreviewUrl:'', aiPdfPage:1, aiPdfPages:0, aiPhase:'idle', aiPct:0 }); } },
       aiFileName: st.aiFile, aiHasFile: !!st.aiFile,
+      aiPdfDisplay: st.aiPreviewUrl && ['options','running'].includes(st.aiStage) ? 'block' : 'none',
+      loadAiPdf:e=>{const src=st.aiPreviewUrl?`${st.aiPreviewUrl}#page=${Math.max(1,st.aiPdfPage||1)}&zoom=page-width&toolbar=0&navpanes=0`:'about:blank';if(e.target.src!==src)e.target.src=src;},
+      aiPdfPageLabel: `${Math.max(1,st.aiPdfPage||1)} / ${st.aiPdfPages||'?'}`,
+      aiPdfPrevDisabled: (st.aiPdfPage||1)<=1,
+      aiPdfNextDisabled: !!st.aiPdfPages&&(st.aiPdfPage||1)>=st.aiPdfPages,
+      prevAiPdfPage:()=>this.setState({aiPdfPage:Math.max(1,(st.aiPdfPage||1)-1)}),
+      nextAiPdfPage:()=>this.setState({aiPdfPage:Math.min(st.aiPdfPages||(st.aiPdfPage||1)+1,(st.aiPdfPage||1)+1)}),
       aiProjectId: st.aiProjectId,
       aiProjects: [{ id: '', name: '프로젝트를 선택하세요' }, ...(live?.projects || [])],
       aiCategoryTabs: ['마디영상','방송제'].map(label => { const on=(st.aiCategory||'마디영상')===label; return { label, bg:on?'#eef3ff':'#fff', fg:on?'#3b65dc':'#7b83a8', line:on?'#8aa7ff':'#e5e8f7', pick:()=>this.setState({ aiCategory:label, aiProjectId:label==='방송제' && (live?.projects||[]).some(p=>p.id===st.aiProjectId && p.name!=='마디영상') ? st.aiProjectId : '' }) }; }),

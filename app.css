@@ -592,6 +592,26 @@ img { max-width: 100%; }
 .ai-server-card dd { overflow-wrap: anywhere; color: var(--sub); font-size: 9px; font-weight: 700; }
 .ai-progress-card { min-height: 100%; border-color: #a9caff; background: #f2f7ff; box-shadow: 0 12px 28px #2f7df614; }
 .ai-progress-card.is-running { animation: aiProgressPulse 1.8s ease-in-out infinite; }
+.ai-pdf-card { overflow: hidden; min-height: 560px; display: grid; grid-template-rows: auto minmax(0, 1fr); border-color: #b8cff1; box-shadow: 0 12px 28px #2f7df612; }
+.ai-pdf-toolbar { min-height: 54px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; border-bottom: 1px solid var(--line); background: #fff; }
+.ai-pdf-toolbar > div { min-width: 0; display: flex; align-items: center; gap: 9px; }
+.ai-pdf-toolbar > div > i { flex: 0 0 34px; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; background: #fff0f0; color: #d74343; font-size: 16px; }
+.ai-pdf-toolbar span { min-width: 0; display: grid; gap: 2px; }
+.ai-pdf-toolbar span b { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.ai-pdf-toolbar span small { color: var(--muted); font-size: 8px; }
+.ai-pdf-toolbar nav { flex: 0 0 auto; display: flex; align-items: center; gap: 7px; }
+.ai-pdf-toolbar nav button { width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--accent); cursor: pointer; }
+.ai-pdf-toolbar nav button:disabled { color: #b9c2d0; background: #f5f7fa; cursor: default; }
+.ai-pdf-toolbar nav b { min-width: 50px; color: var(--sub); font-size: 9px; text-align: center; }
+.ai-pdf-stage { position: relative; min-height: 0; background: #e9edf3; }
+.ai-pdf-stage iframe { width: 100%; height: 100%; min-height: 505px; display: block; border: 0; background: #e9edf3; }
+.ai-pdf-analysis-overlay { position: absolute; z-index: 2; inset: 0; display: grid; place-items: center; padding: 24px; pointer-events: none; background: #0d1c334f; backdrop-filter: blur(1.5px); }
+.ai-pdf-overlay-panel { width: min(440px, 92%); border: 1px solid #c9ddff; border-radius: 16px; padding: 20px; background: #fffffff0; box-shadow: 0 18px 52px #0d1c3345; }
+.ai-pdf-overlay-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #1769df; }
+.ai-pdf-overlay-head span { font-size: 11px; font-weight: 800; }
+.ai-pdf-overlay-head strong { font-size: 22px; }
+.ai-pdf-overlay-panel > b { display: block; margin-top: 9px; color: #16213d; font-size: 16px; line-height: 1.35; }
+.ai-pdf-overlay-panel > small { display: block; overflow: hidden; color: #66758a; font-size: 9px; line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
 .ai-progress-gif { display: none; }
 .ai-progress-card.is-running .ai-progress-gif { display: block; width: 100%; max-height: 220px; object-fit: contain; border-radius: 16px; margin-bottom: 12px; }
 .ai-progress-main { min-height: 100%; display: grid; grid-template-columns: 132px minmax(0, 1fr); align-items: center; gap: 22px; padding: 24px; }
@@ -606,8 +626,12 @@ img { max-width: 100%; }
 .ai-phase-running .ai-work-grid,
 .ai-phase-running .ai-recent,
 .ai-phase-done .ai-upload-card,
-.ai-phase-done .ai-progress-card { display: none; }
+.ai-phase-done .ai-progress-card,
+.ai-phase-done .ai-pdf-card { display: none; }
 .ai-phase-running .ai-top-grid { grid-template-columns: 1fr; }
+.ai-phase-running .ai-pdf-card { min-height: min(760px, calc(100vh - 210px)); }
+.ai-phase-running .ai-pdf-stage iframe { min-height: min(700px, calc(100vh - 270px)); }
+.ai-phase-done .ai-top-grid { display: none; }
 .ai-progress-copy { min-width: 0; }
 .ai-progress-copy > span { display: block; margin-bottom: 5px; color: #1769df; font-size: 12px; font-weight: 800; }
 .ai-progress-copy > b { display: block; overflow-wrap: anywhere; color: #16213d; font-size: 18px; line-height: 1.35; }
@@ -700,6 +724,11 @@ img { max-width: 100%; }
   .ai-form-grid { grid-template-columns: 1fr 1fr; }
   .ai-form-grid label.wide, .ai-form-grid label.full { grid-column: 1 / -1; }
   .ai-log-card li { grid-template-columns: 48px 42px minmax(0,1fr); }
+  .ai-pdf-card, .ai-pdf-card.is-mobile { min-height: 560px; margin-bottom: 14px; }
+  .ai-pdf-stage iframe { min-height: 505px; }
+  .ai-pdf-analysis-overlay { padding: 14px; }
+  .ai-pdf-overlay-panel { padding: 16px; }
+  .ai-pdf-overlay-panel > b { font-size: 14px; }
   .data-warning { top: 8px; right: 8px; left: 8px; max-width: none; }
 }
 @media (prefers-reduced-motion: reduce) { .ai-progress-card.is-running { animation: none; } }

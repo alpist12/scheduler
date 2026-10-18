@@ -430,12 +430,26 @@ function koreanHour(value) {
 function bulkPersonalResult(text, context, members) {
   const lines = String(text).split(/\r?\n/).map(x => x.trim()).filter(Boolean);
   if (lines.length < 3) return null;
-  const member = members.find(m => lines[0] === m.name) || members.find(m => lines[0].includes(m.name));
-  if (!member) return null;
+  const findMember = line => members.find(m => line === m.name)
+    || members.find(m => line.includes(m.name));
+  const blocks = [];
+  let block = null;
+  for (const line of lines) {
+    const member = findMember(line);
+    if (member && (line === member.name || !block)) {
+      block = { member, lines: [] };
+      blocks.push(block);
+    } else if (block) {
+      block.lines.push(line);
+    } else {
+      return null;
+    }
+  }
+  if (!blocks.length || blocks.some(x => !x.lines.length)) return null;
   const items = [];
   const missing = [];
   let parsedLines = 0;
-  for (const line of lines.slice(1)) {
+  for (const { member, lines: scheduleLines } of blocks) for (const line of scheduleLines) {
     const match = line.match(/^(\d{1,2})\s*[/.월]\s*(\d{1,2})일?(?:\s*~\s*(?:(\d{1,2})\s*[/.월]\s*)?(\d{1,2})일?)?\s+(.+)$/);
     if (!match) return null;
     const from = dateFromParts(match[1], match[2], context);
@@ -479,14 +493,14 @@ function bulkPersonalResult(text, context, members) {
   }
   if (missing.length) return {
     route: 'local-personal-bulk-needs', action: null,
-    reply: `${member.name}은 등록 인원에서 확인했고, 수업 시간표도 읽었습니다.\n${[...new Set(missing)].join(', ')}만 알려 주세요. 나머지 날짜는 그대로 이어서 준비할게요.`,
+    reply: `${blocks.map(x => x.member.name).join(', ')}은 등록 인원에서 확인했고, 수업 시간표도 읽었습니다.\n${[...new Set(missing)].join(', ')}만 알려 주세요. 나머지 날짜는 그대로 이어서 준비할게요.`,
   };
   if (parsedLines < 2 || !items.length) return null;
   const action = validAction({ type: 'personal_schedules', items });
   if (!action) return null;
   return {
     route: 'local-personal-bulk', action,
-    reply: `${member.name} 개인 일정 ${action.items.length}개 구간을 준비했어요.\n등록된 회의·수업 시간표를 반영했습니다. 아래 버튼에서 확인한 뒤 저장해 주세요.`,
+    reply: `${blocks.map(x => x.member.name).join(', ')} 개인 일정 ${action.items.length}개 구간을 준비했어요.\n등록된 회의·수업 시간표를 반영했습니다. 아래 버튼에서 확인한 뒤 저장해 주세요.`,
   };
 }
 

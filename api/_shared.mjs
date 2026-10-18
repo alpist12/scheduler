@@ -6,7 +6,13 @@ export const ANALYSIS_TIMEOUT_MS = 180000;
 
 export const response = (statusCode, value) => ({
   statusCode,
-  headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
+  headers: {
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'no-store',
+    'access-control-allow-origin': '*',
+    'access-control-allow-headers': '*',
+    'access-control-allow-methods': 'GET, POST, OPTIONS',
+  },
   body: JSON.stringify(value),
 });
 

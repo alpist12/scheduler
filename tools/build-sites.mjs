@@ -15,6 +15,7 @@ for (const name of [
   'index.integrated.html',
   'app.js',
   'api-config.js',
+  'extract-client.js',
   'schedule-rules.mjs',
   'app.css',
   'claude-handoff.css',

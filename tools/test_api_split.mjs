@@ -76,4 +76,28 @@ import fs from 'node:fs';
   assert(/^https:\/\//.test(pick('alpist12.github.io')),
     'GitHub Pages 에서 상대경로를 부른다 — 같은 출처에 API 가 없어 404 가 난다');
 }
+// ── 5) 대본 추출은 브라우저에서 한다 (무료 함수의 CPU 한도를 넘기지 않으려고)
+{
+  const client = fs.readFileSync('extract-client.js', 'utf8');
+  assert(/export async function extractText/.test(client), 'extractText 가 없다');
+  assert(/pdf\.js|pdf\.min\.mjs/.test(client), 'PDF 처리가 없다');
+  assert(/mammoth/.test(client), 'DOCX 처리가 없다');
+
+  // 서버 쪽 추출 경로가 되살아나면 20MB 업로드와 CPU 과금이 돌아온다
+  assert(!fs.existsSync('api/extract.mjs'), '서버 추출 함수가 남아 있다');
+  const worker = fs.readFileSync('sites/worker.mjs', 'utf8');
+  assert(!/\/api\/extract/.test(worker), 'worker 에 extract 라우트가 남아 있다');
+  const app = fs.readFileSync('app.js', 'utf8');
+  assert(!/\/api\/extract/.test(app), '앱이 아직 서버 추출을 부른다');
+  assert(!/fileToBase64/.test(app), '안 쓰는 base64 변환이 남아 있다');
+  assert(/extract-client\.js/.test(app), '앱이 브라우저 추출기를 안 쓴다');
+
+  // 무거운 파서가 서버 의존성으로 돌아오지 않았는지
+  const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  for (const dep of ['mammoth', 'pdf-parse']) {
+    assert(!(dep in (pkg.dependencies || {})), `${dep} 가 서버 의존성에 남아 있다`);
+  }
+  assert(fs.readFileSync('tools/build-sites.mjs', 'utf8').includes("'extract-client.js'"),
+    '빌드 목록에 extract-client.js 가 빠졌다');
+}
 console.log('api split OK');

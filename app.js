@@ -2108,15 +2108,6 @@ async function checkAiHealth(silent = false) {
   render();
 }
 
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '');
-    reader.onerror = () => reject(reader.error || new Error('파일을 읽지 못했습니다.'));
-    reader.readAsDataURL(file);
-  });
-}
-
 async function extractAiFile(file) {
   if (!file) return;
   if (!/\.(pdf|docx|txt)$/i.test(file.name)) { toast('PDF, DOCX, TXT 파일만 선택할 수 있습니다.'); return; }
@@ -2126,13 +2117,18 @@ async function extractAiFile(file) {
   aiState.previewUrl = /\.pdf$/i.test(file.name) ? URL.createObjectURL(file) : '';
   aiState.pdfPage = 1; aiState.pdfPages = 0; render();
   try {
-    const dataBase64 = await fileToBase64(file);
-    const result = await apiJson('/api/extract', { method: 'POST', body: JSON.stringify({ filename: file.name, dataBase64 }) });
+    /* 브라우저에서 바로 푼다. 예전에는 파일을 통째로 서버에 올려 파싱했는데
+       업로드도 느리고 서버 CPU 도 오래 썼다. 파일은 이미 여기 있다. */
+    const { extractText } = await import('./extract-client.js');
+    const result = await extractText(file, (done, total) => {
+      aiState.extractProgress = total > 1 ? `${done}/${total}쪽` : '';
+      render();
+    });
     aiState.extractedText = result.text;
     aiState.pdfPages = Number(result.pages) || 0;
     toast(`${result.characters.toLocaleString()}자 추출을 완료했습니다.`);
   } catch (error) { reportError('대본 텍스트 추출', error); }
-  finally { aiState.extracting = false; render(); }
+  finally { aiState.extracting = false; aiState.extractProgress = ''; render(); }
 }
 
 async function persistAiResult() {

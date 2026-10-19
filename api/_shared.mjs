@@ -4,14 +4,14 @@ export const FALLBACK_MODEL = process.env.NVIDIA_FALLBACK_MODEL || 'nvidia/nemot
 export const API_BASE = (process.env.NVIDIA_API_BASE || 'https://integrate.api.nvidia.com').replace(/\/$/, '');
 export const ANALYSIS_TIMEOUT_MS = 180000;
 
+/* CORS 헤더는 여기서 붙이지 않는다. 바깥(worker)이 허용 목록을 보고 붙인다.
+   여기서 '*' 를 박아 두면 그 목록이 무의미해진다 — 어느 사이트에서든 이 API 를
+   부를 수 있게 되고, 남이 부른 NVIDIA 호출도 이쪽 요금이 된다. */
 export const response = (statusCode, value) => ({
   statusCode,
   headers: {
     'content-type': 'application/json; charset=utf-8',
     'cache-control': 'no-store',
-    'access-control-allow-origin': '*',
-    'access-control-allow-headers': '*',
-    'access-control-allow-methods': 'GET, POST, OPTIONS',
   },
   body: JSON.stringify(value),
 });

@@ -3,9 +3,10 @@
 두 곳에 올라간다. **둘 다 올려야** 전부 동작한다.
 
 ```
-GitHub Pages                  Netlify                      Firebase
+GitHub Pages                  Cloudflare Workers              Firebase
 화면·정적 파일          →     /api/* (NVIDIA 키, 관리자 비번)  →  Firestore (일정)
-alpist12.github.io/scheduler   hnubs.netlify.app               기존 그대로
+무료                           무료 10만 요청/일                기존 그대로
+alpist12.github.io/scheduler   hnubs-scheduler-api.workers.dev  기존 그대로
 ```
 
 ## 왜 서버가 아직 필요한가
@@ -33,27 +34,40 @@ Firestore 에 직접 붙고, 대본 추출(PDF·DOCX)도 브라우저에서 푼�
 > 정적 파일을 새로 추가했다면 `tools/build-sites.mjs` 의 복사 목록에도 넣어야 한다.
 > 빠뜨리면 로컬에서는 되는데 배포본에서만 404 가 난다.
 
-## 2. API (Netlify)
+## 2. API (Cloudflare Workers)
 
-**화면만 올리고 끝내면 안 된다.** Netlify 는 따로 배포해야 반영된다.
+**화면만 올리고 끝내면 안 된다.** API 는 따로 배포해야 반영된다.
+
+```bash
+npx wrangler login
+npx wrangler secret put NVIDIA_API_KEY            # 값은 묻는 대로 붙여넣는다
+npx wrangler secret put SCHEDULER_ADMIN_PASSWORD
+npm run api:deploy
+```
+
+비밀값은 레포에 들어가지 않고 Cloudflare 에만 저장된다. 모델·엔드포인트 이름처럼
+비밀이 아닌 값은 `wrangler.toml` 의 `[vars]` 에 있다.
 
 배포본이 최신인지 확인:
 
 ```bash
-curl -s https://hnubs.netlify.app/api/health
+curl -s https://hnubs-scheduler-api.<계정>.workers.dev/api/health
 ```
 
-`runtime` 이 `Sites Worker` 가 아니라 `Netlify Functions` 로 나오거나 `fallbackModel`
-필드가 없으면 구버전이다.
+`runtime` 이 `Sites Worker`, `configured` 가 `true` 면 키까지 들어간 것이다.
 
-**실제로 이것 때문에 한 번 깨졌다.** CORS 헤더를 코드에 넣고 Netlify 를 재배포하지
-않아서, GitHub Pages 에서 호출이 전부 차단되고 **화면은 멀쩡한데 AI 기능만 죽어
-있었다.** 화면과 API 를 따로 배포한다는 걸 잊기 쉽다.
+> **화면과 API 를 따로 배포한다는 걸 잊기 쉽다.** 실제로 한 번 이것 때문에 깨졌다 —
+> CORS 헤더를 코드에 넣고 서버를 재배포하지 않아, 화면은 멀쩡한데 AI 기능만
+> 죽어 있었다.
 
-비밀값은 Netlify 환경변수에 둔다 (레포에 넣지 않는다):
+### 무료 플랜에 맞춰 둔 것들
 
-- `NVIDIA_API_KEY`
-- `SCHEDULER_ADMIN_PASSWORD`
+무료 Workers 는 요청당 CPU 10ms, 백그라운드 30초, 외부 호출 50회가 한도다.
+이 한도를 넘지 않도록 두 가지를 구조로 해결해 두었다. 되돌리면 다시 걸린다.
+
+- **대본 추출은 브라우저에서 한다.** 서버에서 PDF 를 풀면 CPU 10ms 를 바로 넘는다.
+- **분석은 묶음 하나당 요청 하나다.** 서버가 전부 백그라운드로 돌면 30초에 잘려
+  작업이 '분석 중'인 채로 남는다.
 
 ## 3. 둘을 잇는 설정
 

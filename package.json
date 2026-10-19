@@ -7,9 +7,12 @@
   },
   "scripts": {
     "build": "node tools/build-sites.mjs",
-    "test:sites": "node tools/test-sites-proxy.mjs"
+    "test:sites": "node tools/test-sites-proxy.mjs",
+    "api:dev": "wrangler dev",
+    "api:deploy": "wrangler deploy"
   },
   "devDependencies": {
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.28.2",
+    "wrangler": "^4.151.1"
   }
 }

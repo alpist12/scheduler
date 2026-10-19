@@ -45,7 +45,7 @@ import fs from 'node:fs';
 
 // ── 3) 비밀값이 레포에 들어오지 않았는지
 {
-  for (const f of ['netlify.toml', 'api-config.js']) {
+  for (const f of ['wrangler.toml', 'api-config.js']) {
     const t = fs.readFileSync(f, 'utf8');
     assert(!/nvapi-|AIza[0-9A-Za-z_-]{30,}/.test(t.replace(/AIzaSyDXmeiQpRSZshFA1_BgZ2z_8AKLy6_Nc8M/g, '')),
       `${f} 에 비밀키로 보이는 값이 있다`);
@@ -102,9 +102,11 @@ import fs from 'node:fs';
 }
 // ── 6) 화면과 API 가 다른 출처다. CORS 와 CSP 가 빠지면 AI 기능만 조용히 죽는다.
 {
+  /* CORS 는 worker 가 허용 목록을 보고 붙인다. 핸들러가 '*' 를 박아 두면
+     그 목록이 무의미해지고, 아무 사이트나 이 API 로 NVIDIA 를 호출할 수 있다. */
   const shared = fs.readFileSync('api/_shared.mjs', 'utf8');
-  assert(/access-control-allow-origin/.test(shared),
-    '서버 응답에 CORS 가 없다 — GitHub Pages 에서 호출이 전부 차단된다');
+  assert(!/access-control-allow-origin/.test(shared),
+    '핸들러가 CORS 를 직접 붙인다 — worker 의 허용 목록이 무력화된다');
 
   const toml = fs.readFileSync('netlify.toml', 'utf8');
   assert(/directory = "api"/.test(toml), 'Netlify 가 함수 폴더를 못 찾는다');

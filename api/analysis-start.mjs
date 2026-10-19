@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { dispatchAnalysis, firebaseGet, firebasePatch, firebaseSet, parseBody, precisionOf, publicJob, response, splitScenes } from './_shared.mjs';
+import { firebaseGet, firebasePatch, firebaseSet, parseBody, precisionOf, publicJob, response, splitScenes } from './_shared.mjs';
 
 export const handler = async event => {
   try {
@@ -24,7 +24,8 @@ export const handler = async event => {
       activeJobId: id, job: publicJob(job), [`analysisJobs/${id}`]: publicJob(job),
       script: { filename: job.filename, text: String(body.text), characters: String(body.text).length, textStored: true },
     });
-    await dispatchAnalysis(event, id);
-    return response(202, publicJob(job));
+    /* 여기서 전체 분석을 돌리지 않는다. 화면이 묶음을 하나씩 요청한다.
+       한 요청에 몰아 넣으면 무료 함수의 실행 시간과 외부 호출 수에 걸린다. */
+    return response(201, publicJob(job));
   } catch (error) { return response(500, { error: error.message }); }
 };

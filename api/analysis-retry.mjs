@@ -1,4 +1,4 @@
-import { dispatchAnalysis, firebaseGet, firebaseSet, pathParts, publicJob, response } from './_shared.mjs';
+import { analyzeJob, firebaseGet, firebaseSet, pathParts, publicJob, response } from './_shared.mjs';
 
 export const handler = async event => {
   try {
@@ -10,7 +10,10 @@ export const handler = async event => {
     job.status = 'queued'; job.items[index].status = 'queued'; job.items[index].error = null; job.updatedAt = new Date().toISOString();
     (job.logs ??= []).push({ time: new Date().toLocaleTimeString('ko-KR', { hour12: false, timeZone: 'Asia/Seoul' }), at: job.updatedAt, level: 'info', message: `대본 묶음 ${index + 1} 재분석을 서버에 요청했습니다.` });
     await firebaseSet(`scheduler/AI분석작업/${id}`, job);
-    await dispatchAnalysis(event, id, [index]);
-    return response(202, publicJob(job));
+    /* 묶음 하나를 이 요청 안에서 끝내고 결과를 돌려준다. 백그라운드로 넘기면
+       무료 함수에서는 30초에 잘려 작업이 'running' 인 채로 남는다.
+       묶음 하나는 NVIDIA 호출 한 번이라 요청 하나에 들어간다. */
+    await analyzeJob(job, [index]);
+    return response(200, publicJob(job));
   } catch (error) { return response(500, { error: error.message }); }
 };

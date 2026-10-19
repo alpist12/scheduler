@@ -111,16 +111,6 @@ async function writeFields(path, value, replaceWhole) {
 }
 var firebaseSet = (path, value) => writeFields(path, value, true);
 var firebasePatch = (path, value) => writeFields(path, value, false);
-async function dispatchAnalysis(event, id, indexes = null) {
-  if (typeof event.dispatchAnalysis === "function") return event.dispatchAnalysis(id, indexes);
-  const origin = new URL(event.rawUrl || `https://${event.headers?.host || event.headers?.Host}`).origin;
-  const res = await fetch(`${origin}/.api/analysis-run-background`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ id, indexes })
-  });
-  if (!res.ok) throw new Error(`\uBC31\uADF8\uB77C\uC6B4\uB4DC \uBD84\uC11D \uC2DC\uC791 \uC2E4\uD328 (${res.status})`);
-}
 async function dispatchChat(event, id) {
   if (typeof event.dispatchChat === "function") return event.dispatchChat(id);
   const origin = new URL(event.rawUrl || `https://${event.headers?.host || event.headers?.Host}`).origin;
@@ -1825,8 +1815,7 @@ var handler6 = async (event) => {
       [`analysisJobs/${id}`]: publicJob(job),
       script: { filename: job.filename, text: String(body.text), characters: String(body.text).length, textStored: true }
     });
-    await dispatchAnalysis(event, id);
-    return response(202, publicJob(job));
+    return response(201, publicJob(job));
   } catch (error) {
     return response(500, { error: error.message });
   }
@@ -1858,8 +1847,8 @@ var handler8 = async (event) => {
     job.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
     (job.logs ??= []).push({ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("ko-KR", { hour12: false, timeZone: "Asia/Seoul" }), at: job.updatedAt, level: "info", message: `\uB300\uBCF8 \uBB36\uC74C ${index + 1} \uC7AC\uBD84\uC11D\uC744 \uC11C\uBC84\uC5D0 \uC694\uCCAD\uD588\uC2B5\uB2C8\uB2E4.` });
     await firebaseSet(`scheduler/AI\uBD84\uC11D\uC791\uC5C5/${id}`, job);
-    await dispatchAnalysis(event, id, [index]);
-    return response(202, publicJob(job));
+    await analyzeJob(job, [index]);
+    return response(200, publicJob(job));
   } catch (error) {
     return response(500, { error: error.message });
   }

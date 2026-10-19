@@ -2192,22 +2192,6 @@ async function resetAiProject() {
   render();
 }
 
-function pollAiJob(jobId) {
-  clearTimeout(aiState.pollTimer);
-  aiState.pollTimer = setTimeout(async () => {
-    try {
-      const received = await apiJson(`/api/analysis/jobs/${jobId}?id=${encodeURIComponent(jobId)}`);
-      // 프로젝트를 바꾼 동안 도착한 이전 응답은 현재 선택을 덮지 않는다.
-      if (aiState.job?.id !== jobId) return;
-      aiState.job = received;
-      applyAutoCastMappings(aiState.job);
-      render();
-      if (['queued', 'running'].includes(aiState.job.status)) pollAiJob(jobId);
-      else { await persistAiResult(); toast(aiState.job.status === 'completed' ? '대본 분석을 완료했습니다.' : '일부 장면 분석이 실패했습니다.'); }
-    } catch (error) { reportError('분석 진행 상태 확인', error); }
-  }, 1100);
-}
-
 async function startAiAnalysis() {
   if (['queued', 'running'].includes(aiState.job?.status)) { toast('진행 중인 분석이 있습니다. 완료 후 다시 시도해 주세요.'); return; }
   const pid = aiProjectId();
@@ -2221,8 +2205,38 @@ async function startAiAnalysis() {
       cast: (roles.cast || []).map(m => m.name).filter(Boolean),
     };
     aiState.job = await apiJson('/api/analysis/jobs', { method: 'POST', body: JSON.stringify({ projectId: pid, filename: aiState.file?.name || projects[pid]?.aiAnalysis?.script?.filename || '대본', text: aiState.extractedText, options: aiState.options, precision: appSettings.aiAccuracy || '균형 (추천)', crew }) });
-    state.aiSceneIndex = 0; render(); pollAiJob(aiState.job.id);
+    state.aiSceneIndex = 0; render();
+    await runAiChunks(aiState.job.id);
   } catch (error) { reportError('NVIDIA NIM 분석 시작', error); }
+}
+
+/* 묶음을 하나씩 서버에 맡긴다.
+   예전에는 서버가 백그라운드로 전부 돌고 화면은 상태만 받아 봤다. 그러면 묶음이
+   많을수록 한 번의 서버 작업이 길어져, 실행 시간 제한이 있는 환경에서는 중간에
+   잘리고 작업이 '분석 중'인 채로 남는다. 한 요청에 한 묶음이면 그 일이 없고,
+   어디까지 됐는지도 정확히 보인다. 실패한 묶음은 건너뛰고 끝까지 간다. */
+async function runAiChunks(jobId) {
+  const total = aiState.job?.items?.length || 0;
+  for (let index = 0; index < total; index += 1) {
+    if (aiState.job?.id !== jobId) return;            // 그 사이 프로젝트를 바꿨다
+    if (aiState.job.items[index]?.status === 'success') continue;
+    try {
+      const received = await apiJson(
+        `/api/analysis/jobs/${jobId}/retry/${index}?id=${encodeURIComponent(jobId)}&index=${index}`,
+        { method: 'POST', body: '{}' });
+      if (aiState.job?.id !== jobId) return;
+      aiState.job = received;
+      applyAutoCastMappings(aiState.job);
+      render();
+    } catch (error) {
+      // 한 묶음이 실패해도 나머지는 계속한다. 어느 묶음이 실패했는지는 카드에 남는다.
+      reportError(`대본 묶음 ${index + 1} 분석`, error);
+    }
+  }
+  if (aiState.job?.id !== jobId) return;
+  await persistAiResult();
+  const failed = (aiState.job.items || []).filter(x => x.status === 'failed').length;
+  toast(failed ? `${failed}개 묶음 분석이 실패했습니다.` : '대본 분석을 완료했습니다.');
 }
 
 async function saveAiScene(form) {
@@ -2419,7 +2433,10 @@ document.addEventListener('click', e => {
     case 'ai-retry': {
       const job = aiCurrentJob();
       if (!job?.id) return;
-      apiJson(`/api/analysis/jobs/${job.id}/retry/${d.i}?id=${encodeURIComponent(job.id)}&index=${encodeURIComponent(d.i)}`, { method: 'POST', body: '{}' }).then(() => { pollAiJob(job.id); toast('실패한 묶음을 다시 분석합니다.'); }).catch(error => reportError('장면 재분석', error));
+      toast('실패한 묶음을 다시 분석합니다.');
+      apiJson(`/api/analysis/jobs/${job.id}/retry/${d.i}?id=${encodeURIComponent(job.id)}&index=${encodeURIComponent(d.i)}`, { method: 'POST', body: '{}' })
+        .then(received => { if (aiState.job?.id === job.id) { aiState.job = received; applyAutoCastMappings(received); render(); } })
+        .catch(error => reportError('장면 재분석', error));
       return;
     }
     case 'ai-candidate': {
@@ -3098,7 +3115,7 @@ window.HNUBS_ENGINE = {
     aiState.mappings = { ...(saved.characterMappings || {}) };
     applyAutoCastMappings(aiState.job);
     state.aiSceneIndex = 0;
-    if (['queued', 'running'].includes(aiState.job?.status)) pollAiJob(aiState.job.id);
+    if (['queued', 'running'].includes(aiState.job?.status)) runAiChunks(aiState.job.id);
     render();
   },
   async resetAnalysis(projectId) {

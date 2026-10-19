@@ -435,7 +435,8 @@ async function analyzeJob(job, indexes = null) {
   job.castMappings = [...new Map(job.items.flatMap((x) => x.castMappings || []).filter((x) => x?.character && x?.person).map((x) => [`${x.character}\0${x.person}`, x])).values()];
   job.missingScenes = missing;
   job.elapsedMs = (job.elapsedMs || 0) + (Date.now() - jobStartedAt);
-  job.status = failures || missing ? "partial" : "completed";
+  const pending = job.items.filter((x) => !["success", "failed", "incomplete"].includes(x.status)).length;
+  job.status = pending ? "running" : failures || missing ? "partial" : "completed";
   job.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
   log(
     job,

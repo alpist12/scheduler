@@ -78,4 +78,24 @@ import fs from 'node:fs';
     '한 묶음이 실패하자 나머지를 포기했다');
   assert(calls.includes('오류보고'), '실패를 조용히 삼켰다');
 }
+// ── 남은 묶음이 있으면 '완료'로 적지 않는다
+{
+  const shared = fs.readFileSync('api/_shared.mjs', 'utf8');
+  const m = shared.match(/const pending = job\.items\.filter[\s\S]*?job\.status = [^;]+;/);
+  assert(m, '남은 묶음을 보고 상태를 정하는 코드가 없다');
+
+  const decide = (statuses, failures = 0, missing = 0) => {
+    const job = { items: statuses.map(status => ({ status })) };
+    return new Function('job', 'failures', 'missing',
+      `${m[0]}
+return job.status;`)(job, failures, missing);
+  };
+
+  assert.equal(decide(['success', 'queued']), 'running',
+    '묶음이 남았는데 완료로 적는다 — 끊긴 작업이 끝난 것처럼 보인다');
+  assert.equal(decide(['success', 'success']), 'completed');
+  assert.equal(decide(['success', 'failed'], 1), 'partial');
+  assert.equal(decide(['success', 'success'], 0, 3), 'partial', '누락 씬이 있으면 partial 이어야 한다');
+  assert.equal(decide(['queued', 'queued']), 'running');
+}
 console.log('chunked analysis OK');

@@ -473,7 +473,11 @@ export async function analyzeJob(job, indexes = null) {
   job.castMappings = [...new Map(job.items.flatMap(x => x.castMappings || []).filter(x => x?.character && x?.person).map(x => [`${x.character}\u0000${x.person}`, x])).values()];
   job.missingScenes = missing;
   job.elapsedMs = (job.elapsedMs || 0) + (Date.now() - jobStartedAt);   // 재시도분까지 누적
-  job.status = (failures || missing) ? 'partial' : 'completed'; job.updatedAt = new Date().toISOString();
+  /* 묶음을 하나씩 처리하므로, 아직 손대지 않은 묶음이 남았는데 '완료'로 적으면
+     중간에 끊긴 작업이 끝난 것처럼 보이고 화면이 이어서 돌리지 않는다. */
+  const pending = job.items.filter(x => !['success', 'failed', 'incomplete'].includes(x.status)).length;
+  job.status = pending ? 'running' : (failures || missing) ? 'partial' : 'completed';
+  job.updatedAt = new Date().toISOString();
   log(job, `분석 종료 · 성공 ${job.items.length - failures}, 실패 ${failures}${missing ? `, 누락 씬 ${missing}개` : ''} · 총 ${Math.round(job.elapsedMs / 1000)}초`,
     (failures || missing) ? 'warn' : 'success');
   await firebaseSet(`scheduler/AI분석작업/${job.id}`, job);

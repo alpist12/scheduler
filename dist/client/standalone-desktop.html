@@ -2,7 +2,11 @@
 <html><head>
 <meta charset="utf-8">
 <meta name="color-scheme" content="light">
-<style>:root{color-scheme:light only}@media (prefers-color-scheme:dark){:root{color-scheme:light only}}</style>
+<style>:root{color-scheme:light only}@media (prefers-color-scheme:dark){:root{color-scheme:light only}}
+/* 스크롤바 자리를 늘 비워 둔다. 화면마다 내용 길이가 달라 스크롤이 생겼다 사라지는데,
+   스크롤바가 자리를 차지하는 환경에서는 그때마다 창 너비가 10~15px 씩 변한다.
+   하단 탭은 그 너비를 나눠 쓰므로 탭을 옮길 때마다 간격이 흔들려 보인다. */
+html{scrollbar-gutter:stable}</style>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
 <script src="assets/standalone/ea357eeb-9fdb-4725-8080-78c7fce9ac7a.js?v=106"></script>

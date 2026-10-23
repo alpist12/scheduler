@@ -9,6 +9,7 @@
 html{scrollbar-gutter:stable}
 /* 화면을 옮길 때 떠 있는 버튼이 툭 튀어나오지 않게 살짝 떠오르며 나타난다. */
 @keyframes fabIn{from{opacity:0;transform:translateY(10px) scale(.92)}to{opacity:1;transform:none}}
+[data-chiprow]::-webkit-scrollbar{display:none}
 @media(prefers-reduced-motion:reduce){@keyframes fabIn{from{opacity:0}to{opacity:1}}}</style>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
@@ -481,9 +482,11 @@ html{scrollbar-gutter:stable}
           <sc-for list="{{ mPersonGroups }}" as="g" hint-placeholder-count="3">
             <div>
               <div style="font-size:10.5px;font-weight:800;color:#b0b6cf;margin-bottom:6px">{{ g.dept }}</div>
-              <div style="display:flex;flex-wrap:wrap;gap:7px">
+              <!-- 부서마다 한 줄. 줄바꿈하면 인원이 늘수록 목록이 세로로 길어져
+                   정작 아래의 일정표가 화면 밖으로 밀린다. 넘치면 옆으로 넘긴다. -->
+              <div data-chiprow style="display:flex;flex-wrap:nowrap;gap:7px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch">
                 <sc-for list="{{ g.rows }}" as="p" hint-placeholder-count="5">
-                  <button sc-camel-on-click="{{ p.pick }}" style="min-height:38px;padding:8px 13px;border:0;border-radius:11px;background:{{ p.bg }};color:{{ p.color }};font-size:12.5px;font-weight:800;cursor:pointer">{{ p.name }}</button>
+                  <button sc-camel-on-click="{{ p.pick }}" style="flex:0 0 auto;min-height:38px;padding:8px 13px;border:0;border-radius:11px;background:{{ p.bg }};color:{{ p.color }};font-size:12.5px;font-weight:800;cursor:pointer">{{ p.name }}</button>
                 </sc-for>
               </div>
             </div>

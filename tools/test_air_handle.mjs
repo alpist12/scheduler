@@ -45,4 +45,20 @@ assert(/border-radius:24px 0 0 24px/.test(built), '빌드 결과에 손잡이 �
   assert(fs.readFileSync('dist/client/standalone-mobile.html', 'utf8').includes('fabIn'),
     '빌드 결과에 반영되지 않았다');
 }
+// ── 인원 칩은 부서마다 한 줄. 줄바꿈하면 목록이 세로로 길어져 일정표를 밀어낸다.
+{
+  const mob = fs.readFileSync('standalone-mobile.html', 'utf8');
+  const row = mob.match(/<div data-chiprow style="([^"]+)"/);
+  assert(row, '인원 칩 줄을 못 찾았다');
+  assert(/flex-wrap:nowrap/.test(row[1]), '칩이 여러 줄로 쌓인다');
+  assert(/overflow-x:auto/.test(row[1]), '넘치는 인원을 볼 방법이 없다');
+
+  // 칩이 찌그러지지 않아야 이름이 다 보인다
+  const btn = mob.slice(row.index, row.index + 700).match(/<button[^>]*style="([^"]+)"/);
+  assert(btn && /flex:0 0 auto/.test(btn[1]), '칩이 줄어들어 이름이 찌그러진다');
+
+  // 촬영 폼의 출연진 선택은 다중 선택이라 여러 줄이 맞다 — 같이 바꾸지 않았는지
+  assert(/<div style="display:flex;flex-wrap:wrap;gap:7px">/.test(mob),
+    '출연진 다중 선택까지 한 줄로 바꿨다');
+}
 console.log('air handle OK');

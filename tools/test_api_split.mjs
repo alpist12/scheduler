@@ -129,4 +129,21 @@ return corsFor;`)(
     assert(toml.includes(`from = "${p}"`), `netlify.toml 에 ${p} 라우트가 없다`);
   }
 }
+// ── 정식 사이트는 GitHub Pages, Netlify 는 API 전용
+{
+  const toml = fs.readFileSync('netlify.toml', 'utf8');
+  assert(!/publish = "\."/.test(toml),
+    'Netlify 가 레포 루트를 올린다 — 소스가 그대로 열리고 빌드 분도 더 먹는다');
+  assert(/publish = "netlify-public"/.test(toml), '올릴 폴더가 안내 페이지가 아니다');
+  assert(fs.existsSync('netlify-public/index.html'), '안내 페이지가 없다 — 배포가 실패한다');
+
+  // 화면이 가리키는 주소와 실제 API 호스트가 같아야 한다
+  const cfg = fs.readFileSync('api-config.js', 'utf8');
+  // 주석의 예시 URL 이 아니라 실제로 대입하는 값만 본다
+  const host = cfg.match(/HNUBS_API\s*=[^;]*?'(https:\/\/[^']+)'/)?.[1];
+  assert(host, 'api-config 에 API 주소가 없다');
+  assert(/netlify\.app$|workers\.dev$/.test(host), `API 주소가 이상하다: ${host}`);
+  assert(fs.readFileSync('DEPLOY.md', 'utf8').includes(host.replace('https://', '')),
+    'DEPLOY.md 가 다른 주소를 안내한다 — 배포 때 엇갈린다');
+}
 console.log('api split OK');

@@ -3,11 +3,13 @@
 두 곳에 올라간다. **둘 다 올려야** 전부 동작한다.
 
 ```
-GitHub Pages                  Cloudflare Workers              Firebase
-화면·정적 파일          →     /api/* (NVIDIA 키, 관리자 비번)  →  Firestore (일정)
-무료                           무료 10만 요청/일                기존 그대로
-alpist12.github.io/scheduler   hnubs-scheduler-api.workers.dev  기존 그대로
+GitHub Pages (정식 사이트)        Netlify (API 전용)              Firebase
+화면·정적 파일             →     /api/* (NVIDIA 키, 관리자 비번)  →  Firestore (일정)
+alpist12.github.io/scheduler      hnubs1212.netlify.app            기존 그대로
 ```
+
+Netlify 는 안내 페이지 한 장(`netlify-public/`)만 올리고 나머지는 전부 함수다.
+레포 루트를 올리면 소스가 그대로 열린다 — 실제로 `api/_shared.mjs` 까지 200 이었다.
 
 ## 왜 서버가 아직 필요한가
 
@@ -34,31 +36,37 @@ Firestore 에 직접 붙고, 대본 추출(PDF·DOCX)도 브라우저에서 푼�
 > 정적 파일을 새로 추가했다면 `tools/build-sites.mjs` 의 복사 목록에도 넣어야 한다.
 > 빠뜨리면 로컬에서는 되는데 배포본에서만 404 가 난다.
 
-## 2. API (Cloudflare Workers)
+## 2. API (Netlify)
 
 **화면만 올리고 끝내면 안 된다.** API 는 따로 배포해야 반영된다.
 
+Site configuration → Environment variables 에 **세 개**를 넣는다:
+
+| 이름 | 값 |
+|---|---|
+| `NVIDIA_API_KEY` | NVIDIA 키 |
+| `SCHEDULER_ADMIN_PASSWORD` | 점검 모드 비밀번호 |
+| `ALLOWED_ORIGINS` | `https://alpist12.github.io` |
+
+**`ALLOWED_ORIGINS` 를 빠뜨리면 CORS 헤더가 안 나가고, 화면은 멀쩡한데 AI 기능만
+조용히 죽는다.** 정식 사이트와 API 가 다른 주소에 있어서 그렇다.
+
+넣은 뒤 Deploys → Trigger deploy. 확인:
+
 ```bash
-npx wrangler login
-npx wrangler secret put NVIDIA_API_KEY            # 값은 묻는 대로 붙여넣는다
-npx wrangler secret put SCHEDULER_ADMIN_PASSWORD
-npm run api:deploy
+curl -s https://hnubs1212.netlify.app/api/health
 ```
 
-비밀값은 레포에 들어가지 않고 Cloudflare 에만 저장된다. 모델·엔드포인트 이름처럼
-비밀이 아닌 값은 `wrangler.toml` 의 `[vars]` 에 있다.
-
-배포본이 최신인지 확인:
+`configured` 가 `true` 면 키까지 들어간 것이다. CORS 까지 보려면:
 
 ```bash
-curl -s https://hnubs-scheduler-api.<계정>.workers.dev/api/health
+curl -sD - -o /dev/null -H "Origin: https://alpist12.github.io"   https://hnubs1212.netlify.app/api/health | grep -i access-control
 ```
 
-`runtime` 이 `Sites Worker`, `configured` 가 `true` 면 키까지 들어간 것이다.
-
-> **화면과 API 를 따로 배포한다는 걸 잊기 쉽다.** 실제로 한 번 이것 때문에 깨졌다 —
-> CORS 헤더를 코드에 넣고 서버를 재배포하지 않아, 화면은 멀쩡한데 AI 기능만
-> 죽어 있었다.
+> **빌드 분은 월 300분이고 하드 리밋이다.** 화면은 GitHub Pages 가 맡으므로
+> 여기 배포는 API 코드를 고칠 때만 하면 된다. 한도가 모자라면 Cloudflare
+> Workers 로 옮길 수 있다 — `wrangler.toml` 이 준비돼 있고 `npm run api:deploy`
+> 한 줄이다. 코드는 양쪽에서 그대로 돈다.
 
 ### 무료 플랜에 맞춰 둔 것들
 
@@ -74,7 +82,7 @@ curl -s https://hnubs-scheduler-api.<계정>.workers.dev/api/health
 `api-config.js` 한 줄이 화면이 어느 API 를 부를지 정한다.
 
 ```js
-window.HNUBS_API = location.hostname.endsWith('github.io') ? 'https://hnubs.netlify.app' : '';
+window.HNUBS_API = location.hostname.endsWith('github.io') ? 'https://hnubs1212.netlify.app' : '';
 ```
 
 로컬에서는 빈 문자열 → 같은 출처. GitHub Pages 에서는 Netlify 절대주소.

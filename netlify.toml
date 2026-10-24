@@ -1,47 +1,13 @@
+# 여기는 API 서버다. 정식 사이트는 GitHub Pages 가 맡는다.
+# 레포 루트를 올리면 소스가 그대로 열리고(실제로 api/_shared.mjs 까지 200 이었다)
+# 배포마다 불필요한 용량이 올라가 빌드 분을 깎는다. 안내 페이지 한 장만 올린다.
 [build]
   command = ""
-  publish = "."
+  publish = "netlify-public"
 
 [functions]
   directory = "api"
   node_bundler = "esbuild"
-
-# 소스/비밀 파일이 폴더 배포로 함께 올라가더라도 외부에서 열람할 수 없게 차단한다.
-[[redirects]]
-  from = "/.env"
-  to = "/index.html"
-  status = 404
-  force = true
-
-[[redirects]]
-  from = "/.env.example"
-  to = "/index.html"
-  status = 404
-  force = true
-
-[[redirects]]
-  from = "/server.py"
-  to = "/index.html"
-  status = 404
-  force = true
-
-[[redirects]]
-  from = "/requirements.txt"
-  to = "/index.html"
-  status = 404
-  force = true
-
-[[redirects]]
-  from = "/NIM_SETUP.md"
-  to = "/index.html"
-  status = 404
-  force = true
-
-[[redirects]]
-  from = "/__pycache__/*"
-  to = "/index.html"
-  status = 404
-  force = true
 
 [[redirects]]
   from = "/api/maintenance"

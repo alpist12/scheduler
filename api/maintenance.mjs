@@ -5,7 +5,7 @@
  *
  *  비밀번호는 반드시 서버에서만 확인한다. 화면에서 비교하면 개발자 도구로 뚫린다.
  */
-import { firebaseGet, firebaseSet } from './_shared.mjs';
+import { firebaseGet, firebaseSet, preflight } from './_shared.mjs';
 
 const PATH = 'scheduler/점검';
 const password = () => String(process.env.SCHEDULER_ADMIN_PASSWORD || '').trim();
@@ -61,6 +61,7 @@ const publicState = state => ({
 });
 
 export async function handler(event) {
+  const pre = preflight(event); if (pre) return pre;
   if (event.httpMethod !== 'POST') return json(405, { error: 'POST 요청만 허용됩니다.' });
 
   let body;

@@ -21,28 +21,6 @@ import fs from 'node:fs';
     'index.html 에 주소를 직접 만드는 곳이 남아 있다');
 }
 
-// ── 2) 다른 출처에서 부르려면 CORS 가 있어야 한다
-{
-  const w = fs.readFileSync('sites/worker.mjs', 'utf8');
-  assert(/access-control-allow-origin/.test(w), 'CORS 헤더가 없다');
-  assert(/OPTIONS/.test(w), 'preflight(OPTIONS) 처리가 없다');
-  assert(/ALLOWED_ORIGINS/.test(w), '허용 출처 설정이 없다');
-  assert(!/access-control-allow-origin['"]?\s*:\s*['"]\*/.test(w),
-    '관리자 비밀번호를 받는 API 를 모든 출처에 열어 두었다');
-
-  // 허용 목록 판정만 떼어 와 확인
-  const m = w.match(/function allowOrigin\(request\) \{[\s\S]*?\n\}/);
-  assert(m, 'allowOrigin 없음');
-  const allowOrigin = new Function('process', `${m[0]}\nreturn allowOrigin;`)(
-    { env: { ALLOWED_ORIGINS: 'https://alpist07.github.io, https://example.test/' } });
-  const req = origin => ({ headers: { get: () => origin } });
-
-  assert.equal(allowOrigin(req('https://alpist07.github.io')), 'https://alpist07.github.io');
-  assert.equal(allowOrigin(req('https://example.test')), 'https://example.test', '끝 슬래시 차이로 막힌다');
-  assert.equal(allowOrigin(req('https://evil.test')), '', '목록에 없는 출처를 통과시킨다');
-  assert.equal(allowOrigin(req('')), '', '출처 없는 요청에 헤더를 붙인다');
-}
-
 // ── 3) 비밀값이 레포에 들어오지 않았는지
 {
   for (const f of ['wrangler.toml', 'api-config.js']) {
@@ -102,11 +80,39 @@ import fs from 'node:fs';
 }
 // ── 6) 화면과 API 가 다른 출처다. CORS 와 CSP 가 빠지면 AI 기능만 조용히 죽는다.
 {
-  /* CORS 는 worker 가 허용 목록을 보고 붙인다. 핸들러가 '*' 를 박아 두면
-     그 목록이 무의미해지고, 아무 사이트나 이 API 로 NVIDIA 를 호출할 수 있다. */
+  /* CORS 는 핸들러가 붙인다. Netlify 는 worker 를 거치지 않고 핸들러를 바로
+     부르므로, 바깥에만 맡기면 그 환경에서 아무도 안 붙인다. */
   const shared = fs.readFileSync('api/_shared.mjs', 'utf8');
-  assert(!/access-control-allow-origin/.test(shared),
-    '핸들러가 CORS 를 직접 붙인다 — worker 의 허용 목록이 무력화된다');
+  assert(/access-control-allow-origin/.test(shared), '핸들러가 CORS 를 안 붙인다');
+  const corsBlock = shared.slice(shared.indexOf('export const corsFor'), shared.indexOf('export const preflight'));
+  assert(!corsBlock.includes("'*'"), 'CORS 를 모든 출처에 열어 두었다 — 남의 호출도 이쪽 NVIDIA 요금이 된다');
+
+  const worker = fs.readFileSync('sites/worker.mjs', 'utf8');
+  assert(!/corsHeaders|allowOrigin/.test(worker),
+    'worker 도 CORS 를 붙인다 — 두 곳이 서로 덮어쓴다');
+  assert(/if \(method === 'OPTIONS'\) method = 'POST';/.test(worker),
+    'preflight 가 라우트를 못 찾아 404 가 된다');
+  assert(/status === 204 \|\| status === 304 \? null/.test(worker),
+    '204 에 본문을 실어 Response 생성이 터진다');
+
+  // 허용 목록 판정을 실제로 돌려 본다
+  const m = [shared.slice(shared.indexOf('export const allowedOrigins'), shared.indexOf('export const preflight'))];
+  assert(m[0].includes('corsFor'), 'corsFor 를 못 찾았다');
+  const corsFor = new Function('process', `${m[0].replace(/export /g, '')}
+return corsFor;`)(
+    { env: { ALLOWED_ORIGINS: 'https://alpist12.github.io, https://a.test/' } });
+  assert.equal(corsFor('https://alpist12.github.io')['access-control-allow-origin'],
+    'https://alpist12.github.io');
+  assert.equal(corsFor('https://a.test')['access-control-allow-origin'], 'https://a.test',
+    '끝 슬래시 차이로 막힌다');
+  assert.deepEqual(corsFor('https://evil.test'), {}, '목록에 없는 출처를 통과시킨다');
+  assert.deepEqual(corsFor(''), {}, '출처 없는 요청에 헤더를 붙인다');
+
+  // 모든 핸들러가 preflight 를 처리하는지
+  for (const name of ['health', 'chat', 'maintenance', 'analysis-start', 'analysis-retry', 'analysis-job', 'chat-job']) {
+    const h = fs.readFileSync(`api/${name}.mjs`, 'utf8');
+    assert(/preflight\(event\)/.test(h), `${name}: preflight 처리가 없다 — 브라우저가 본 요청을 안 보낸다`);
+  }
 
   const toml = fs.readFileSync('netlify.toml', 'utf8');
   assert(/directory = "api"/.test(toml), 'Netlify 가 함수 폴더를 못 찾는다');

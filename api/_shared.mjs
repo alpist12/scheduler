@@ -4,14 +4,44 @@ export const FALLBACK_MODEL = process.env.NVIDIA_FALLBACK_MODEL || 'nvidia/nemot
 export const API_BASE = (process.env.NVIDIA_API_BASE || 'https://integrate.api.nvidia.com').replace(/\/$/, '');
 export const ANALYSIS_TIMEOUT_MS = 180000;
 
-/* CORS 헤더는 여기서 붙이지 않는다. 바깥(worker)이 허용 목록을 보고 붙인다.
-   여기서 '*' 를 박아 두면 그 목록이 무의미해진다 — 어느 사이트에서든 이 API 를
-   부를 수 있게 되고, 남이 부른 NVIDIA 호출도 이쪽 요금이 된다. */
-export const response = (statusCode, value) => ({
+/* 화면과 API 가 다른 주소에 있으면(예: GitHub Pages ↔ Netlify) 브라우저가
+   CORS 헤더를 요구한다. 헤더는 여기서 붙인다 — Netlify 는 이 핸들러를 바로
+   부르고 worker 를 거치지 않으므로, 바깥에만 맡기면 아무도 안 붙인다.
+   '*' 로 열지는 않는다. 이 API 는 관리자 비밀번호를 받고, 남이 부른
+   NVIDIA 호출도 이쪽 요금이 된다. ALLOWED_ORIGINS 에 적힌 곳만 받는다. */
+export const allowedOrigins = () => String(process.env.ALLOWED_ORIGINS || '')
+  .split(',').map(x => x.trim().replace(/\/$/, '')).filter(Boolean);
+
+export const corsFor = origin => {
+  const clean = String(origin || '').replace(/\/$/, '');
+  if (!clean || !allowedOrigins().includes(clean)) return {};
+  return {
+    'access-control-allow-origin': clean,
+    'access-control-allow-headers': 'content-type',
+    'access-control-allow-methods': 'GET, POST, OPTIONS',
+    'access-control-max-age': '86400',
+    vary: 'origin',
+  };
+};
+
+/* 브라우저는 본 요청 전에 OPTIONS 로 먼저 묻는다. 여기서 막히면 아무것도 안 된다.
+   핸들러마다 맨 앞에서 이걸 부른다. */
+export const preflight = event => {
+  if (String(event?.httpMethod || '').toUpperCase() !== 'OPTIONS') return null;
+  return { statusCode: 204, headers: corsFor(originOf(event)), body: '' };
+};
+
+export const originOf = event => {
+  const h = event?.headers || {};
+  return h.origin || h.Origin || '';
+};
+
+export const response = (statusCode, value, event) => ({
   statusCode,
   headers: {
     'content-type': 'application/json; charset=utf-8',
     'cache-control': 'no-store',
+    ...corsFor(originOf(event)),
   },
   body: JSON.stringify(value),
 });

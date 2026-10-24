@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { API_BASE, CHAT_MODEL, FALLBACK_MODEL, dispatchChat, firebaseSet, parseBody, response } from './_shared.mjs';
+import { API_BASE, CHAT_MODEL, FALLBACK_MODEL, corsFor, dispatchChat, firebaseSet, originOf, parseBody, preflight, response } from './_shared.mjs';
 import { TOOLS, runTool } from './_tools.mjs';
 
 const DOW = ['월', '화', '수', '목', '금', '토', '일'];
@@ -783,21 +783,25 @@ ${bulletList(action.items, x => `· ${fmtDate(x.date)} ${String(x.startH).padSta
 }
 
 export async function handler(event) {
+  const pre = preflight(event); if (pre) return pre;
   try {
     const body = parseBody(event);
     // 비동기 모드: 작업만 만들어 두고 백그라운드 함수에 넘긴다. (30초 제한을 받지 않는다)
     if (body.mode === 'async') {
-      if (!String(body.message || '').trim()) return response(400, { error: '질문을 입력해 주세요.' });
+      if (!String(body.message || '').trim()) return response(400, { error: '질문을 입력해 주세요.' }, event);
       const id = crypto.randomUUID();
       await firebaseSet(`scheduler/AI채팅작업/${id}`, {
         id, status: 'queued', createdAt: new Date().toISOString(),
         message: String(body.message), context: body.context || {}, history: compactHistory(body.history || []),
       });
       await dispatchChat(event, id);
-      return response(202, { jobId: id, status: 'queued' });
+      return response(202, { jobId: id, status: 'queued' }, event);
     }
-    return await runChat({ message: body.message, context: body.context || {}, history: body.history || [], timeoutMs: NIM_TIMEOUT_MS });
+    /* runChat 은 event 를 모르니 CORS 를 못 붙인다. 내보내기 직전에 여기서 입힌다.
+       빠뜨리면 챗만 CORS 없이 나가 브라우저가 응답을 버린다. */
+    const out = await runChat({ message: body.message, context: body.context || {}, history: body.history || [], timeoutMs: NIM_TIMEOUT_MS });
+    return { ...out, headers: { ...(out.headers || {}), ...corsFor(originOf(event)) } };
   } catch (error) {
-    return response(500, { error: error.message || String(error) });
+    return response(500, { error: error.message || String(error) }, event);
   }
 }

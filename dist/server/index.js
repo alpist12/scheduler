@@ -6,11 +6,32 @@ var CHAT_MODEL = process.env.NVIDIA_CHAT_MODEL || MODEL;
 var FALLBACK_MODEL = process.env.NVIDIA_FALLBACK_MODEL || "nvidia/nemotron-3.5-lightning-30b-a3b";
 var API_BASE = (process.env.NVIDIA_API_BASE || "https://integrate.api.nvidia.com").replace(/\/$/, "");
 var ANALYSIS_TIMEOUT_MS = 18e4;
-var response = (statusCode, value) => ({
+var allowedOrigins = () => String(process.env.ALLOWED_ORIGINS || "").split(",").map((x) => x.trim().replace(/\/$/, "")).filter(Boolean);
+var corsFor = (origin) => {
+  const clean = String(origin || "").replace(/\/$/, "");
+  if (!clean || !allowedOrigins().includes(clean)) return {};
+  return {
+    "access-control-allow-origin": clean,
+    "access-control-allow-headers": "content-type",
+    "access-control-allow-methods": "GET, POST, OPTIONS",
+    "access-control-max-age": "86400",
+    vary: "origin"
+  };
+};
+var preflight = (event) => {
+  if (String(event?.httpMethod || "").toUpperCase() !== "OPTIONS") return null;
+  return { statusCode: 204, headers: corsFor(originOf(event)), body: "" };
+};
+var originOf = (event) => {
+  const h = event?.headers || {};
+  return h.origin || h.Origin || "";
+};
+var response = (statusCode, value, event) => ({
   statusCode,
   headers: {
     "content-type": "application/json; charset=utf-8",
-    "cache-control": "no-store"
+    "cache-control": "no-store",
+    ...corsFor(originOf(event))
   },
   body: JSON.stringify(value)
 });
@@ -502,6 +523,8 @@ var publicState = (state) => ({
   since: String(state.since || "")
 });
 async function handler(event) {
+  const pre = preflight(event);
+  if (pre) return pre;
   if (event.httpMethod !== "POST") return json(405, { error: "POST \uC694\uCCAD\uB9CC \uD5C8\uC6A9\uB429\uB2C8\uB2E4." });
   let body;
   try {
@@ -552,19 +575,23 @@ async function handler(event) {
 }
 
 // api/health.mjs
-var handler2 = async () => response(200, {
-  ok: true,
-  version: "20260913-agent",
-  analysisTimeoutMs: ANALYSIS_TIMEOUT_MS,
-  provider: "NVIDIA NIM",
-  configured: Boolean(process.env.NVIDIA_API_KEY),
-  model: MODEL,
-  chatModel: CHAT_MODEL,
-  fallbackModel: FALLBACK_MODEL,
-  apiBase: API_BASE,
-  supportedFiles: ["pdf", "docx", "txt"],
-  runtime: "Sites Worker"
-});
+var handler2 = async (event) => {
+  const pre = preflight(event);
+  if (pre) return pre;
+  return response(200, {
+    ok: true,
+    version: "20260913-agent",
+    analysisTimeoutMs: ANALYSIS_TIMEOUT_MS,
+    provider: "NVIDIA NIM",
+    configured: Boolean(process.env.NVIDIA_API_KEY),
+    model: MODEL,
+    chatModel: CHAT_MODEL,
+    fallbackModel: FALLBACK_MODEL,
+    apiBase: API_BASE,
+    supportedFiles: ["pdf", "docx", "txt"],
+    runtime: "Sites Worker"
+  }, event);
+};
 
 // api/chat.mjs
 import crypto from "node:crypto";
@@ -1730,10 +1757,12 @@ ${bulletList(action.items, (x) => `\xB7 ${fmtDate2(x.date)} ${String(x.startH).p
   }
 }
 async function handler3(event) {
+  const pre = preflight(event);
+  if (pre) return pre;
   try {
     const body = parseBody(event);
     if (body.mode === "async") {
-      if (!String(body.message || "").trim()) return response(400, { error: "\uC9C8\uBB38\uC744 \uC785\uB825\uD574 \uC8FC\uC138\uC694." });
+      if (!String(body.message || "").trim()) return response(400, { error: "\uC9C8\uBB38\uC744 \uC785\uB825\uD574 \uC8FC\uC138\uC694." }, event);
       const id = crypto.randomUUID();
       await firebaseSet(`scheduler/AI\uCC44\uD305\uC791\uC5C5/${id}`, {
         id,
@@ -1744,24 +1773,27 @@ async function handler3(event) {
         history: compactHistory(body.history || [])
       });
       await dispatchChat(event, id);
-      return response(202, { jobId: id, status: "queued" });
+      return response(202, { jobId: id, status: "queued" }, event);
     }
-    return await runChat({ message: body.message, context: body.context || {}, history: body.history || [], timeoutMs: NIM_TIMEOUT_MS });
+    const out = await runChat({ message: body.message, context: body.context || {}, history: body.history || [], timeoutMs: NIM_TIMEOUT_MS });
+    return { ...out, headers: { ...out.headers || {}, ...corsFor(originOf(event)) } };
   } catch (error) {
-    return response(500, { error: error.message || String(error) });
+    return response(500, { error: error.message || String(error) }, event);
   }
 }
 
 // api/chat-job.mjs
 var handler4 = async (event) => {
+  const pre = preflight(event);
+  if (pre) return pre;
   try {
     const id = String(event.queryStringParameters?.id || "").trim() || pathParts(event, "chat-job")[0];
-    if (!id) return response(400, { error: "\uC791\uC5C5 ID\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4." });
+    if (!id) return response(400, { error: "\uC791\uC5C5 ID\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4." }, event);
     const job = await firebaseGet(`scheduler/AI\uCC44\uD305\uC791\uC5C5/${id}`);
-    if (!job) return response(404, { error: "\uCC44\uD305 \uC791\uC5C5\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4." });
-    return response(200, { id, status: job.status, ...job.result || {} });
+    if (!job) return response(404, { error: "\uCC44\uD305 \uC791\uC5C5\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4." }, event);
+    return response(200, { id, status: job.status, ...(job.result || {}, event) });
   } catch (error) {
-    return response(500, { error: error.message });
+    return response(500, { error: error.message }, event);
   }
 };
 
@@ -1793,17 +1825,19 @@ var handler5 = async (event) => {
 // api/analysis-start.mjs
 import crypto2 from "node:crypto";
 var handler6 = async (event) => {
+  const pre = preflight(event);
+  if (pre) return pre;
   try {
     const body = parseBody(event);
     const precision = String(body.precision || "\uADE0\uD615 (\uCD94\uCC9C)");
-    if (body.projectId && !await firebaseGet(`scheduler/\uD504\uB85C\uC81D\uD2B8/${body.projectId}`)) return response(404, { error: "\uD504\uB85C\uC81D\uD2B8\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4." });
-    if (body.projectId && (!body.crew?.planning?.length || !body.crew?.production?.length)) return response(400, { error: "\uD504\uB85C\uC81D\uD2B8\uC758 \uAE30\uD68D\xB7\uCD2C\uC601/\uD3B8\uC9D1 \uB2F4\uB2F9\uC744 \uBAA8\uB450 \uC9C0\uC815\uD55C \uB4A4 \uBD84\uC11D\uD574 \uC8FC\uC138\uC694." });
+    if (body.projectId && !await firebaseGet(`scheduler/\uD504\uB85C\uC81D\uD2B8/${body.projectId}`)) return response(404, { error: "\uD504\uB85C\uC81D\uD2B8\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4." }, event);
+    if (body.projectId && (!body.crew?.planning?.length || !body.crew?.production?.length)) return response(400, { error: "\uD504\uB85C\uC81D\uD2B8\uC758 \uAE30\uD68D\xB7\uCD2C\uC601/\uD3B8\uC9D1 \uB2F4\uB2F9\uC744 \uBAA8\uB450 \uC9C0\uC815\uD55C \uB4A4 \uBD84\uC11D\uD574 \uC8FC\uC138\uC694." }, event);
     const bytes = Buffer.byteLength(String(body.text || ""), "utf8");
     const LIMIT = 500 * 1024;
-    if (bytes > LIMIT) return response(413, { error: `\uB300\uBCF8\uC774 \uB108\uBB34 \uAE41\uB2C8\uB2E4 (${Math.round(bytes / 1024)}KB). ${Math.round(LIMIT / 1024)}KB \uC774\uD558\uB85C \uB098\uB220\uC11C \uC62C\uB824 \uC8FC\uC138\uC694.` });
+    if (bytes > LIMIT) return response(413, { error: `\uB300\uBCF8\uC774 \uB108\uBB34 \uAE41\uB2C8\uB2E4 (${Math.round(bytes / 1024)}KB). ${Math.round(LIMIT / 1024)}KB \uC774\uD558\uB85C \uB098\uB220\uC11C \uC62C\uB824 \uC8FC\uC138\uC694.` }, event);
     const chunks = splitScenes(body.text, precisionOf(precision).maxChars);
-    if (!chunks.length) return response(400, { error: "\uBD84\uC11D\uD560 \uB300\uBCF8 \uD14D\uC2A4\uD2B8\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4." });
-    if (!process.env.NVIDIA_API_KEY) return response(503, { error: "\uC11C\uBC84 \uD658\uACBD\uBCC0\uC218 NVIDIA_API_KEY\uAC00 \uC124\uC815\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4." });
+    if (!chunks.length) return response(400, { error: "\uBD84\uC11D\uD560 \uB300\uBCF8 \uD14D\uC2A4\uD2B8\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4." }, event);
+    if (!process.env.NVIDIA_API_KEY) return response(503, { error: "\uC11C\uBC84 \uD658\uACBD\uBCC0\uC218 NVIDIA_API_KEY\uAC00 \uC124\uC815\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4." }, event);
     const id = crypto2.randomUUID(), now3 = (/* @__PURE__ */ new Date()).toISOString();
     const job = { id, precision, crew: body.crew || null, filename: String(body.filename || "\uB300\uBCF8"), projectId: body.projectId || null, status: "queued", progress: 0, createdAt: now3, updatedAt: now3, sourceChunks: chunks, items: chunks.map((_, index) => ({ index, status: "queued", scenes: [], error: null })), scenes: [], logs: [{ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("ko-KR", { hour12: false, timeZone: "Asia/Seoul" }), level: "info", message: `\uD14D\uC2A4\uD2B8 \uCD94\uCD9C \uC644\uB8CC \xB7 ${chunks.length}\uAC1C \uBD84\uC11D \uBB36\uC74C \xB7 \uC815\uBC00\uB3C4 ${precision}` }] };
     await firebaseSet(`scheduler/AI\uBD84\uC11D\uC791\uC5C5/${id}`, job);
@@ -1813,32 +1847,36 @@ var handler6 = async (event) => {
       [`analysisJobs/${id}`]: publicJob(job),
       script: { filename: job.filename, text: String(body.text), characters: String(body.text).length, textStored: true }
     });
-    return response(201, publicJob(job));
+    return response(201, publicJob(job), event);
   } catch (error) {
-    return response(500, { error: error.message });
+    return response(500, { error: error.message }, event);
   }
 };
 
 // api/analysis-job.mjs
 var handler7 = async (event) => {
+  const pre = preflight(event);
+  if (pre) return pre;
   try {
     const id = event.queryStringParameters?.id || pathParts(event, "analysis-job")[0];
-    if (!id) return response(400, { error: "\uC791\uC5C5 ID\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4." });
+    if (!id) return response(400, { error: "\uC791\uC5C5 ID\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4." }, event);
     const job = await firebaseGet(`scheduler/AI\uBD84\uC11D\uC791\uC5C5/${id}`);
-    return job ? response(200, publicJob(job)) : response(404, { error: "\uC791\uC5C5\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4." });
+    return job ? response(200, publicJob(job), event) : response(404, { error: "\uC791\uC5C5\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4." }, event);
   } catch (error) {
-    return response(500, { error: error.message });
+    return response(500, { error: error.message }, event);
   }
 };
 
 // api/analysis-retry.mjs
 var handler8 = async (event) => {
+  const pre = preflight(event);
+  if (pre) return pre;
   try {
     const [pathId, pathIndex] = pathParts(event, "analysis-retry");
     const id = event.queryStringParameters?.id || pathId;
     const index = Number(event.queryStringParameters?.index ?? pathIndex);
     const job = id ? await firebaseGet(`scheduler/AI\uBD84\uC11D\uC791\uC5C5/${id}`) : null;
-    if (!job || !Number.isInteger(index) || !job.items?.[index]) return response(404, { error: "\uC7AC\uC2DC\uB3C4\uD560 \uB300\uBCF8 \uBB36\uC74C\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4." });
+    if (!job || !Number.isInteger(index) || !job.items?.[index]) return response(404, { error: "\uC7AC\uC2DC\uB3C4\uD560 \uB300\uBCF8 \uBB36\uC74C\uC744 \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4." }, event);
     job.status = "queued";
     job.items[index].status = "queued";
     job.items[index].error = null;
@@ -1846,9 +1884,9 @@ var handler8 = async (event) => {
     (job.logs ??= []).push({ time: (/* @__PURE__ */ new Date()).toLocaleTimeString("ko-KR", { hour12: false, timeZone: "Asia/Seoul" }), at: job.updatedAt, level: "info", message: `\uB300\uBCF8 \uBB36\uC74C ${index + 1} \uC7AC\uBD84\uC11D\uC744 \uC11C\uBC84\uC5D0 \uC694\uCCAD\uD588\uC2B5\uB2C8\uB2E4.` });
     await firebaseSet(`scheduler/AI\uBD84\uC11D\uC791\uC5C5/${id}`, job);
     await analyzeJob(job, [index]);
-    return response(200, publicJob(job));
+    return response(200, publicJob(job), event);
   } catch (error) {
-    return response(500, { error: error.message });
+    return response(500, { error: error.message }, event);
   }
 };
 
@@ -1876,28 +1914,12 @@ var handler9 = async (event) => {
 };
 
 // sites/worker.mjs
-function allowOrigin(request) {
-  const origin = request.headers.get("origin") || "";
-  if (!origin) return "";
-  const allowed = String(process.env.ALLOWED_ORIGINS || "").split(",").map((x) => x.trim().replace(/\/$/, "")).filter(Boolean);
-  return allowed.includes(origin.replace(/\/$/, "")) ? origin : "";
-}
-function corsHeaders(origin) {
-  return origin ? {
-    "access-control-allow-origin": origin,
-    "access-control-allow-headers": "content-type",
-    "access-control-allow-methods": "GET,POST,OPTIONS",
-    "access-control-max-age": "86400",
-    vary: "origin"
-  } : {};
-}
-function response2(result, origin = "") {
-  return new Response(result?.body || "", {
-    status: result?.statusCode || 200,
-    headers: {
-      ...result?.headers || { "content-type": "application/json; charset=utf-8" },
-      ...corsHeaders(origin)
-    }
+function response2(result) {
+  const status = result?.statusCode || 200;
+  const body = status === 204 || status === 304 ? null : result?.body || "";
+  return new Response(body, {
+    status,
+    headers: result?.headers || { "content-type": "application/json; charset=utf-8" }
   });
 }
 async function eventOf(request, context) {
@@ -1921,6 +1943,7 @@ async function eventOf(request, context) {
   return event;
 }
 function route(path, method) {
+  if (method === "OPTIONS") method = "POST";
   if (path === "/api/maintenance") return handler;
   if (path === "/api/health") return handler2;
   if (path === "/api/chat" && method === "POST") return handler3;
@@ -1934,12 +1957,8 @@ var worker_default = {
   async fetch(request, env, context) {
     Object.assign(process.env, env || {});
     const url = new URL(request.url);
-    const origin = allowOrigin(request);
-    if (request.method === "OPTIONS" && url.pathname.startsWith("/api/")) {
-      return new Response(null, { status: 204, headers: corsHeaders(origin) });
-    }
     const handler10 = route(url.pathname, request.method);
-    if (handler10) return response2(await handler10(await eventOf(request, context)), origin);
+    if (handler10) return response2(await handler10(await eventOf(request, context)));
     if (env?.ASSETS?.fetch) {
       const local = await env.ASSETS.fetch(request);
       if (local.status !== 404) return local;

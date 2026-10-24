@@ -1,6 +1,8 @@
-import { API_BASE, CHAT_MODEL, FALLBACK_MODEL, MODEL, ANALYSIS_TIMEOUT_MS, response } from './_shared.mjs';
+import { ANALYSIS_TIMEOUT_MS, API_BASE, CHAT_MODEL, FALLBACK_MODEL, MODEL, preflight, response } from './_shared.mjs';
 
-export const handler = async () => response(200, {
+export const handler = async event => {
+  const pre = preflight(event); if (pre) return pre;
+  return response(200, {
   ok: true,
   version: '20260913-agent',
   analysisTimeoutMs: ANALYSIS_TIMEOUT_MS,
@@ -12,4 +14,5 @@ export const handler = async () => response(200, {
   apiBase: API_BASE,
   supportedFiles: ['pdf', 'docx', 'txt'],
   runtime: 'Sites Worker',
-});
+}, event);
+};

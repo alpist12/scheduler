@@ -8,34 +8,16 @@ import { handler as analysisJob } from '../api/analysis-job.mjs';
 import { handler as analysisRetry } from '../api/analysis-retry.mjs';
 import { handler as analysisBackground } from '../api/analysis-run-background.mjs';
 
-/* 화면(정적 호스팅)과 이 API 가 서로 다른 출처에 있으면 브라우저가 응답을 버린다.
-   ALLOWED_ORIGINS 에 적힌 주소만 통과시킨다. 비워 두면 같은 출처만 쓴다는 뜻이라
-   헤더를 붙이지 않는다. '*' 로 열지 않는 이유: 이 API 는 관리자 비밀번호를 받는다. */
-function allowOrigin(request) {
-  const origin = request.headers.get('origin') || '';
-  if (!origin) return '';
-  const allowed = String(process.env.ALLOWED_ORIGINS || '')
-    .split(',').map(x => x.trim().replace(/\/$/, '')).filter(Boolean);
-  return allowed.includes(origin.replace(/\/$/, '')) ? origin : '';
-}
+/* CORS 는 핸들러(api/_shared.mjs)가 붙인다. Netlify 는 worker 를 거치지 않고
+   핸들러를 바로 부르므로, 양쪽에서 같게 동작하려면 그쪽 한 곳이어야 한다. */
 
-function corsHeaders(origin) {
-  return origin ? {
-    'access-control-allow-origin': origin,
-    'access-control-allow-headers': 'content-type',
-    'access-control-allow-methods': 'GET,POST,OPTIONS',
-    'access-control-max-age': '86400',
-    vary: 'origin',
-  } : {};
-}
-
-function response(result, origin = '') {
-  return new Response(result?.body || '', {
-    status: result?.statusCode || 200,
-    headers: {
-      ...(result?.headers || { 'content-type': 'application/json; charset=utf-8' }),
-      ...corsHeaders(origin),
-    },
+function response(result) {
+  const status = result?.statusCode || 200;
+  // 204/304 는 본문을 가질 수 없다. 빈 문자열도 거부당한다.
+  const body = status === 204 || status === 304 ? null : (result?.body || '');
+  return new Response(body, {
+    status,
+    headers: result?.headers || { 'content-type': 'application/json; charset=utf-8' },
   });
 }
 
@@ -61,6 +43,9 @@ async function eventOf(request, context) {
 }
 
 function route(path, method) {
+  /* preflight(OPTIONS)는 본 요청과 같은 경로로 보낸다. 메서드로만 걸러내면
+     라우트를 못 찾아 404 가 되고, 브라우저는 본 요청을 아예 보내지 않는다. */
+  if (method === 'OPTIONS') method = 'POST';
   if (path === '/api/maintenance') return maintenance;
   if (path === '/api/health') return health;
   if (path === '/api/chat' && method === 'POST') return chat;
@@ -75,13 +60,8 @@ export default {
   async fetch(request, env, context) {
     Object.assign(process.env, env || {});
     const url = new URL(request.url);
-    const origin = allowOrigin(request);
-    // 브라우저는 본 요청 전에 OPTIONS 로 먼저 물어본다. 여기서 막히면 아무것도 안 된다.
-    if (request.method === 'OPTIONS' && url.pathname.startsWith('/api/')) {
-      return new Response(null, { status: 204, headers: corsHeaders(origin) });
-    }
     const handler = route(url.pathname, request.method);
-    if (handler) return response(await handler(await eventOf(request, context)), origin);
+    if (handler) return response(await handler(await eventOf(request, context)));
     if (env?.ASSETS?.fetch) {
       const local = await env.ASSETS.fetch(request);
       if (local.status !== 404) return local;

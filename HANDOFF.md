@@ -68,7 +68,7 @@ const yes = all.filter(([id, member]) => {
 
 - 에어 (`/api/chat`) ❌
 - 대본 분석 (`/api/extract`, `/api/analysis/jobs`) ❌
-- 점검 게이트 (`/api/maintenance`) ❌ → **`index.html:129`가 fail-open이라 1211도 안 묻고 들어가진다. 부원 15명 실제 일정이 URL만 알면 열린다.**
+- 점검 게이트 (`/api/maintenance`) ❌ → **`index.html:129`가 fail-open이라 비밀번호도 안 묻고 들어가진다. 부원 15명 실제 일정이 URL만 알면 열린다.**
 
 **결론 나기 전까지 새 링크 공유 금지.**
 
@@ -126,7 +126,7 @@ const yes = all.filter(([id, member]) => {
 ## 6. 주의사항
 
 - 프로젝트 데이터는 **실데이터**. 테스트로 만든 일정은 반드시 정리할 것
-- 관리자 게이트 비밀번호 `1211`
+- 관리자 게이트 비밀번호는 Netlify 환경변수 `SCHEDULER_ADMIN_PASSWORD` 에만 있다. 여기에 적지 말 것 — 레포가 공개다
 - 점검은 로컬이 아니라 **배포된 링크**로 할 것
 - DC 런타임은 **이벤트 위임** 방식 — 자식에서 `stopPropagation` 해도 조상의 위임 핸들러가 실행된다. 이걸로 버그 3건 났었음. `data-*` 타깃 검사로 막을 것
 - 개인 일정 삭제는 **요일이 아니라 날짜** 기준 (`deletePersonalDayIso`). 과거에 요일 기준이라 김기주 9/8 일정이 영구 삭제된 적 있음 — 복구 불가

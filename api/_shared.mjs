@@ -36,6 +36,63 @@ export const originOf = event => {
   return h.origin || h.Origin || '';
 };
 
+/* ── 호출량 제한 ──
+   NVIDIA 호출은 돈이 든다. 인증이 없으면 주소만 알면 누구나 크레딧을 태울 수 있어서,
+   IP 당 횟수를 막는다. 함수 인스턴스마다 따로 세므로 완벽하진 않지만,
+   한 사람이 반복해서 긁는 것은 막는다. 제대로 막으려면 로그인이 필요하다. */
+/* 플랫폼이 직접 넣는 헤더만 믿는다.
+   x-forwarded-for 와 client-ip 는 브라우저가 아무 값이나 보낼 수 있어서,
+   그걸 세면 매 요청마다 다른 IP 인 척해서 제한을 그냥 넘어간다.
+   믿을 게 없으면 'unknown' 한 칸에 모아 센다 — 흩어지는 것보다 세게 막힌다. */
+export const clientIp = event => String(
+  // Cloudflare 경로: worker.mjs 가 cf-connecting-ip 를 읽어 여기에 직접 넣어 준다.
+  event?.clientIp
+  // Netlify 경로: 엣지가 넣는 헤더. 클라이언트가 보낸 값은 엣지가 덮어쓴다.
+  // 헤더를 순서대로 시도하면 안 된다 — Netlify 에서는 cf-connecting-ip 를 아무나 보낼 수 있어서
+  // 그걸 먼저 읽는 순간 제한이 그대로 뚫린다.
+  || event?.headers?.['x-nf-client-connection-ip']
+  || 'unknown',
+).split(',')[0].trim();
+
+const callLog = new Map();
+
+/** 지나간 기록을 버린다. 안 버리면 인스턴스가 살아 있는 동안 계속 쌓인다. */
+const CALL_LOG_MAX = 5000;
+function sweep(now, windowMs) {
+  if (callLog.size < 500) return;
+  for (const [key, times] of callLog) {
+    const left = times.filter(t => now - t < windowMs);
+    if (left.length) callLog.set(key, left); else callLog.delete(key);
+  }
+  // 그래도 넘치면 오래된 것부터 버린다 (Map 은 넣은 순서를 지킨다).
+  // 안 버리면 기록이 메모리를 계속 먹는다.
+  while (callLog.size > CALL_LOG_MAX) callLog.delete(callLog.keys().next().value);
+}
+
+/**
+ * @returns {number} 0 이면 통과, 양수면 몇 초 뒤에 다시 오라는 뜻.
+ */
+export function rateLimited(event, name, max, windowMs) {
+  const now = Date.now();
+  const key = `${name}:${clientIp(event)}`;
+  const times = (callLog.get(key) || []).filter(t => now - t < windowMs);
+  if (times.length >= max) {
+    return Math.max(1, Math.ceil((windowMs - (now - times[0])) / 1000));
+  }
+  times.push(now);
+  callLog.set(key, times);
+  sweep(now, windowMs);
+  return 0;
+}
+
+/** 제한에 걸렸을 때 돌려줄 응답. Retry-After 를 붙여 준다. */
+export const tooMany = (retryAfter, event) => {
+  const base = response(429, {
+    error: `요청이 너무 잦습니다. ${retryAfter}초 뒤에 다시 시도해 주세요.`,
+  }, event);
+  return { ...base, headers: { ...base.headers, 'retry-after': String(retryAfter) } };
+};
+
 export const response = (statusCode, value, event) => ({
   statusCode,
   headers: {
@@ -68,21 +125,102 @@ const FS_DB = process.env.FIREBASE_FIRESTORE_DB || 'default';
 const FS_KEY = String(process.env.FIREBASE_API_KEY || 'AIzaSyDXmeiQpRSZshFA1_BgZ2z_8AKLy6_Nc8M').trim();
 const FS_BASE = `https://firestore.googleapis.com/v1/projects/${FS_PROJECT}/databases/${FS_DB}/documents`;
 
+/* ── 서버 신원 ──
+   공개 웹 API 키(?key=)로 쓰면 규칙을 거친다. 그래서 규칙이 열려 있는 동안은
+   누구나 같은 경로에 직접 쓸 수 있고, 화면의 관리자 잠금이 의미를 잃는다.
+   FIREBASE_SERVICE_ACCOUNT 를 주면 서비스 계정으로 토큰을 받아 Bearer 로 쓴다.
+   서비스 계정은 규칙을 건너뛰므로, 규칙에서 scheduler/* 를 막아도 서버는 계속 쓴다.
+   환경변수가 없으면 지금까지처럼 공개 키로 동작한다 (동작은 하되 보호는 없다). */
+let saCache = null;        // { token, expires }
+function serviceAccount() {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (!raw) return null;
+  try {
+    const sa = JSON.parse(raw);
+    return sa.client_email && sa.private_key ? sa : null;
+  } catch { throw new Error('FIREBASE_SERVICE_ACCOUNT 가 올바른 JSON 이 아닙니다.'); }
+}
+
+const b64url = buf => Buffer.from(buf).toString('base64')
+  .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+/** 서비스 계정으로 액세스 토큰을 받는다. 만료 1분 전까지는 재사용한다. */
+async function serviceToken() {
+  const sa = serviceAccount();
+  if (!sa) return null;
+  if (saCache && saCache.expires > Date.now() + 60_000) return saCache.token;
+
+  const { createSign } = await import('node:crypto');
+  const now = Math.floor(Date.now() / 1000);
+  const claim = {
+    iss: sa.client_email,
+    scope: 'https://www.googleapis.com/auth/datastore',
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now, exp: now + 3600,
+  };
+  const unsigned = `${b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))}.${b64url(JSON.stringify(claim))}`;
+  const signer = createSign('RSA-SHA256');
+  signer.update(unsigned);
+  // 환경변수에 넣을 때 줄바꿈이 \n 두 글자로 들어가는 일이 잦다. 진짜 줄바꿈으로 되돌린다.
+  const pem = sa.private_key.includes('\\n') ? sa.private_key.replace(/\\n/g, '\n') : sa.private_key;
+  const jwt = `${unsigned}.${b64url(signer.sign(pem))}`;
+
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: jwt }),
+  });
+  if (!res.ok) throw new Error(`서비스 계정 토큰 발급 실패 (${res.status}): ${(await res.text()).slice(0, 200)}`);
+  const body = await res.json();
+  saCache = { token: body.access_token, expires: Date.now() + (body.expires_in || 3600) * 1000 };
+  return saCache.token;
+}
+
+/** Firestore 요청에 붙일 주소와 헤더. 서비스 계정이 있으면 ?key= 대신 Bearer 를 쓴다. */
+async function fsRequest(doc, query = '') {
+  const token = await serviceToken();
+  const sep = query ? '&' : '';
+  if (token) {
+    return { url: `${FS_BASE}/${doc}${query ? '?' + query : ''}`,
+             headers: { authorization: `Bearer ${token}` } };
+  }
+  return { url: `${FS_BASE}/${doc}?key=${FS_KEY}${sep}${query}`, headers: {} };
+}
+
 /** RTDB 시절 경로를 Firestore 문서 경로로 옮긴다.
  *  분석 결과는 앱이 projects/{id} 의 aiAnalysis '필드' 로 읽으므로
  *  하위 컬렉션이 아니라 그 필드에 써야 한다. prefix 가 그 역할을 한다. */
+/* 서비스 계정 토큰은 Firestore 규칙을 건너뛴다.
+   그래서 id 에 경로를 끼워 넣으면 아무 문서나 읽고 쓸 수 있게 된다.
+   (/api/analysis/jobs/:id 의 id 는 주소에서 그대로 온다)
+   여기서 컬렉션과 문서 id 를 한 번 더 확인한다. */
+const FS_COLLECTIONS = ['analysisJobs', 'chatJobs', 'projects', 'shoots', 'settings', 'members', 'notices'];
+const FS_ID = /^[A-Za-z0-9_-]{1,128}$/;
+
+/** 주소에서 온 작업 ID 를 확인한다. 아니면 빈 문자열 — 호출부가 404 로 처리한다. */
+export const safeId = value => (FS_ID.test(String(value || '')) ? String(value) : '');
+
+function assertDoc(doc) {
+  const parts = String(doc).split('/');
+  if (parts.length !== 2) throw new Error('잘못된 문서 경로입니다.');
+  const [collection, id] = parts;
+  if (!FS_COLLECTIONS.includes(collection)) throw new Error('허용되지 않은 컬렉션입니다.');
+  if (!FS_ID.test(id)) throw new Error('잘못된 문서 ID 입니다.');
+  return doc;
+}
+
 function firestoreTarget(path) {
   const p = String(path || '').replace(/^\/+|\/+$/g, '');
   const analysis = p.match(/^scheduler\/프로젝트\/([^/]+)\/aiAnalysis$/);
-  if (analysis) return { doc: `projects/${analysis[1]}`, prefix: 'aiAnalysis.' };
+  if (analysis) return { doc: assertDoc(`projects/${analysis[1]}`), prefix: 'aiAnalysis.' };
   return {
-    doc: p
+    doc: assertDoc(p
       .replace(/^scheduler\/AI분석작업\//, 'analysisJobs/')
       .replace(/^scheduler\/AI채팅작업\//, 'chatJobs/')
       .replace(/^scheduler\/프로젝트\//, 'projects/')
       .replace(/^scheduler\/촬영일정\//, 'shoots/')
       .replace(/^scheduler\/점검$/, 'settings/maintenance')
-      .replace(/^scheduler\/설정$/, 'settings/app'),
+      .replace(/^scheduler\/설정$/, 'settings/app')),
     prefix: '',
   };
 }
@@ -122,7 +260,8 @@ function fsDecode(value) {
 
 export async function firebaseGet(path) {
   const { doc, prefix } = firestoreTarget(path);
-  const res = await fetch(`${FS_BASE}/${doc}?key=${FS_KEY}`);
+  const { url, headers } = await fsRequest(doc);
+  const res = await fetch(url, { headers });
   if (res.status === 404) return null;      // 없는 문서는 null 로 돌려주던 예전 동작을 지킨다
   if (!res.ok) throw new Error(`Firestore 읽기 실패 (${res.status})`);
   const body = await res.json();
@@ -161,8 +300,11 @@ async function writeFields(path, value, replaceWhole) {
     ? (replaceWhole ? [maskName(parent)] : keys.map(k => `${maskName(parent)}.${maskPath(k)}`))
     : (replaceWhole ? [] : keys.map(maskPath));
   const mask = paths.map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
-  const res = await fetch(`${FS_BASE}/${doc}?key=${FS_KEY}${mask ? '&' + mask : ''}`, {
-    method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ fields }),
+  const { url, headers } = await fsRequest(doc, mask);
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json', ...headers },
+    body: JSON.stringify({ fields }),
   });
   if (!res.ok) throw new Error(`Firestore 저장 실패 (${res.status}): ${(await res.text()).slice(0, 200)}`);
   return value;

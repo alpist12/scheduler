@@ -20,6 +20,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/drive/files"
+  to = "/.netlify/functions/drive-files"
+  status = 200
+
+[[redirects]]
   from = "/api/chat/jobs/:id"
   to = "/.netlify/functions/chat-job?id=:id"
   status = 200

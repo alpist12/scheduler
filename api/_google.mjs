@@ -5,7 +5,7 @@
  * 여기서는 scope 별로 따로 캐시한다.
  *
  * 환경변수는 Netlify 에만 둔다. 저장소에 올리지 않는다.
- *   GOOGLE_DRIVE_SERVICE_ACCOUNT  드라이브용 서비스 계정 JSON (없으면 FIREBASE_SERVICE_ACCOUNT)
+ *   GOOGLE_DRIVE_SERVICE_ACCOUNT  드라이브 전용 서비스 계정 JSON
  */
 
 const b64url = input => Buffer.from(input).toString('base64')
@@ -14,7 +14,9 @@ const b64url = input => Buffer.from(input).toString('base64')
 const cache = new Map();   // scope -> { token, expires }
 
 function account() {
-  const raw = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT || process.env.FIREBASE_SERVICE_ACCOUNT;
+  // Firestore 관리자 키로 대신하지 않는다. 그 키에 드라이브 권한까지 붙으면
+  // 한 곳이 새면 둘 다 털린다. 드라이브 전용 계정을 따로 만든다.
+  const raw = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT;
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
